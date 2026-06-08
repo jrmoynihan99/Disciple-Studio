@@ -108,19 +108,11 @@ export const DATA = {
     },
     {
       id: "login" as const,
-      n: "04",
-      tag: "Discipleship",
+      n: "",
+      tag: "The whole point",
       title: "Built-in member login with personalized next steps.",
-      body: "You track discipleship data — we surface it. Members sign in and see their groups, their classes, and their next step. The website becomes a personalized hub that streamlines discipleship and moves people through the path you've already built.",
+      body: "You track discipleship data \u2014 we surface it. Members sign in and see their groups, their classes, and their next step. The website becomes a personalized hub that streamlines discipleship and moves people through the path you\u2019ve already built.",
       points: ["Secure member login", "Personalized next steps"],
-    },
-    {
-      id: "free" as const,
-      n: "05",
-      tag: "The cost",
-      title: "$0 in monthly hosting or software fees",
-      body: "Built on modern tooling with generous free tiers, your site costs nothing to keep running. You pay us once to build it, and then it\u2019s yours \u2014 no subscription quietly draining the budget.",
-      points: ["No platform subscription", "No hosting bill"],
     },
   ],
 
@@ -181,7 +173,7 @@ export const DATA = {
   pricing: {
     eyebrow: "Simple by design",
     title: "Pay once. Own it forever.",
-    sub: "One project fee to design and build. After that, the site is yours \u2014 no subscription, no hosting bill, no lock-in.",
+    sub: "One project fee to design and build. After that, the site is yours \u2014 built on modern tooling with generous free tiers, so there\u2019s no subscription, no hosting bill, no lock-in.",
     rows: [
       { k: "Custom design & build", v: "Included" },
       { k: "Tailored content studio (CMS)", v: "Included" },

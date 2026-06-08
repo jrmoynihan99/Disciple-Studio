@@ -15,7 +15,10 @@ function useInView() {
       ([e]) => {
         if (e.isIntersecting) setInView(true);
       },
-      { threshold: isMobile ? 0.01 : 0.12, rootMargin: isMobile ? "0px" : "0px 0px -8% 0px" }
+      {
+        threshold: isMobile ? 0.01 : 0.12,
+        rootMargin: isMobile ? "0px" : "0px 0px -8% 0px",
+      },
     );
     io.observe(el);
     const t = setTimeout(() => setInView(true), 800);
@@ -59,7 +62,13 @@ function useTypewriter(text: string, on: boolean, key: number) {
 }
 
 /* ---------- demo chrome ---------- */
-function DemoFrame({ children, bar }: { children: React.ReactNode; bar: string }) {
+function DemoFrame({
+  children,
+  bar,
+}: {
+  children: React.ReactNode;
+  bar: string;
+}) {
   return (
     <div className="demo-frame">
       <div className="demo-bar">
@@ -108,7 +117,14 @@ function Gauge({ on }: { on: boolean }) {
   return (
     <div className="gauge">
       <svg viewBox="0 0 80 80" width="78" height="78">
-        <circle cx="40" cy="40" r={R} fill="none" stroke="var(--line)" strokeWidth="7" />
+        <circle
+          cx="40"
+          cy="40"
+          r={R}
+          fill="none"
+          stroke="var(--line)"
+          strokeWidth="7"
+        />
         <circle
           cx="40"
           cy="40"
@@ -151,7 +167,10 @@ function DemoModern({ on }: { on: boolean }) {
             <div
               key={i}
               className={`site-block sb-${b.s}${i < built ? " shown" : ""}`}
-              style={{ height: b.h, transitionDelay: i === built - 1 ? ".05s" : "0s" }}
+              style={{
+                height: b.h,
+                transitionDelay: i === built - 1 ? ".05s" : "0s",
+              }}
             >
               <span className="sb-label">{b.t}</span>
               {b.s === "grid" && (
@@ -189,11 +208,27 @@ function DemoModern({ on }: { on: boolean }) {
 
 /* ---- 02: CMS ---- */
 const CMS_SCENES = [
-  { title: "The Prodigal Son", speaker: "Pastor James", series: "Parables", featured: true },
-  { title: "Rooted in Grace", speaker: "Pastor Dana", series: "Ephesians", featured: false },
+  {
+    title: "The Prodigal Son",
+    speaker: "Pastor James",
+    series: "Parables",
+    featured: true,
+  },
+  {
+    title: "Rooted in Grace",
+    speaker: "Pastor Dana",
+    series: "Ephesians",
+    featured: false,
+  },
 ];
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="cms-field">
       <span className="cms-flabel">{label}</span>
@@ -225,7 +260,9 @@ function DemoCMS({ on }: { on: boolean }) {
               <i />
             </span>
           </div>
-          <div className="cms-note mono">4 fields. That&rsquo;s the whole form.</div>
+          <div className="cms-note mono">
+            4 fields. That&rsquo;s the whole form.
+          </div>
         </div>
         <div className="cms-preview">
           <div className="cms-pv-label mono">Live preview</div>
@@ -236,9 +273,7 @@ function DemoCMS({ on }: { on: boolean }) {
             </div>
             <div className="pv-series mono">{data.series}</div>
             <div className="pv-title serif">{typed || "\u2026"}</div>
-            <div className="pv-meta">
-              {data.speaker} &middot; Sun
-            </div>
+            <div className="pv-meta">{data.speaker} &middot; Sun</div>
           </div>
         </div>
       </div>
@@ -289,7 +324,10 @@ function DemoSync({ on }: { on: boolean }) {
           </div>
           <div className="sync-list">
             {SYNC_EVENTS.map((e, i) => (
-              <div key={i} className={`sync-item${i === idx && phase >= 1 ? " active" : ""}`}>
+              <div
+                key={i}
+                className={`sync-item${i === idx && phase >= 1 ? " active" : ""}`}
+              >
                 <span className="si-dot" style={{ background: e.c }} />
                 <span>{e.t}</span>
               </div>
@@ -316,7 +354,11 @@ function DemoSync({ on }: { on: boolean }) {
             {placed.map((p, i) => {
               const e = SYNC_EVENTS[p];
               return (
-                <div key={i} className="cal-ev pop" style={{ borderColor: e.c }}>
+                <div
+                  key={i}
+                  className="cal-ev pop"
+                  style={{ borderColor: e.c }}
+                >
                   <b style={{ color: e.c }}>{e.d}</b>
                   <span>{e.t}</span>
                 </div>
@@ -366,7 +408,10 @@ function DemoLogin({ on }: { on: boolean }) {
     <DemoFrame bar="grace &middot; member portal">
       <div className="mp">
         {/* Dashboard always renders in flow to set the container height */}
-        <div className="mp-dash" style={{ visibility: screen === "dash" ? "visible" : "hidden" }}>
+        <div
+          className="mp-dash"
+          style={{ visibility: screen === "dash" ? "visible" : "hidden" }}
+        >
           <div className="mp-top">
             <span className="mp-brand serif">Grace</span>
             <span className="mp-nav">
@@ -391,9 +436,13 @@ function DemoLogin({ on }: { on: boolean }) {
                     className={`mstep ms-${s.s}`}
                     style={{ animationDelay: i * 80 + "ms" }}
                   >
-                    <span className="mstep-mark">{s.s === "done" ? "\u2713" : ""}</span>
+                    <span className="mstep-mark">
+                      {s.s === "done" ? "\u2713" : ""}
+                    </span>
                     <span className="mstep-t">{s.t}</span>
-                    {s.s === "now" && <span className="mstep-tag">You&rsquo;re here</span>}
+                    {s.s === "now" && (
+                      <span className="mstep-tag">You&rsquo;re here</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -402,7 +451,9 @@ function DemoLogin({ on }: { on: boolean }) {
               <div className="mp-card">
                 <span className="mp-label mono">YOUR GROUP</span>
                 <div className="mp-gtitle">Tuesday Women&rsquo;s Group</div>
-                <div className="mp-gmeta">Next: Tue 7:00pm &middot; Hosted by Beth</div>
+                <div className="mp-gmeta">
+                  Next: Tue 7:00pm &middot; Hosted by Beth
+                </div>
               </div>
               <div className="mp-card mp-give">
                 <span className="mp-label mono">THIS YEAR</span>
@@ -419,7 +470,9 @@ function DemoLogin({ on }: { on: boolean }) {
               <div className="mp-logo serif">Grace</div>
               <div className="mp-login-sub">Member sign in</div>
               <div className="mp-field mono">sarah@email.com</div>
-              <div className="mp-field mono">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div>
+              <div className="mp-field mono">
+                &bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;
+              </div>
               <div className="mp-signin">Sign in</div>
             </div>
           </div>
@@ -464,7 +517,10 @@ function DemoNoCode({ on }: { on: boolean }) {
         <div className="nc-lib">
           <div className="nc-libhead mono">Blocks</div>
           {BLOCKS_LIB.map((x, i) => (
-            <div key={i} className={`nc-block${i === pick && step >= 1 ? " lift" : ""}`}>
+            <div
+              key={i}
+              className={`nc-block${i === pick && step >= 1 ? " lift" : ""}`}
+            >
               <span className="nc-ico">{x.i}</span>
               {x.t}
             </div>
@@ -484,10 +540,14 @@ function DemoNoCode({ on }: { on: boolean }) {
               <span className="nc-dz mono">drop a block here</span>
             )}
           </div>
-          <div className={`nc-cursor${step >= 1 ? " moved" : ""}`}>&blacktriangledown;</div>
+          <div className={`nc-cursor${step >= 1 ? " moved" : ""}`}>
+            &blacktriangledown;
+          </div>
         </div>
       </div>
-      <div className="nc-foot mono">No code. No waiting on a developer. No invoice.</div>
+      <div className="nc-foot mono">
+        No code. No waiting on a developer. No invoice.
+      </div>
     </DemoFrame>
   );
 }
@@ -517,9 +577,14 @@ function DemoFree({ on }: { on: boolean }) {
           <div className="free-side">
             <div className="free-label">Typical platform</div>
             <div className="free-amt their">${theirs.toLocaleString()}</div>
-            <div className="free-sub mono">${perMo}/mo &middot; month {month}</div>
+            <div className="free-sub mono">
+              ${perMo}/mo &middot; month {month}
+            </div>
             <div className="free-bar">
-              <div className="free-fill their" style={{ width: (month / 12) * 100 + "%" }} />
+              <div
+                className="free-fill their"
+                style={{ width: (month / 12) * 100 + "%" }}
+              />
             </div>
           </div>
           <div className="free-side">
@@ -547,19 +612,27 @@ const DEMOS: Record<string, React.ComponentType<{ on: boolean }>> = {
   cms: DemoCMS,
   sync: DemoSync,
   login: DemoLogin,
-  free: DemoFree,
 };
 
 /* ---------- Feature row ---------- */
-function FeatureRow({ f, i }: { f: (typeof DATA.features)[number]; i: number }) {
+function FeatureRow({
+  f,
+  i,
+}: {
+  f: (typeof DATA.features)[number];
+  i: number;
+}) {
   const [ref, inView] = useInView();
   const Demo = DEMOS[f.id];
   const flip = i % 2 === 1;
   return (
-    <div ref={ref} className={`feat-row${flip ? " flip" : ""}${inView ? " in" : ""}`}>
+    <div
+      ref={ref}
+      className={`feat-row${flip ? " flip" : ""}${inView ? " in" : ""}`}
+    >
       <div className="feat-copy">
         <div className="feat-n mono">
-          <span>{f.n}</span>
+          {f.n && <span>{f.n}</span>}
           <em>{f.tag}</em>
         </div>
         <h3 className="feat-title">{f.title}</h3>
@@ -579,20 +652,37 @@ function FeatureRow({ f, i }: { f: (typeof DATA.features)[number]; i: number }) 
 }
 
 export default function Features() {
+  const trio = DATA.features.slice(0, 3);
+  const climax = DATA.features[3];
   return (
     <section id="features" className="features-sec section-pad">
       <div className="wrap">
         <div className="sec-head">
           <span className="eyebrow">What we build</span>
           <h2 className="sec-title">
-            A custom website that&rsquo;s connected to your church tools, easy for your staff to run, and{" "}
+            A custom website that&rsquo;s connected to your church tools, easy
+            for your staff to run, and{" "}
             <em className="ital accent">built to disciple.</em>
           </h2>
         </div>
+
         <div className="feat-list">
-          {DATA.features.map((f, i) => (
+          {trio.map((f, i) => (
             <FeatureRow key={f.id} f={f} i={i} />
           ))}
+        </div>
+      </div>
+
+      <div className="feat-climax">
+        <div className="wrap">
+          <div className="feat-pivot">
+            <span className="eyebrow">And then we go further</span>
+            <h3 className="feat-pivot-text serif">
+              Your website becomes the hub for{" "}
+              <em className="ital accent">discipleship.</em>
+            </h3>
+          </div>
+          <FeatureRow f={climax} i={0} />
         </div>
       </div>
     </section>
