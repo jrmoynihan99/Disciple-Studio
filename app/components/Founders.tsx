@@ -10,6 +10,9 @@ export default function Founders() {
             <span className="eyebrow">{f.eyebrow}</span>
             <h2 className="sec-title">{f.title}</h2>
             <p className="founders-body">{f.body}</p>
+            <a href="/about-us" className="btn btn-primary" style={{ marginTop: 28 }}>
+              More About Us <span className="arrow">&rarr;</span>
+            </a>
           </div>
           <div className="founders-people">
             {f.people.map((p, i) => (

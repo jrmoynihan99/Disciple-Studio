@@ -10,8 +10,8 @@ export const DATA = {
 
   hero: {
     kicker: "A studio for the local church",
-    headline: ["Custom church websites,", "built by disciples."],
-    sub: "We build modern and fast websites that welcome new people in and help the people already there grow as disciples. All while practically running itself.",
+    headline: ["Custom church websites built by disciples, to disciple."],
+    sub: "We build modern and fast websites that welcome new people in and help the people already there grow as disciples \u2014 all while practically running itself.",
     primary: "Book A Call",
     secondary: "See Our Latest Work",
   },
@@ -19,7 +19,8 @@ export const DATA = {
   twoJobs: {
     eyebrow: "What a church website is really for",
     title: "Two jobs. One website.",
-    intro: "A church website has two jobs. Most do half of one \u2014 we build for both.",
+    intro:
+      "A church website has two jobs. Most do half of one \u2014 we build for both.",
     jobs: [
       {
         n: "01",
@@ -51,13 +52,13 @@ export const DATA = {
   },
 
   problem: {
-    eyebrow: "Why we started",
+    eyebrow: "The problem",
     title: "Most churches are renting a website they\u2019ve outgrown.",
     pain: [
       {
-        k: "The monthly bill",
-        tag: "$100\u2013400 / mo",
-        v: "$100\u2013$400 every month to platforms like Squarespace, Ekklesia 360, or Subsplash \u2014 forever, just to keep the lights on.",
+        k: "The basic template",
+        tag: "Same as everyone",
+        v: "Templates look bland and don't function well. You\u2019re boxed into what the template allows \u2014 and you hit that ceiling fast.",
       },
       {
         k: "The clunky CMS",
@@ -69,61 +70,57 @@ export const DATA = {
         tag: "Double entry",
         v: "Your website and your church software live in separate worlds, so someone re-types every event, group, and sermon by hand.",
       },
+      {
+        k: "The monthly bill",
+        tag: "$100\u2013400 / mo",
+        v: "$100\u2013$400 every month to platforms like Squarespace, Ekklesia 360, or Subsplash \u2014 forever, just to keep the lights on.",
+      },
     ],
-    beliefLabel: "But here\u2019s what we believe",
-    belief:
-      "We didn\u2019t start Disciple Studio to sell churches more software. We started it because we love the local church \u2014 and we believe the tools it runs on should serve it, not fight it. A website shouldn\u2019t be one more thing the staff dread. Built with care, it can do real ministry: welcoming the person who hasn\u2019t walked in yet, and walking with the people who already have.",
-    beliefSign: "\u2014 Jason & Arjun, Co-Founders",
+    beliefLabel: "And most importantly...",
+    beliefHighlight: "The lack of deeper, personalized discipleship.",
   },
 
   features: [
     {
-      id: "login" as const,
+      id: "modern" as const,
       n: "01",
-      tag: "Disciple",
-      title: "Built in member login with personalized next steps.",
-      body: "We build custom connections to your backend so members sign in and get a personal view \u2014 their groups, the next step on their discipleship path, and whatever else you track and want to surface. The website becomes your central tool for shepherding and moving members through your discipleship track.",
-      points: ["Secure member login", "Personalized next steps", "Their groups & journey"],
+      tag: "The front door",
+      title: "A custom, beautiful site that nails your branding",
+      body: "Built on the same technology behind some of the fastest sites on the web. It loads instantly, looks right on every device, and has room to grow with your church for years \u2014 not a template you\u2019ll outgrow in two.",
+      points: ["Custom Online Sermon Experience", "Custom Groups Finder"],
     },
     {
-      id: "modern" as const,
+      id: "cms" as const,
       n: "02",
-      tag: "The front door",
-      title: "A site that welcomes people in \u2014 and is built to last.",
-      body: "Built on the same framework behind some of the fastest sites on the web, the site loads instantly, looks beautiful on every device, and has room to grow with your church for years \u2014 not a template you\u2019ll outgrow in two.",
-      points: ["Multi-campus support", "Designed around your ministry", "Add pages & sections anytime"],
+      tag: "Streamlined CMS",
+      title:
+        "A streamlined CMS your staff can easily use \u2014 and expand on their own.",
+      body: "We tailor your content management to your church. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it with the blocks we set up. No bloated builder, no code.",
+      points: ["Multi-campus support", "Designed for your needs"],
     },
     {
       id: "sync" as const,
       n: "03",
       tag: "Integration",
       title: "Your content stays in sync, automatically.",
-      body: "We connect your site to Planning Center, Breeze, CCB, or whatever you run. Add an event, group, or other data there once and it appears on the website automatically. No double entry, no data mismatch. A standing gift of time back to your admin team.",
-      points: ["Two-way sync with your tools", "Events, groups & sermons", "Update once, everywhere"],
+      body: "We connect your site to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on the website. No double entry, no data falling out of sync. A standing gift of time back to your admin team.",
+      points: [],
     },
     {
-      id: "cms" as const,
+      id: "login" as const,
       n: "04",
-      tag: "Easy to run",
-      title: "An editor with exactly what you need \u2014 and nothing you don\u2019t.",
-      body: "We tailor your editor to your church. The content you use, seamless to add and edit. No 200-setting builder, no fear of breaking the site. If a volunteer can fill out a form, they can update the website.",
-      points: ["Only the content you want", "Plain-language labels", "Live preview"],
-    },
-    {
-      id: "nocode" as const,
-      n: "05",
-      tag: "Ownership",
-      title: "Expand and maintain it \u2014 no developer on call.",
-      body: "Need a new sermon series page or a Christmas landing page? Build it from your studio with the blocks we set up. No code, no waiting. It\u2019s your site, fully in your hands.",
-      points: ["Prebuilt content blocks", "No code, ever", "No retainer required"],
+      tag: "Discipleship",
+      title: "Built-in member login with personalized next steps.",
+      body: "You track discipleship data — we surface it. Members sign in and see their groups, their classes, and their next step. The website becomes a personalized hub that streamlines discipleship and moves people through the path you've already built.",
+      points: ["Secure member login", "Personalized next steps"],
     },
     {
       id: "free" as const,
-      n: "06",
+      n: "05",
       tag: "The cost",
-      title: "$0 in monthly hosting or software fees.",
-      body: "Built on modern tooling with generous free tiers, your site runs at no recurring cost. You pay us once to build it, and then it\u2019s yours to keep \u2014 no subscription quietly draining the budget every month.",
-      points: ["No platform subscription", "No hosting bill", "You own everything"],
+      title: "$0 in monthly hosting or software fees",
+      body: "Built on modern tooling with generous free tiers, your site costs nothing to keep running. You pay us once to build it, and then it\u2019s yours \u2014 no subscription quietly draining the budget.",
+      points: ["No platform subscription", "No hosting bill"],
     },
   ],
 

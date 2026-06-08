@@ -18,8 +18,7 @@ export default function Footer() {
           <a href="#book">Book a call</a>
         </div>
         <div className="foot-bottom mono">
-          <span>&copy; 2026 Disciple Studio</span>
-          <span>Built with Next.js + Sanity &middot; For the local church</span>
+          <span>&copy; 2026 Disciple Studio &middot; For the local church</span>
         </div>
       </div>
     </footer>

@@ -175,9 +175,12 @@ export default function Hero() {
         <div className="hero-copy">
           <span className="eyebrow">{h.kicker}</span>
           <h1 className="hero-title">
-            <span className="ht-l1">{h.headline[0]}</span>
-            <br />
-            <span className="ht-l2 ital">{h.headline[1]}</span>
+            <span className="ht-l1">
+              Custom church websites built by disciples,
+            </span>
+            <span className="ht-l2 ital">
+              <em className="accent"> to disciple.</em>
+            </span>
           </h1>
           <p className="hero-sub">{h.sub}</p>
           <div className="hero-actions">

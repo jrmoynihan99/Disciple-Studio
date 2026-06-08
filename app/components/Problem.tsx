@@ -23,8 +23,10 @@ export default function Problem() {
         </div>
         <div className="prob-belief">
           <span className="eyebrow">{p.beliefLabel}</span>
-          <p className="prob-belief-text serif">{p.belief}</p>
-          <span className="prob-sign mono">{p.beliefSign}</span>
+          <h3 className="prob-highlight serif">
+            The lack of deeper,{" "}
+            <em className="accent">personalized discipleship.</em>
+          </h3>
         </div>
       </div>
     </section>

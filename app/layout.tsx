@@ -22,9 +22,9 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Disciple Studio — Custom church websites",
+  title: "Disciple Studio — Custom Church Websites Built By Disciples, To Disciple",
   description:
-    "Modern, fast, custom websites for churches. Built once, owned forever. $0 monthly fees.",
+    "Custom church websites that sync with your tools, are easy for staff to run, and built to disciple. Pay once, own it forever",
 };
 
 export default function RootLayout({

@@ -365,8 +365,56 @@ function DemoLogin({ on }: { on: boolean }) {
   return (
     <DemoFrame bar="grace &middot; member portal">
       <div className="mp">
+        {/* Dashboard always renders in flow to set the container height */}
+        <div className="mp-dash" style={{ visibility: screen === "dash" ? "visible" : "hidden" }}>
+          <div className="mp-top">
+            <span className="mp-brand serif">Grace</span>
+            <span className="mp-nav">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span className="mp-user">
+              <span className="mp-avatar">S</span>Sarah
+            </span>
+          </div>
+          <div className="mp-greet">
+            Welcome back, <b className="serif">Sarah.</b>
+          </div>
+          <div className="mp-grid">
+            <div className="mp-card mp-stepscard">
+              <span className="mp-label mono">YOUR NEXT STEPS</span>
+              <div className="mp-steps">
+                {STEPS.map((s, i) => (
+                  <div
+                    key={i}
+                    className={`mstep ms-${s.s}`}
+                    style={{ animationDelay: i * 80 + "ms" }}
+                  >
+                    <span className="mstep-mark">{s.s === "done" ? "\u2713" : ""}</span>
+                    <span className="mstep-t">{s.t}</span>
+                    {s.s === "now" && <span className="mstep-tag">You&rsquo;re here</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mp-side">
+              <div className="mp-card">
+                <span className="mp-label mono">YOUR GROUP</span>
+                <div className="mp-gtitle">Tuesday Women&rsquo;s Group</div>
+                <div className="mp-gmeta">Next: Tue 7:00pm &middot; Hosted by Beth</div>
+              </div>
+              <div className="mp-card mp-give">
+                <span className="mp-label mono">THIS YEAR</span>
+                <div className="mp-givenum serif">$1,240</div>
+                <div className="mp-gmeta">in generosity &middot; thank you</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Login & loading overlay on top */}
         {screen === "login" && (
-          <div className="mp-login">
+          <div className="mp-login mp-overlay">
             <div className="mp-login-card">
               <div className="mp-logo serif">Grace</div>
               <div className="mp-login-sub">Member sign in</div>
@@ -377,56 +425,8 @@ function DemoLogin({ on }: { on: boolean }) {
           </div>
         )}
         {screen === "loading" && (
-          <div className="mp-loading">
+          <div className="mp-loading mp-overlay">
             <div className="spinner2" />
-          </div>
-        )}
-        {screen === "dash" && (
-          <div className="mp-dash">
-            <div className="mp-top">
-              <span className="mp-brand serif">Grace</span>
-              <span className="mp-nav">
-                <i />
-                <i />
-                <i />
-              </span>
-              <span className="mp-user">
-                <span className="mp-avatar">S</span>Sarah
-              </span>
-            </div>
-            <div className="mp-greet">
-              Welcome back, <b className="serif">Sarah.</b>
-            </div>
-            <div className="mp-grid">
-              <div className="mp-card mp-stepscard">
-                <span className="mp-label mono">YOUR NEXT STEPS</span>
-                <div className="mp-steps">
-                  {STEPS.map((s, i) => (
-                    <div
-                      key={i}
-                      className={`mstep ms-${s.s}`}
-                      style={{ animationDelay: i * 80 + "ms" }}
-                    >
-                      <span className="mstep-mark">{s.s === "done" ? "\u2713" : ""}</span>
-                      <span className="mstep-t">{s.t}</span>
-                      {s.s === "now" && <span className="mstep-tag">You&rsquo;re here</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="mp-side">
-                <div className="mp-card">
-                  <span className="mp-label mono">YOUR GROUP</span>
-                  <div className="mp-gtitle">Tuesday Women&rsquo;s Group</div>
-                  <div className="mp-gmeta">Next: Tue 7:00pm &middot; Hosted by Beth</div>
-                </div>
-                <div className="mp-card mp-give">
-                  <span className="mp-label mono">THIS YEAR</span>
-                  <div className="mp-givenum serif">$1,240</div>
-                  <div className="mp-gmeta">in generosity &middot; thank you</div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </div>
@@ -547,7 +547,6 @@ const DEMOS: Record<string, React.ComponentType<{ on: boolean }>> = {
   cms: DemoCMS,
   sync: DemoSync,
   login: DemoLogin,
-  nocode: DemoNoCode,
   free: DemoFree,
 };
 
@@ -586,9 +585,8 @@ export default function Features() {
         <div className="sec-head">
           <span className="eyebrow">What we build</span>
           <h2 className="sec-title">
-            Everything it takes to do both jobs &mdash;
-            <br />
-            <span className="ital">and run itself while it does.</span>
+            A custom website that&rsquo;s connected to your church tools, easy for your staff to run, and{" "}
+            <em className="ital accent">built to disciple.</em>
           </h2>
         </div>
         <div className="feat-list">

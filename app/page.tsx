@@ -17,13 +17,13 @@ export default function Home() {
       <main>
         <Hero />
         <Problem />
-        <TwoJobs />
+        {/* <TwoJobs /> */}
         <Features />
         <Showcase />
         <Backends />
-        <Founders />
         <Pricing />
         <FinalCTA />
+        <Founders />
       </main>
       <Footer />
     </>
