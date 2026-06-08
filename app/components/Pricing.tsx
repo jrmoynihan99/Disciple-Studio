@@ -81,9 +81,10 @@ export default function Pricing() {
             <span className="eyebrow">{p.eyebrow}</span>
             <h2 className="sec-title">{p.title}</h2>
             <p className="pricing-sub">{p.sub}</p>
-            <a href="#book" className="btn btn-primary">
+            <a href="#book" className="btn btn-primary pricing-cta">
               Book a call <span className="arrow">&rarr;</span>
             </a>
+            <CostCompare on={inView} />
           </div>
           <div className="pricing-right">
             {p.rows.map((r, i) => (
@@ -93,7 +94,6 @@ export default function Pricing() {
               </div>
             ))}
             <div className="pricing-divider" />
-            <CostCompare on={inView} />
           </div>
         </div>
       </div>

@@ -2510,7 +2510,6 @@ section {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   padding: 52px;
-  align-items: start;
 }
 .pricing-sub {
   margin: 20px 0 30px;
@@ -2521,13 +2520,21 @@ section {
 .pricing-right {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+}
+.pricing-left .cost-compare {
+  padding-top: 40px;
 }
 .cost-compare {
-  padding-bottom: 24px;
+  padding-bottom: 0;
 }
 .cost-compare .free-stamp {
   font-size: 15px;
   margin-top: 16px;
+  margin-bottom: 0;
+}
+.cost-compare .free-amt {
+  font-size: clamp(24px, 3vw, 34px);
 }
 .pricing-divider {
   height: 1px;
