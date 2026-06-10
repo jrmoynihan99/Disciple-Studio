@@ -139,7 +139,7 @@ export const DATA = {
     location: "Built ground-up \u00B7 2025",
     url: "https://aletheia-website-seven.vercel.app/",
     urlLabel: "aletheia.org",
-    stats: [],
+    stats: [] as { k: string; v: string }[],
   },
 
   testimonial: {
