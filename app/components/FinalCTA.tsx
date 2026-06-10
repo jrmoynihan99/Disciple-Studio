@@ -12,10 +12,13 @@ export default function FinalCTA() {
         </h2>
         <p className="cta-sub">{c.sub}</p>
         <div className="cta-actions">
-          <a href="#book" className="btn btn-primary">
+          <a href="/book" className="btn btn-primary">
             {c.primary} <span className="arrow">&rarr;</span>
           </a>
-          <a href="#demo" className="btn btn-ghost light">
+          <a
+            href="https://aletheia-website-seven.vercel.app/"
+            className="btn btn-ghost light"
+          >
             &#9654; {c.secondary}
           </a>
         </div>

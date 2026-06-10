@@ -81,7 +81,7 @@ export default function Pricing() {
             <span className="eyebrow">{p.eyebrow}</span>
             <h2 className="sec-title">{p.title}</h2>
             <p className="pricing-sub">{p.sub}</p>
-            <a href="#book" className="btn btn-primary pricing-cta">
+            <a href="/book" className="btn btn-primary pricing-cta">
               Book a call <span className="arrow">&rarr;</span>
             </a>
             <CostCompare on={inView} />

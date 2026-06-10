@@ -2313,6 +2313,7 @@ section {
   background: var(--paper-2);
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+  padding-bottom: 64px;
 }
 .show-card {
   display: block;
@@ -2357,16 +2358,8 @@ section {
   margin-right: 8px;
 }
 .sp-shot {
-  background: repeating-linear-gradient(
-    45deg,
-    var(--paper-2),
-    var(--paper-2) 12px,
-    var(--paper-3) 12px,
-    var(--paper-3) 24px
-  );
-  min-height: 320px;
-  display: grid;
-  place-items: center;
+  overflow: hidden;
+  line-height: 0;
 }
 .show-visit {
   position: absolute;
@@ -2674,4 +2667,298 @@ section[id] {
 .feat-demo .demo-frame:hover {
   transform: translateY(-5px);
   box-shadow: 0 42px 66px -36px rgba(28, 24, 19, 0.5);
+}
+
+/* ============================================
+   ABOUT US PAGE
+   ============================================ */
+
+/* -- Hero / Story -- */
+.about-hero {
+  padding-top: 160px;
+}
+.about-hero-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 60px;
+  align-items: center;
+}
+.about-hero-copy .eyebrow {
+  display: inline-block;
+}
+.about-title {
+  font-size: clamp(36px, 5vw, 56px);
+}
+.about-story {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.about-story p {
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+.about-hero-photo {
+  aspect-ratio: 4 / 5;
+  border-radius: var(--radius-lg);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--paper-2),
+    var(--paper-2) 9px,
+    var(--paper-3) 9px,
+    var(--paper-3) 18px
+  );
+  display: grid;
+  place-items: center;
+}
+.about-hero-photo span {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+/* -- Mission & Values -- */
+.about-mission {
+  background: var(--paper-2);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.about-mission .sec-head {
+  margin-bottom: 56px;
+}
+.mission-lead {
+  max-width: 640px;
+  margin: 22px auto 0;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.mission-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.value-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.25s;
+}
+.value-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 52px -34px rgba(28, 24, 19, 0.42);
+}
+.value-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.value-idx {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+.value-pill {
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--accent-deep);
+  background: var(--accent-tint);
+  padding: 5px 11px;
+  border-radius: 100px;
+}
+.value-label {
+  font-size: clamp(19px, 2.1vw, 22px);
+  font-weight: 460;
+  letter-spacing: -0.015em;
+}
+.value-card p {
+  font-size: 14.5px;
+  color: var(--ink-soft);
+  line-height: 1.58;
+}
+
+/* -- Deep Bios -- */
+.sec-head.center {
+  text-align: center;
+}
+.bios-grid {
+  margin-top: 64px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+.bio-item {
+  display: flex;
+  flex-direction: column;
+}
+.bio-photo {
+  aspect-ratio: 3 / 2;
+  background: var(--paper-3);
+  border-radius: var(--radius-lg);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  position: relative;
+}
+.bio-photo-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: linear-gradient(
+    180deg,
+    var(--paper-2) 0%,
+    var(--paper-3) 100%
+  );
+}
+.bio-silhouette {
+  width: 45%;
+  color: rgba(28, 24, 19, 0.08);
+}
+.bio-copy {
+  padding: 28px 0 0;
+}
+.bio-name {
+  font-size: clamp(24px, 2.5vw, 30px);
+}
+.bio-role {
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 6px 0 20px;
+}
+.bio-text {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+.bio-text + .bio-text {
+  margin-top: 14px;
+}
+.bio-verse {
+  margin-top: 28px;
+  padding: 20px 24px;
+  background: var(--paper-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bio-verse span {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.bio-verse cite {
+  font-size: 11px;
+  font-style: normal;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 940px) {
+  .about-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .about-hero-photo {
+    max-width: 400px;
+    margin: 0 auto;
+  }
+}
+@media (max-width: 860px) {
+  .bios-grid {
+    grid-template-columns: 1fr;
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+@media (max-width: 600px) {
+  .about-hero {
+    padding-top: 120px;
+  }
+  .mission-values {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================
+   BOOK A CALL PAGE
+   ============================================ */
+.book-page {
+  padding-top: 160px;
+  padding-bottom: 80px;
+}
+.book-grid {
+  display: grid;
+  grid-template-columns: 0.45fr 0.55fr;
+  gap: 56px;
+  align-items: center;
+}
+.book-sidebar {
+  max-width: 420px;
+}
+.book-sub {
+  margin-top: 18px;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.book-bullets {
+  margin-top: 32px;
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.book-bullets li {
+  font-size: 15px;
+  color: var(--ink-soft);
+  padding-left: 24px;
+  position: relative;
+}
+.book-bullets li::before {
+  content: "\2713";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+.calendly-inline-widget {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-width: 0;
+  width: 100%;
+}
+@media (max-width: 860px) {
+  .book-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .book-sidebar {
+    position: static;
+    text-align: center;
+  }
+  .book-bullets {
+    align-items: center;
+  }
+}
+@media (max-width: 600px) {
+  .book-page {
+    padding-top: 120px;
+  }
 }

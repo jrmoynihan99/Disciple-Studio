@@ -15,7 +15,7 @@ export default function Footer() {
               {n.label}
             </a>
           ))}
-          <a href="#book">Book a call</a>
+          <a href="/book">Book a call</a>
         </div>
         <div className="foot-bottom mono">
           <span>&copy; 2026 Disciple Studio &middot; For the local church</span>

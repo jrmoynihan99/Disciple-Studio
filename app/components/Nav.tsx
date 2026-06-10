@@ -15,7 +15,7 @@ export default function Nav() {
   return (
     <header className={"nav" + (scrolled ? " stuck" : "")}>
       <div className="nav-in">
-        <a className="brand" href="#top">
+        <a className="brand" href="/">
           <span className="brand-mark">{"\u271D"}</span>
           <span className="brand-name">Disciple Studio</span>
         </a>
@@ -27,10 +27,10 @@ export default function Nav() {
           ))}
         </nav>
         <div className="nav-cta">
-          <a href="#showcase" className="nav-demo">
+          <a href="https://aletheia-website-seven.vercel.app/" target="_blank" rel="noreferrer" className="nav-demo">
             Our Latest Work
           </a>
-          <a href="#book" className="btn btn-primary btn-sm">
+          <a href="/book" className="btn btn-primary btn-sm">
             Book a call
           </a>
         </div>

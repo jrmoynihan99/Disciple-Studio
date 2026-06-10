@@ -3,9 +3,10 @@ export const DATA = {
   tagline: "Modern, fast, custom websites for churches.",
 
   nav: [
-    { label: "Why", href: "#why" },
-    { label: "What", href: "#what" },
-    { label: "Who", href: "#founders" },
+    { label: "The Problem", href: "/#why" },
+    { label: "Our Solution", href: "/#features" },
+    { label: "Work", href: "/#showcase" },
+    { label: "Who We Are", href: "/#founders" },
   ],
 
   hero: {
@@ -95,7 +96,7 @@ export const DATA = {
       tag: "Streamlined CMS",
       title:
         "A streamlined CMS your staff can easily use \u2014 and expand on their own.",
-      body: "We tailor your content management to your church. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it with the blocks we set up. No bloated builder, no code.",
+      body: "We build your CMS from scrath tailored to you. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it with the blocks we set up. No bloated builder, no code.",
       points: ["Multi-campus support", "Designed for your needs"],
     },
     {
@@ -103,7 +104,7 @@ export const DATA = {
       n: "03",
       tag: "Integration",
       title: "Your content stays in sync, automatically.",
-      body: "We connect your site to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on the website. No double entry, no data falling out of sync. A standing gift of time back to your admin team.",
+      body: "We build a custom connection to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on the website. No double entry, no data falling out of sync. A standing gift of time back to your admin team.",
       points: [],
     },
     {
@@ -134,15 +135,11 @@ export const DATA = {
     eyebrow: "The work",
     title: "Our first build is live.",
     sub: "A full ground-up website and content studio, connected to their church management system. Go see it for yourself.",
-    church: "Grace Community Church",
+    church: "Aletheia Church",
     location: "Built ground-up \u00B7 2025",
-    url: "#",
-    urlLabel: "gracecommunity.example",
-    stats: [
-      { k: "0.4s", v: "Average load time" },
-      { k: "$0", v: "Monthly fees" },
-      { k: "1", v: "Place staff edit" },
-    ],
+    url: "https://aletheia-website-seven.vercel.app/",
+    urlLabel: "aletheia.org",
+    stats: [],
   },
 
   testimonial: {
@@ -189,5 +186,82 @@ export const DATA = {
     sub: "Book a short call, or jump straight into a live demo. We\u2019d love to see how we can help further God\u2019s kingdom together!",
     primary: "Book a 20-min call",
     secondary: "See a live demo",
+  },
+
+  aboutUs: {
+    story: {
+      eyebrow: "Our story",
+      title: "It started with a conversation at church.",
+      paragraphs: [
+        "We met at Aletheia Church in the fall of 2024. Jason had just come to saving faith earlier that year, and Arjun had been serving in ministry operations for a while. A casual conversation after service turned into an hours-long talk about something we both noticed: the tools churches use online are not serving them well.",
+        "Most church websites we looked at were template-based, disconnected from the software the church actually runs on, and built in a way that made staff afraid to touch them. But the deeper issue was this \u2014 none of them were designed to help someone grow as a disciple. They were digital brochures, not discipleship tools.",
+        "So we started building. Jason brought the design and engineering background, Arjun brought the relational and operational side, and together we set out to build church websites that actually serve the mission of the church \u2014 to make disciples.",
+      ],
+    },
+
+    mission: {
+      eyebrow: "What drives us",
+      title: "We believe the local church deserves better.",
+      intro:
+        "Every decision we make filters through one question: does this help a church welcome new people in and grow the people already there? If the answer is no, we don\u2019t build it.",
+      values: [
+        {
+          label: "Discipleship first",
+          body: "A website should do more than inform \u2014 it should help people take their next step of faith. That\u2019s why every site we build includes a personalized member experience that surfaces where someone is on their journey and what comes next.",
+        },
+        {
+          label: "Built to last",
+          body: "We don\u2019t rent you a platform that disappears when you stop paying. We build you a website on modern, open technology that you own outright. No monthly fees, no lock-in, no expiration date.",
+        },
+        {
+          label: "Serve, not sell",
+          body: "We\u2019re not a SaaS company looking for recurring revenue. We\u2019re two guys who love the local church and want to serve it well. That shapes everything \u2014 how we price, how we communicate, and how we build.",
+        },
+        {
+          label: "Craft over speed",
+          body: "We take on a handful of churches at a time so we can give each one the attention it deserves. Every site is designed from scratch for your church, your brand, and your congregation.",
+        },
+      ],
+    },
+
+    bios: {
+      eyebrow: "The team",
+      title: "Two people. One mission.",
+      people: [
+        {
+          name: "Jason",
+          role: "Design & Engineering",
+          paragraphs: [
+            "I came to saving faith in 2024, and it rewired how I think about my work. Before that, I had been designing and building software for years \u2014 but it was always for the next startup, the next product, the next thing. When God saved me, I started asking a different question: what if I used these skills for something that actually matters forever?",
+            "I lead the design and engineering side of Disciple Studio. That means I\u2019m the one in Figma at midnight getting the spacing right, and the one writing the code that makes it all come alive. I care deeply about craft \u2014 every animation, every layout, every interaction should feel intentional and warm, the way a good church lobby does.",
+            "My hope for Disciple Studio is simple: that the websites we build help someone who has never walked into a church feel welcome enough to show up, and help someone who is already there take their next step toward Jesus.",
+          ],
+          verse: {
+            text: "Whatever you do, work heartily, as for the Lord and not for men.",
+            ref: "Colossians 3:23",
+          },
+        },
+        {
+          name: "Arjun",
+          role: "Marketing & Relationships",
+          paragraphs: [
+            "I\u2019ve spent years working at the intersection of marketing, operations, and ministry \u2014 and the pattern I kept seeing was this: churches had great vision but clunky tools. Staff were spending hours on manual data entry, fighting with website builders, and duct-taping together systems that were never designed to talk to each other.",
+            "At Disciple Studio, I handle the relationships and the integrations. I\u2019m the one on the call with your team learning how you run things, what tools you use, and where the friction is. Then I work with Jason to make sure the website connects to all of it \u2014 Planning Center, Breeze, your giving platform, whatever you have \u2014 so that your team gets time back.",
+            "What motivates me is watching the technology disappear. When a church admin tells me they don\u2019t even think about the website anymore because it just works, that\u2019s the win. The ministry comes forward, the tech fades into the background.",
+          ],
+          verse: {
+            text: "And let us consider how to stir up one another to love and good works.",
+            ref: "Hebrews 10:24",
+          },
+        },
+      ],
+    },
+
+    cta: {
+      title: ["We\u2019d love to hear", "your church\u2019s story."],
+      sub: "Book a short call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. Let's see how we might be able to further God's kingdom together!",
+      primary: "Book a 20-min call",
+      secondary: "Back to homepage",
+    },
   },
 };

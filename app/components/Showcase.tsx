@@ -1,4 +1,5 @@
 import { DATA } from "@/app/data";
+import Image from "next/image";
 
 export default function Showcase() {
   const s = DATA.showcase;
@@ -20,10 +21,16 @@ export default function Showcase() {
               {s.urlLabel}
             </div>
             <div className="sp-shot">
-              <span className="mono">live site screenshot</span>
+              <Image
+                src="/AletheiaScreenshot.JPG"
+                alt="Aletheia Church website screenshot"
+                width={1920}
+                height={1080}
+                style={{ width: "100%", height: "auto", display: "block" }}
+              />
             </div>
             <div className="show-visit">
-              Visit live site <span className="arrow">&nearr;</span>
+              Visit live site <span className="arrow">{"\u2197"}</span>
             </div>
           </div>
           <div className="show-meta">
@@ -31,23 +38,25 @@ export default function Showcase() {
               <div className="show-church serif">{s.church}</div>
               <div className="show-loc mono">{s.location}</div>
             </div>
-            <div className="show-stats">
-              {s.stats.map((x, i) => (
-                <div key={i} className="show-stat">
-                  <b className="serif">{x.k}</b>
-                  <span>{x.v}</span>
-                </div>
-              ))}
-            </div>
+            {s.stats.length > 0 && (
+              <div className="show-stats">
+                {s.stats.map((x, i) => (
+                  <div key={i} className="show-stat">
+                    <b className="serif">{x.k}</b>
+                    <span>{x.v}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </a>
-        <figure className="testi">
+        {/* <figure className="testi">
           <blockquote className="serif">&ldquo;{t.quote}&rdquo;</blockquote>
           <figcaption>
             <b>{t.name}</b>
             <span>{t.role}</span>
           </figcaption>
-        </figure>
+        </figure> */}
       </div>
     </section>
   );

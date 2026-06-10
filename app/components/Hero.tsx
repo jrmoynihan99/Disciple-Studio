@@ -184,10 +184,10 @@ export default function Hero() {
           </h1>
           <p className="hero-sub">{h.sub}</p>
           <div className="hero-actions">
-            <a href="#book" className="btn btn-primary">
+            <a href="/book" className="btn btn-primary">
               {h.primary} <span className="arrow">&rarr;</span>
             </a>
-            <a href="#showcase" className="btn btn-ghost">
+            <a href="https://aletheia-website-seven.vercel.app/" target="_blank" rel="noreferrer" className="btn btn-ghost">
               &#9654; {h.secondary}
             </a>
           </div>
