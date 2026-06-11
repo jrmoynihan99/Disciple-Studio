@@ -1,28 +1,34 @@
 import { DATA } from "@/app/data";
+import { Arrow, Btn, Wrap } from "@/app/components/ui";
 
 export default function FinalCTA() {
   const c = DATA.finalCta;
   return (
-    <section id="book" className="cta-sec">
-      <div className="wrap cta-in">
-        <h2 className="cta-title serif">
+    <section
+      id="book"
+      className="scroll-mt-[88px] bg-ink py-[120px] text-center text-paper"
+    >
+      <Wrap>
+        <h2 className="font-serif text-[clamp(34px,5.5vw,64px)] leading-[1.02] tracking-[-0.03em] [font-weight:460]">
           {c.title[0]}
           <br />
-          <span className="ital">{c.title[1]}</span>
+          <span className="italic">{c.title[1]}</span>
         </h2>
-        <p className="cta-sub">{c.sub}</p>
-        <div className="cta-actions">
-          <a href="/book" className="btn btn-primary">
-            {c.primary} <span className="arrow">&rarr;</span>
-          </a>
-          <a
+        <p className="mx-auto mt-6 max-w-[34em] text-[18px] leading-[1.55] text-paper/72">
+          {c.sub}
+        </p>
+        <div className="mt-[38px] flex flex-wrap justify-center gap-3.5">
+          <Btn href="/book">
+            {c.primary} <Arrow />
+          </Btn>
+          <Btn
+            variant="ghostLight"
             href="https://aletheia-website-seven.vercel.app/"
-            className="btn btn-ghost light"
           >
             &#9654; {c.secondary}
-          </a>
+          </Btn>
         </div>
-      </div>
+      </Wrap>
     </section>
   );
 }

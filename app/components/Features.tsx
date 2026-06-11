@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { DATA } from "@/app/data";
+import { Eyebrow, SecTitle, TrafficLights, Wrap } from "@/app/components/ui";
 
 /* ---------- shared hooks ---------- */
 function useInView() {
@@ -70,14 +71,12 @@ function DemoFrame({
   bar: string;
 }) {
   return (
-    <div className="demo-frame">
-      <div className="demo-bar">
-        <span className="tl" />
-        <span className="tl" />
-        <span className="tl" />
-        <div className="demo-barlabel mono">{bar}</div>
+    <div className="overflow-hidden rounded-[22px] border border-line bg-card shadow-[0_2px_1px_var(--color-line-2),0_30px_60px_-34px_rgba(28,24,19,0.4)] transition-[translate,box-shadow,border-color] duration-[280ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] hover:-translate-y-[5px] hover:shadow-[0_42px_66px_-36px_rgba(28,24,19,0.5)]">
+      <div className="flex items-center gap-1.5 border-b border-line bg-[color-mix(in_oklab,var(--color-card)_90%,var(--color-ink))] px-3.5 py-[11px]">
+        <TrafficLights />
+        <div className="ml-2.5 font-mono text-[11.5px] text-muted">{bar}</div>
       </div>
-      <div className="demo-body">{children}</div>
+      <div className="p-[18px]">{children}</div>
     </div>
   );
 }
@@ -115,14 +114,14 @@ function Gauge({ on }: { on: boolean }) {
   const R = 30;
   const C = 2 * Math.PI * R;
   return (
-    <div className="gauge">
+    <div className="relative grid place-items-center">
       <svg viewBox="0 0 80 80" width="78" height="78">
         <circle
           cx="40"
           cy="40"
           r={R}
           fill="none"
-          stroke="var(--line)"
+          stroke="var(--color-line)"
           strokeWidth="7"
         />
         <circle
@@ -130,7 +129,7 @@ function Gauge({ on }: { on: boolean }) {
           cy="40"
           r={R}
           fill="none"
-          stroke="var(--accent)"
+          stroke="var(--color-accent)"
           strokeWidth="7"
           strokeLinecap="round"
           strokeDasharray={C}
@@ -139,9 +138,11 @@ function Gauge({ on }: { on: boolean }) {
           style={{ transition: "stroke-dashoffset .2s linear" }}
         />
       </svg>
-      <div className="gauge-num">
+      <div className="absolute flex flex-col items-center font-serif text-[22px] font-semibold leading-none">
         {v}
-        <small>perf</small>
+        <small className="font-mono text-[8px] tracking-[0.1em] text-muted">
+          perf
+        </small>
       </div>
     </div>
   );
@@ -161,44 +162,62 @@ function DemoModern({ on }: { on: boolean }) {
   }, [on]);
   return (
     <DemoFrame bar="gracecommunity.example">
-      <div className="modern-wrap">
-        <div className="site-canvas">
+      <div className="grid grid-cols-[1fr_120px] gap-4 max-[940px]:grid-cols-[1fr_100px]">
+        <div className="flex min-h-[270px] flex-col gap-2 rounded-xl bg-paper-2 p-3">
           {SITE_BLOCKS.map((b, i) => (
             <div
               key={i}
-              className={`site-block sb-${b.s}${i < built ? " shown" : ""}`}
+              className={`flex items-center gap-2.5 rounded-[9px] border px-3 py-2.5 transition-[opacity,translate,scale] duration-500 ${
+                b.s === "hero"
+                  ? "border-transparent bg-accent-tint"
+                  : "border-line bg-card"
+              } ${
+                i < built
+                  ? "translate-y-0 scale-100 opacity-100"
+                  : "translate-y-2.5 scale-[0.98] opacity-0"
+              }`}
               style={{
                 height: b.h,
                 transitionDelay: i === built - 1 ? ".05s" : "0s",
               }}
             >
-              <span className="sb-label">{b.t}</span>
+              <span
+                className={`text-xs font-semibold ${
+                  b.s === "hero" ? "text-accent" : "text-ink-soft"
+                }`}
+              >
+                {b.t}
+              </span>
               {b.s === "grid" && (
-                <div className="sb-grid">
-                  <i />
-                  <i />
-                  <i />
+                <div className="ml-auto flex gap-1.5">
+                  <i className="block h-[22px] w-[22px] rounded-[5px] bg-paper-3" />
+                  <i className="block h-[22px] w-[22px] rounded-[5px] bg-paper-3" />
+                  <i className="block h-[22px] w-[22px] rounded-[5px] bg-paper-3" />
                 </div>
               )}
               {b.s === "cards" && (
-                <div className="sb-grid">
-                  <i />
-                  <i />
+                <div className="ml-auto flex gap-1.5">
+                  <i className="block h-[22px] w-[22px] rounded-[5px] bg-paper-3" />
+                  <i className="block h-[22px] w-[22px] rounded-[5px] bg-paper-3" />
                 </div>
               )}
             </div>
           ))}
-          <div className="site-add">+ section</div>
-        </div>
-        <div className="modern-side">
-          <Gauge on={on} />
-          <div className="ms-stat">
-            <b>0.4s</b>
-            <span>load time</span>
+          <div className="rounded-lg border border-dashed border-line p-2 text-center font-mono text-[11px] text-muted">
+            + section
           </div>
-          <div className="ms-stat">
-            <b>&infin;</b>
-            <span>room to grow</span>
+        </div>
+        <div className="flex flex-col gap-3">
+          <Gauge on={on} />
+          <div className="rounded-[10px] bg-paper-2 px-3 py-2.5 text-center">
+            <b className="block font-serif text-xl">0.4s</b>
+            <span className="font-mono text-[10px] text-muted">load time</span>
+          </div>
+          <div className="rounded-[10px] bg-paper-2 px-3 py-2.5 text-center">
+            <b className="block font-serif text-xl">&infin;</b>
+            <span className="font-mono text-[10px] text-muted">
+              room to grow
+            </span>
           </div>
         </div>
       </div>
@@ -230,9 +249,11 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="cms-field">
-      <span className="cms-flabel">{label}</span>
-      <span className="cms-input">{children}</span>
+    <label className="flex flex-col gap-[5px]">
+      <span className="text-[11px] font-semibold text-muted">{label}</span>
+      <span className="flex h-9 items-center overflow-hidden rounded-lg border border-line bg-paper-2 px-[11px] py-[9px] text-[13px]">
+        {children}
+      </span>
     </label>
   );
 }
@@ -243,37 +264,61 @@ function DemoCMS({ on }: { on: boolean }) {
   const typed = useTypewriter(data.title, on, scene);
   return (
     <DemoFrame bar="studio &middot; sermons">
-      <div className="cms-wrap">
-        <div className="cms-form">
-          <div className="cms-formhead mono">New sermon</div>
+      <div className="grid grid-cols-[1fr_0.86fr] gap-4 max-[940px]:grid-cols-1">
+        <div className="flex flex-col gap-[11px]">
+          <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
+            New sermon
+          </div>
           <Field label="Title">
-            <span className="cms-typed">
+            <span className="inline-flex min-h-[1lh] items-center">
               {typed}
-              <i className="caret" />
+              <i className="ml-px inline-block h-3.5 w-[1.5px] animate-blink bg-accent" />
             </span>
           </Field>
           <Field label="Speaker">{data.speaker}</Field>
           <Field label="Series">{data.series}</Field>
-          <div className="cms-toggle-row">
+          <div className="flex items-center justify-between px-0.5 py-1 text-[12.5px]">
             <span>Feature on homepage</span>
-            <span className={`cms-switch${data.featured ? " is-on" : ""}`}>
-              <i />
+            <span
+              className={`relative h-[22px] w-[38px] rounded-full transition-colors duration-300 ${
+                data.featured ? "bg-accent" : "bg-line"
+              }`}
+            >
+              <i
+                className={`absolute left-0.5 top-0.5 block h-[18px] w-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-transform duration-300 ${
+                  data.featured ? "translate-x-4" : ""
+                }`}
+              />
             </span>
           </div>
-          <div className="cms-note mono">
+          <div className="mt-1 font-mono text-[10.5px] text-muted">
             4 fields. That&rsquo;s the whole form.
           </div>
         </div>
-        <div className="cms-preview">
-          <div className="cms-pv-label mono">Live preview</div>
-          <div className="pv-card">
-            {data.featured && <span className="pv-badge">Featured</span>}
-            <div className="pv-thumb">
-              <span className="mono">sermon art</span>
+        <div className="rounded-xl bg-paper-2 p-3.5">
+          <div className="mb-2.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+            Live preview
+          </div>
+          <div className="relative rounded-[10px] border border-line bg-card p-3">
+            {data.featured && (
+              <span className="absolute right-2.5 top-2.5 rounded-full bg-accent px-[7px] py-[3px] font-mono text-[9px] text-white">
+                Featured
+              </span>
+            )}
+            <div className="mb-2.5 grid h-16 place-items-center rounded-[7px] bg-[repeating-linear-gradient(45deg,var(--color-paper-2),var(--color-paper-2)_8px,var(--color-paper-3)_8px,var(--color-paper-3)_16px)]">
+              <span className="font-mono text-[11px] tracking-[0.05em] text-muted">
+                sermon art
+              </span>
             </div>
-            <div className="pv-series mono">{data.series}</div>
-            <div className="pv-title serif">{typed || "\u2026"}</div>
-            <div className="pv-meta">{data.speaker} &middot; Sun</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-accent">
+              {data.series}
+            </div>
+            <div className="my-[3px] min-h-[1.1em] font-serif text-[18px] leading-[1.1]">
+              {typed || "…"}
+            </div>
+            <div className="text-[11px] text-muted">
+              {data.speaker} &middot; Sun
+            </div>
           </div>
         </div>
       </div>
@@ -283,10 +328,10 @@ function DemoCMS({ on }: { on: boolean }) {
 
 /* ---- 03: Sync ---- */
 const SYNC_EVENTS = [
-  { t: "Sunday Worship", d: "Sun \u00B7 10am", c: "#bb4a23" },
-  { t: "Youth Night", d: "Wed \u00B7 7pm", c: "#345044" },
-  { t: "Women\u2019s Bible Study", d: "Thu \u00B7 9am", c: "#8a6d2f" },
-  { t: "Membership Class", d: "Sat \u00B7 1pm", c: "#3a5878" },
+  { t: "Sunday Worship", d: "Sun · 10am", c: "#bb4a23" },
+  { t: "Youth Night", d: "Wed · 7pm", c: "#345044" },
+  { t: "Women’s Bible Study", d: "Thu · 9am", c: "#8a6d2f" },
+  { t: "Membership Class", d: "Sat · 1pm", c: "#3a5878" },
 ];
 
 function DemoSync({ on }: { on: boolean }) {
@@ -317,55 +362,81 @@ function DemoSync({ on }: { on: boolean }) {
   const ev = SYNC_EVENTS[idx];
   return (
     <DemoFrame bar="sync &middot; planning center &rarr; website">
-      <div className="sync-wrap">
-        <div className="sync-col">
-          <div className="sync-head">
-            <span className="sync-app pc">PC</span> Planning Center
+      <div className="grid min-h-[250px] grid-cols-[1fr_1.1fr_1fr] items-stretch gap-2.5 max-[940px]:min-h-0 max-[940px]:grid-cols-1 max-[940px]:gap-4">
+        <div className="flex flex-col">
+          <div className="mb-2.5 flex items-center gap-2 text-xs font-semibold">
+            <span className="grid h-[22px] w-[22px] place-items-center rounded-md bg-[#2c5fa8] text-[10px] font-bold text-white">
+              PC
+            </span>{" "}
+            Planning Center
           </div>
-          <div className="sync-list">
+          <div className="flex flex-col gap-[7px]">
             {SYNC_EVENTS.map((e, i) => (
               <div
                 key={i}
-                className={`sync-item${i === idx && phase >= 1 ? " active" : ""}`}
+                className={`flex items-center gap-2 rounded-lg border bg-paper-2 px-2.5 py-[9px] text-xs transition-[border-color,translate] duration-300 ${
+                  i === idx && phase >= 1
+                    ? "translate-x-[3px] border-accent"
+                    : "border-transparent"
+                }`}
               >
-                <span className="si-dot" style={{ background: e.c }} />
+                <span
+                  className="h-2 w-2 flex-none rounded-full"
+                  style={{ background: e.c }}
+                />
                 <span>{e.t}</span>
               </div>
             ))}
           </div>
         </div>
-        <div className="sync-mid">
-          <div className="sync-wire" />
-          <div className={`sync-pkt${phase === 1 ? " go" : ""}`}>
-            <span className="si-dot" style={{ background: ev.c }} />
+        <div className="relative flex flex-col items-center justify-center max-[940px]:flex-row max-[940px]:py-3">
+          <div className="absolute inset-x-0 top-1/2 h-0.5 bg-[repeating-linear-gradient(90deg,var(--color-line),var(--color-line)_5px,transparent_5px,transparent_11px)] max-[940px]:hidden" />
+          <div
+            className={`absolute left-0 top-1/2 z-[3] inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-accent bg-card px-2.5 py-[5px] text-[11px] opacity-0 shadow-[0_6px_16px_-8px_var(--color-accent)] [transform:translate(-10px,-50%)] max-[940px]:hidden ${
+              phase === 1 ? "animate-pkt" : ""
+            }`}
+          >
+            <span
+              className="h-2 w-2 flex-none rounded-full"
+              style={{ background: ev.c }}
+            />
             {ev.t}
           </div>
-          <div className="sync-engine mono">
+          <div className="z-[2] rounded-[10px] border border-line bg-card px-3.5 py-2.5 text-center font-mono text-xs font-bold tracking-[0.12em] text-accent">
             SANITY
             <br />
-            <small>auto-sync</small>
+            <small className="text-[8px] tracking-[0.1em] text-muted">
+              auto-sync
+            </small>
           </div>
         </div>
-        <div className="sync-col">
-          <div className="sync-head">
-            <span className="sync-app web">&nearr;</span> Your website
+        <div className="flex flex-col">
+          <div className="mb-2.5 flex items-center gap-2 text-xs font-semibold">
+            <span className="grid h-[22px] w-[22px] place-items-center rounded-md bg-accent text-[10px] font-bold text-white">
+              &nearr;
+            </span>{" "}
+            Your website
           </div>
-          <div className="sync-cal">
+          <div className="flex flex-col gap-[7px]">
             {placed.map((p, i) => {
               const e = SYNC_EVENTS[p];
               return (
                 <div
                   key={i}
-                  className="cal-ev pop"
+                  className="flex animate-pop flex-col gap-px rounded-r-lg border-l-[3px] bg-paper-2 px-2.5 py-2 text-[11px]"
                   style={{ borderColor: e.c }}
                 >
-                  <b style={{ color: e.c }}>{e.d}</b>
-                  <span>{e.t}</span>
+                  <b className="font-mono text-[9.5px]" style={{ color: e.c }}>
+                    {e.d}
+                  </b>
+                  <span className="text-ink-soft">{e.t}</span>
                 </div>
               );
             })}
           </div>
-          <div className="sync-foot mono">No double entry. Ever.</div>
+          <div className="mt-3 font-mono text-[10px] text-muted">
+            No double entry. Ever.
+          </div>
         </div>
       </div>
     </DemoFrame>
@@ -379,7 +450,25 @@ const STEPS = [
   { t: "Join a community group", s: "now" },
   { t: "Take the membership class", s: "next" },
   { t: "Find a place to serve", s: "next" },
-];
+] as const;
+
+const STEP_STYLES = {
+  done: {
+    row: "bg-paper text-muted",
+    mark: "bg-[#3a6a4e] text-white",
+    text: "line-through",
+  },
+  now: {
+    row: "bg-accent-tint shadow-[inset_0_0_0_1px_var(--color-accent)]",
+    mark: "shadow-[inset_0_0_0_2px_var(--color-accent)]",
+    text: "",
+  },
+  next: {
+    row: "bg-paper",
+    mark: "shadow-[inset_0_0_0_2px_var(--color-line)]",
+    text: "",
+  },
+};
 
 function DemoLogin({ on }: { on: boolean }) {
   const [screen, setScreen] = useState("login");
@@ -404,203 +493,105 @@ function DemoLogin({ on }: { on: boolean }) {
     return () => clearTimeout(timer);
   }, [on]);
 
+  const label =
+    "mb-3 block font-mono text-[9.5px] tracking-[0.13em] text-muted";
+  const meta = "text-xs text-muted";
   return (
     <DemoFrame bar="grace &middot; member portal">
-      <div className="mp">
+      <div className="relative">
         {/* Dashboard always renders in flow to set the container height */}
         <div
-          className="mp-dash"
+          className="flex animate-fade-in flex-col gap-4"
           style={{ visibility: screen === "dash" ? "visible" : "hidden" }}
         >
-          <div className="mp-top">
-            <span className="mp-brand serif">Grace</span>
-            <span className="mp-nav">
-              <i />
-              <i />
-              <i />
+          <div className="flex items-center gap-3 border-b border-line pb-[13px]">
+            <span className="font-serif text-base">Grace</span>
+            <span className="ml-1.5 flex gap-[7px]">
+              <i className="block h-[5px] w-[26px] rounded-[3px] bg-line" />
+              <i className="block h-[5px] w-[26px] rounded-[3px] bg-line" />
+              <i className="block h-[5px] w-[26px] rounded-[3px] bg-line" />
             </span>
-            <span className="mp-user">
-              <span className="mp-avatar">S</span>Sarah
+            <span className="ml-auto flex items-center gap-2 text-[13px] font-medium">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-accent text-[11px] font-semibold text-white">
+                S
+              </span>
+              Sarah
             </span>
           </div>
-          <div className="mp-greet">
-            Welcome back, <b className="serif">Sarah.</b>
+          <div className="text-2xl tracking-[-0.01em]">
+            Welcome back, <b className="font-serif text-accent">Sarah.</b>
           </div>
-          <div className="mp-grid">
-            <div className="mp-card mp-stepscard">
-              <span className="mp-label mono">YOUR NEXT STEPS</span>
-              <div className="mp-steps">
-                {STEPS.map((s, i) => (
-                  <div
-                    key={i}
-                    className={`mstep ms-${s.s}`}
-                    style={{ animationDelay: i * 80 + "ms" }}
-                  >
-                    <span className="mstep-mark">
-                      {s.s === "done" ? "\u2713" : ""}
-                    </span>
-                    <span className="mstep-t">{s.t}</span>
-                    {s.s === "now" && (
-                      <span className="mstep-tag">You&rsquo;re here</span>
-                    )}
-                  </div>
-                ))}
+          <div className="grid grid-cols-[1.35fr_0.95fr] gap-3.5 max-[560px]:grid-cols-1">
+            <div className="rounded-xl border border-line bg-card p-4">
+              <span className={label}>YOUR NEXT STEPS</span>
+              <div className="flex flex-col gap-2">
+                {STEPS.map((s, i) => {
+                  const st = STEP_STYLES[s.s];
+                  return (
+                    <div
+                      key={i}
+                      className={`flex animate-fade-in-back items-center gap-2.5 rounded-[9px] px-[11px] py-[9px] text-[13px] ${st.row}`}
+                      style={{ animationDelay: i * 80 + "ms" }}
+                    >
+                      <span
+                        className={`grid h-[18px] w-[18px] flex-none place-items-center rounded-full text-[10px] ${st.mark}`}
+                      >
+                        {s.s === "done" ? "✓" : ""}
+                      </span>
+                      <span className={`flex-1 ${st.text}`}>{s.t}</span>
+                      {s.s === "now" && (
+                        <span className="font-mono text-[9px] text-accent">
+                          You&rsquo;re here
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div className="mp-side">
-              <div className="mp-card">
-                <span className="mp-label mono">YOUR GROUP</span>
-                <div className="mp-gtitle">Tuesday Women&rsquo;s Group</div>
-                <div className="mp-gmeta">
+            <div className="flex flex-col gap-3.5">
+              <div className="rounded-xl bg-paper-2 p-4">
+                <span className={label}>YOUR GROUP</span>
+                <div className="mb-[3px] text-[15px] font-semibold">
+                  Tuesday Women&rsquo;s Group
+                </div>
+                <div className={meta}>
                   Next: Tue 7:00pm &middot; Hosted by Beth
                 </div>
               </div>
-              <div className="mp-card mp-give">
-                <span className="mp-label mono">THIS YEAR</span>
-                <div className="mp-givenum serif">$1,240</div>
-                <div className="mp-gmeta">in generosity &middot; thank you</div>
+              <div className="rounded-xl bg-accent-tint p-4">
+                <span className={label}>THIS YEAR</span>
+                <div className="mb-1 font-serif text-[26px] leading-none text-accent">
+                  $1,240
+                </div>
+                <div className={meta}>in generosity &middot; thank you</div>
               </div>
             </div>
           </div>
         </div>
         {/* Login & loading overlay on top */}
         {screen === "login" && (
-          <div className="mp-login mp-overlay">
-            <div className="mp-login-card">
-              <div className="mp-logo serif">Grace</div>
-              <div className="mp-login-sub">Member sign in</div>
-              <div className="mp-field mono">sarah@email.com</div>
-              <div className="mp-field mono">
+          <div className="absolute inset-0 z-[1] grid place-items-center bg-card">
+            <div className="flex w-[252px] flex-col gap-[11px] rounded-[14px] border border-line bg-card px-6 py-7 text-center shadow-[0_24px_46px_-28px_rgba(28,24,19,0.4)]">
+              <div className="font-serif text-[30px] leading-none">Grace</div>
+              <div className="mb-1.5 text-xs text-muted">Member sign in</div>
+              <div className="rounded-[9px] border border-line bg-paper-2 px-3 py-[11px] text-left font-mono text-xs text-muted">
+                sarah@email.com
+              </div>
+              <div className="rounded-[9px] border border-line bg-paper-2 px-3 py-[11px] text-left font-mono text-xs text-muted">
                 &bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;
               </div>
-              <div className="mp-signin">Sign in</div>
+              <div className="mt-1 rounded-[9px] bg-accent p-[11px] text-[13px] font-semibold text-white">
+                Sign in
+              </div>
             </div>
           </div>
         )}
         {screen === "loading" && (
-          <div className="mp-loading mp-overlay">
-            <div className="spinner2" />
+          <div className="absolute inset-0 z-[1] grid place-items-center bg-card">
+            <div className="h-8 w-8 animate-spinner rounded-full border-[3px] border-line border-t-accent" />
           </div>
         )}
-      </div>
-    </DemoFrame>
-  );
-}
-
-/* ---- 05: NoCode ---- */
-const BLOCKS_LIB = [
-  { t: "Christmas Eve", i: "\u2726" },
-  { t: "Sermon series", i: "\u25A4" },
-  { t: "Staff directory", i: "\u274D" },
-  { t: "Event landing", i: "\u25C7" },
-];
-
-function DemoNoCode({ on }: { on: boolean }) {
-  const [step, setStep] = useState(0);
-  const pick = useCycle(BLOCKS_LIB.length, 2600, on);
-
-  useEffect(() => {
-    if (!on) return;
-    setStep(0);
-    const a = setTimeout(() => setStep(1), 700);
-    const b = setTimeout(() => setStep(2), 1500);
-    return () => {
-      clearTimeout(a);
-      clearTimeout(b);
-    };
-  }, [on, pick]);
-
-  const b = BLOCKS_LIB[pick];
-  return (
-    <DemoFrame bar="studio &middot; page builder">
-      <div className="nc-wrap">
-        <div className="nc-lib">
-          <div className="nc-libhead mono">Blocks</div>
-          {BLOCKS_LIB.map((x, i) => (
-            <div
-              key={i}
-              className={`nc-block${i === pick && step >= 1 ? " lift" : ""}`}
-            >
-              <span className="nc-ico">{x.i}</span>
-              {x.t}
-            </div>
-          ))}
-        </div>
-        <div className="nc-canvas">
-          <div className="nc-existing">Home</div>
-          <div className="nc-existing">About</div>
-          <div className={`nc-drop${step === 2 ? " filled" : ""}`}>
-            {step === 2 ? (
-              <div className="nc-newblock pop">
-                <span className="nc-ico">{b.i}</span>
-                {b.t}
-                <span className="nc-pub mono">published</span>
-              </div>
-            ) : (
-              <span className="nc-dz mono">drop a block here</span>
-            )}
-          </div>
-          <div className={`nc-cursor${step >= 1 ? " moved" : ""}`}>
-            &blacktriangledown;
-          </div>
-        </div>
-      </div>
-      <div className="nc-foot mono">
-        No code. No waiting on a developer. No invoice.
-      </div>
-    </DemoFrame>
-  );
-}
-
-/* ---- 06: Free ---- */
-function DemoFree({ on }: { on: boolean }) {
-  const [month, setMonth] = useState(0);
-  useEffect(() => {
-    if (!on) {
-      setMonth(0);
-      return;
-    }
-    setMonth(0);
-    let m = 0;
-    const t = setInterval(() => {
-      m = m >= 12 ? 0 : m + 1;
-      setMonth(m);
-    }, 480);
-    return () => clearInterval(t);
-  }, [on]);
-  const perMo = 199;
-  const theirs = month * perMo;
-  return (
-    <DemoFrame bar="cost over 12 months">
-      <div className="free-wrap">
-        <div className="free-row">
-          <div className="free-side">
-            <div className="free-label">Typical platform</div>
-            <div className="free-amt their">${theirs.toLocaleString()}</div>
-            <div className="free-sub mono">
-              ${perMo}/mo &middot; month {month}
-            </div>
-            <div className="free-bar">
-              <div
-                className="free-fill their"
-                style={{ width: (month / 12) * 100 + "%" }}
-              />
-            </div>
-          </div>
-          <div className="free-side">
-            <div className="free-label">Disciple Studio</div>
-            <div className="free-amt ours">$0</div>
-            <div className="free-sub mono">built once, owned forever</div>
-            <div className="free-bar">
-              <div className="free-fill ours" style={{ width: "3%" }} />
-            </div>
-          </div>
-        </div>
-        <div className="free-stamp serif">
-          That&rsquo;s ${(perMo * 12).toLocaleString()}/yr
-          <br />
-          back in the ministry.
-        </div>
       </div>
     </DemoFrame>
   );
@@ -618,9 +609,11 @@ const DEMOS: Record<string, React.ComponentType<{ on: boolean }>> = {
 function FeatureRow({
   f,
   i,
+  climax = false,
 }: {
   f: (typeof DATA.features)[number];
   i: number;
+  climax?: boolean;
 }) {
   const [ref, inView] = useInView();
   const Demo = DEMOS[f.id];
@@ -628,25 +621,60 @@ function FeatureRow({
   return (
     <div
       ref={ref}
-      className={`feat-row${flip ? " flip" : ""}${inView ? " in" : ""}`}
+      className="grid grid-cols-[0.82fr_1.18fr] items-center gap-16 max-[940px]:grid-cols-1 max-[940px]:gap-[30px]"
     >
-      <div className="feat-copy">
-        <div className="feat-n mono">
-          {f.n && <span>{f.n}</span>}
-          <em>{f.tag}</em>
-        </div>
-        <h3 className="feat-title">{f.title}</h3>
-        <p className="feat-body">{f.body}</p>
-        <ul className="feat-points">
+      <div
+        className={`flex flex-col transition-[opacity,translate] duration-700 max-[940px]:translate-y-0 max-[940px]:opacity-100 ${
+          flip ? "min-[941px]:order-2" : ""
+        } ${inView ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"}`}
+      >
+        {!climax && (
+          <div className="mb-[18px] flex items-center gap-3 font-mono text-[13px] text-muted after:h-px after:flex-1 after:bg-line after:content-['']">
+            {f.n && (
+              <span className="font-semibold text-accent">{f.n}</span>
+            )}
+            <em className="text-[11.5px] not-italic uppercase tracking-[0.14em]">
+              {f.tag}
+            </em>
+          </div>
+        )}
+        <h3
+          className={`font-serif leading-[1.04] tracking-[-0.02em] [font-weight:460] ${
+            climax
+              ? "text-[clamp(32px,3.2vw,42px)]"
+              : "text-[clamp(30px,3vw,36px)]"
+          }`}
+        >
+          {f.title}
+        </h3>
+        <p className="mt-[18px] text-[16.5px] leading-[1.6] text-ink-soft">
+          {f.body}
+        </p>
+        <ul className="mt-6 flex list-none flex-col gap-[11px]">
           {f.points.map((p, k) => (
-            <li key={k}>
-              <span className="fp-tick">{"\u2713"}</span>
+            <li
+              key={k}
+              className="flex items-center gap-[11px] text-[15px] font-medium"
+            >
+              <span className="grid h-[21px] w-[21px] place-items-center rounded-full bg-accent-tint text-[11px] text-accent">
+                {"✓"}
+              </span>
               {p}
             </li>
           ))}
         </ul>
       </div>
-      <div className="feat-demo">{Demo && <Demo on={inView} />}</div>
+      <div
+        className={`transition-[opacity,translate,scale] duration-[800ms] max-[940px]:translate-y-0 max-[940px]:scale-100 max-[940px]:overflow-x-auto max-[940px]:opacity-100 ${
+          flip ? "min-[941px]:order-1" : ""
+        } ${
+          inView
+            ? "translate-y-0 scale-100 opacity-100"
+            : "translate-y-6 scale-[0.985] opacity-0"
+        }`}
+      >
+        {Demo && <Demo on={inView} />}
+      </div>
     </div>
   );
 }
@@ -655,35 +683,40 @@ export default function Features() {
   const trio = DATA.features.slice(0, 3);
   const climax = DATA.features[3];
   return (
-    <section id="features" className="features-sec section-pad">
-      <div className="wrap">
-        <div className="sec-head">
-          <span className="eyebrow">What we build</span>
-          <h2 className="sec-title">
+    <section
+      id="features"
+      className="scroll-mt-[88px] bg-paper pt-[120px] max-[720px]:pt-[78px]"
+    >
+      <Wrap>
+        <div className="mb-20 max-w-[760px]">
+          <Eyebrow>What we build</Eyebrow>
+          <SecTitle>
             A custom website that&rsquo;s connected to your church tools, easy
             for your staff to run, and{" "}
-            <em className="ital accent">built to disciple.</em>
-          </h2>
+            <em className="italic text-accent">built to disciple.</em>
+          </SecTitle>
         </div>
 
-        <div className="feat-list">
+        <div className="flex flex-col gap-[130px] pb-[120px] max-[940px]:gap-[90px]">
           {trio.map((f, i) => (
             <FeatureRow key={f.id} f={f} i={i} />
           ))}
         </div>
-      </div>
+      </Wrap>
 
-      <div className="feat-climax">
-        <div className="wrap">
-          <div className="feat-pivot">
-            <span className="eyebrow">And then we go further</span>
-            <h3 className="feat-pivot-text serif">
+      <div className="border-t border-[color-mix(in_oklab,var(--color-accent)_12%,var(--color-line))] bg-[color-mix(in_oklab,var(--color-accent)_4%,var(--color-paper))] pb-[120px] pt-20 max-[940px]:pb-[78px] max-[940px]:pt-14">
+        <Wrap>
+          <div className="mx-auto mb-[72px] flex max-w-[700px] flex-col items-center gap-[22px] text-center max-[940px]:mb-12">
+            <Eyebrow className="justify-center">
+              And then we go further
+            </Eyebrow>
+            <h3 className="font-serif text-[clamp(24px,3vw,36px)] leading-[1.3] tracking-[-0.02em] text-ink [font-weight:460]">
               Your website becomes the hub for{" "}
-              <em className="ital accent">discipleship.</em>
+              <em className="italic text-accent">discipleship.</em>
             </h3>
           </div>
-          <FeatureRow f={climax} i={0} />
-        </div>
+          <FeatureRow f={climax} i={0} climax />
+        </Wrap>
       </div>
     </section>
   );

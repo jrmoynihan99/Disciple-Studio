@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { DATA } from "@/app/data";
+import { Arrow, Btn, Eyebrow, SecTitle, Wrap } from "@/app/components/ui";
 
 function useInView() {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLElement>(null);
   const [inView, setInView] = useState(false);
   useEffect(() => {
     const el = ref.current;
@@ -38,32 +39,44 @@ function CostCompare({ on }: { on: boolean }) {
   }, [on]);
   const perMo = 199;
   const theirs = month * perMo;
+  const amt =
+    "mb-1 mt-2 font-serif text-[clamp(24px,3vw,34px)] leading-none tracking-[-0.02em]";
+  const bar = "mt-3 h-[7px] overflow-hidden rounded-full bg-card";
+  const fill = "h-full rounded-full transition-[width] duration-[400ms] ease-linear";
   return (
-    <div className="cost-compare">
-      <div className="free-row">
-        <div className="free-side">
-          <div className="free-label">Typical platform</div>
-          <div className="free-amt their">${theirs.toLocaleString()}</div>
-          <div className="free-sub mono">
+    <div className="pt-10">
+      <div className="grid grid-cols-2 gap-4 max-[940px]:grid-cols-1">
+        <div className="rounded-xl bg-paper-2 p-[18px]">
+          <div className="text-xs font-semibold text-ink-soft">
+            Typical platform
+          </div>
+          <div className={`${amt} text-[#b5503a]`}>
+            ${theirs.toLocaleString()}
+          </div>
+          <div className="font-mono text-[10.5px] text-muted">
             ${perMo}/mo &middot; month {month}
           </div>
-          <div className="free-bar">
+          <div className={bar}>
             <div
-              className="free-fill their"
+              className={`${fill} bg-[#b5503a]`}
               style={{ width: (month / 12) * 100 + "%" }}
             />
           </div>
         </div>
-        <div className="free-side">
-          <div className="free-label">Disciple Studio</div>
-          <div className="free-amt ours">$0</div>
-          <div className="free-sub mono">built once, owned forever</div>
-          <div className="free-bar">
-            <div className="free-fill ours" style={{ width: "3%" }} />
+        <div className="rounded-xl bg-accent-tint p-[18px]">
+          <div className="text-xs font-semibold text-ink-soft">
+            Disciple Studio
+          </div>
+          <div className={`${amt} text-accent`}>$0</div>
+          <div className="font-mono text-[10.5px] text-muted">
+            built once, owned forever
+          </div>
+          <div className={bar}>
+            <div className={`${fill} bg-accent`} style={{ width: "3%" }} />
           </div>
         </div>
       </div>
-      <div className="free-stamp serif">
+      <div className="mt-4 text-center font-serif text-[15px] leading-[1.25]">
         That&rsquo;s ${(perMo * 12).toLocaleString()}/yr back in the ministry.
       </div>
     </div>
@@ -74,29 +87,46 @@ export default function Pricing() {
   const p = DATA.pricing;
   const [ref, inView] = useInView();
   return (
-    <section id="pricing" className="pricing-sec section-pad" ref={ref}>
-      <div className="wrap">
-        <div className="pricing-card">
-          <div className="pricing-left">
-            <span className="eyebrow">{p.eyebrow}</span>
-            <h2 className="sec-title">{p.title}</h2>
-            <p className="pricing-sub">{p.sub}</p>
-            <a href="/book" className="btn btn-primary pricing-cta">
-              Book a call <span className="arrow">&rarr;</span>
-            </a>
+    <section
+      id="pricing"
+      className="scroll-mt-[88px] py-[120px] max-[720px]:py-[78px]"
+      ref={ref}
+    >
+      <Wrap>
+        <div className="grid grid-cols-2 gap-[50px] rounded-[22px] border border-line bg-card p-[52px] max-[820px]:grid-cols-1 max-[820px]:gap-8 max-[820px]:p-8">
+          <div>
+            <Eyebrow>{p.eyebrow}</Eyebrow>
+            <SecTitle>{p.title}</SecTitle>
+            <p className="mb-[30px] mt-5 text-[17px] leading-[1.55] text-ink-soft">
+              {p.sub}
+            </p>
+            <Btn href="/book">
+              Book a call <Arrow />
+            </Btn>
             <CostCompare on={inView} />
           </div>
-          <div className="pricing-right">
+          <div className="flex flex-col justify-center">
             {p.rows.map((r, i) => (
-              <div key={i} className="price-row">
+              <div
+                key={i}
+                className="flex items-center justify-between border-b border-line py-4 text-[15.5px]"
+              >
                 <span>{r.k}</span>
-                <span className={`price-v${r.v === "$0" ? " zero" : ""}`}>{r.v}</span>
+                <span
+                  className={
+                    r.v === "$0"
+                      ? "font-serif text-[22px] font-semibold text-accent"
+                      : "font-semibold text-ink-soft"
+                  }
+                >
+                  {r.v}
+                </span>
               </div>
             ))}
-            <div className="pricing-divider" />
+            <div className="mb-1 h-px bg-line" />
           </div>
         </div>
-      </div>
+      </Wrap>
     </section>
   );
 }

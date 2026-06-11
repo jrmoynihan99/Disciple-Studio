@@ -35,9 +35,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${newsreader.variable} ${hanken.variable} ${jetbrains.variable}`}
+      className={`${newsreader.variable} ${hanken.variable} ${jetbrains.variable} scroll-smooth`}
     >
-      <body>{children}</body>
+      <body className="overflow-x-hidden bg-paper font-sans leading-normal text-ink antialiased [text-rendering:optimizeLegibility] selection:bg-accent selection:text-white">
+        {children}
+      </body>
     </html>
   );
 }
