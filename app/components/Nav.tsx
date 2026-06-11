@@ -43,7 +43,7 @@ export default function Nav() {
         </nav>
         <div className="flex items-center gap-[18px]">
           <a
-            href="https://aletheia-website-seven.vercel.app/"
+            href="https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37"
             target="_blank"
             rel="noreferrer"
             className="text-[14.5px] [font-weight:560] hover:text-accent max-[860px]:hidden"

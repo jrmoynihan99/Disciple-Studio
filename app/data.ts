@@ -137,7 +137,7 @@ export const DATA = {
     sub: "A full ground-up website and content studio, connected to their church management system. Go see it for yourself.",
     church: "Aletheia Church",
     location: "Built ground-up \u00B7 2025",
-    url: "https://aletheia-website-seven.vercel.app/",
+    url: "https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37",
     urlLabel: "aletheia.org",
     stats: [] as { k: string; v: string }[],
   },

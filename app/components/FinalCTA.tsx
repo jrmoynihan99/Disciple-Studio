@@ -23,7 +23,7 @@ export default function FinalCTA() {
           </Btn>
           <Btn
             variant="ghostLight"
-            href="https://aletheia-website-seven.vercel.app/"
+            href="https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37"
           >
             &#9654; {c.secondary}
           </Btn>

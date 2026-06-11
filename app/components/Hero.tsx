@@ -136,7 +136,7 @@ export default function Hero() {
             </Btn>
             <Btn
               variant="ghost"
-              href="https://aletheia-website-seven.vercel.app/"
+              href="https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37"
               target="_blank"
               rel="noreferrer"
               className={mobileBtn}
