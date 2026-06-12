@@ -6,6 +6,7 @@ import { Btn } from "@/app/components/ui";
 
 export default function Nav() {
   const [scrolled, setScrolled] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 24);
@@ -41,9 +42,9 @@ export default function Nav() {
             </a>
           ))}
         </nav>
-        <div className="flex items-center gap-[18px]">
+        <div className="flex items-center gap-[18px] max-[860px]:gap-3">
           <a
-            href="https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37"
+            href={DATA.demoUrl}
             target="_blank"
             rel="noreferrer"
             className="text-[14.5px] [font-weight:560] hover:text-accent max-[860px]:hidden"
@@ -53,7 +54,61 @@ export default function Nav() {
           <Btn href="/book" sm>
             Let{"’"}s Chat
           </Btn>
+          <button
+            type="button"
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="hidden h-9 w-9 place-items-center max-[860px]:grid"
+          >
+            <span className="relative block h-3 w-[19px]">
+              <i
+                className={`absolute left-0 top-0 block h-[1.6px] w-full rounded-full bg-ink transition-transform duration-200 ${
+                  open ? "translate-y-[5.2px] rotate-45" : ""
+                }`}
+              />
+              <i
+                className={`absolute left-0 top-[5.2px] block h-[1.6px] w-full rounded-full bg-ink transition-opacity duration-200 ${
+                  open ? "opacity-0" : ""
+                }`}
+              />
+              <i
+                className={`absolute bottom-0 left-0 block h-[1.6px] w-full rounded-full bg-ink transition-transform duration-200 ${
+                  open ? "-translate-y-[5.2px] -rotate-45" : ""
+                }`}
+              />
+            </span>
+          </button>
         </div>
+      </div>
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] min-[861px]:hidden ${
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <nav className="overflow-hidden">
+          <div className="flex flex-col border-t border-line px-4 pb-2 pt-1">
+            {DATA.nav.map((n) => (
+              <a
+                key={n.href}
+                href={n.href}
+                onClick={() => setOpen(false)}
+                className="border-b border-line py-3 text-[15px] font-medium text-ink-soft"
+              >
+                {n.label}
+              </a>
+            ))}
+            <a
+              href={DATA.demoUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setOpen(false)}
+              className="py-3 text-[15px] [font-weight:560]"
+            >
+              Our Latest Work <span className="text-accent">{"↗"}</span>
+            </a>
+          </div>
+        </nav>
       </div>
     </header>
   );
