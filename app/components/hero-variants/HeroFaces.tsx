@@ -93,7 +93,7 @@ export default function HeroFaces() {
             />
             <Portrait
               name="Arjun"
-              role="Marketing & Relationships"
+              role="Relationships"
               src="/arjun.jpg"
               className="translate-y-10"
             />

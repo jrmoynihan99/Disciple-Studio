@@ -175,7 +175,7 @@ export const DATA = {
         name: "Arjun",
         role: "Relationships",
         photo: "/arjun.jpg",
-        bio: "I’m the one on the call with your team, learning how your church runs and connecting the website to the tools you already use — so the tech disappears and the ministry comes forward.",
+        bio: "Software Engineer turned Day Trader and by grace now a campus minister in the Boston area. Passionate about Jesus and helping churches reach the lost and disciple others better.",
       },
     ],
   },
@@ -276,9 +276,9 @@ export const DATA = {
           role: "Relationships",
           photo: "/arjun.jpg",
           paragraphs: [
-            "I\u2019ve spent years working at the intersection of marketing, operations, and ministry \u2014 and the pattern I kept seeing was this: churches had great vision but clunky tools. Staff were spending hours on manual data entry, fighting with website builders, and duct-taping together systems that were never designed to talk to each other.",
-            "At Disciple Studio, I handle the relationships and the integrations. I\u2019m the one on the call with your team learning how you run things, what tools you use, and where the friction is. Then I work with Jason to make sure the website connects to all of it \u2014 Planning Center, Breeze, your giving platform, whatever you have \u2014 so that your team gets time back.",
-            "What motivates me is watching the technology disappear. When a church admin tells me they don\u2019t even think about the website anymore because it just works, that\u2019s the win. The ministry comes forward, the tech fades into the background.",
+            "I came to faith in 2024 (shortly after Jason) after trying my absolute hardest to find what was true and good. I spent my early twenties trying everything this world offered until one day, Jesus met me. After this moment, I made a career switch into ministry. Now I am a campus minister with ENC at MIT, Northeastern, and Boston University. Reaching the lost is a passion, and I believe in today\u2019s world the internet can truly be used for God\u2019s kingdom.",
+            "I lead the Relationships side of Disciple Studio. I am your first point of contact. I love to problem-solve and deliver good and sound results with full honesty, as Jesus would. I look forward to serving your needs and making disciples!",
+            "I know how important community is to the Christian life. I believe that with a good communication structure and personalized experiences for congregants, each person will feel like they are seen and will continue their walk with the Lord. This structure and solution is Disciple Studio. Look forward to speaking!",
           ],
           verse: {
             text: "And let us consider how to stir up one another to love and good works.",
