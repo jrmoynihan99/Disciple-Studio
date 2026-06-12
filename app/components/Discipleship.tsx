@@ -290,21 +290,21 @@ function Dashboard({ prog, cycle }: { prog: number; cycle: number }) {
 const NOTES = [
   {
     side: "left" as const,
-    pos: "top-[36%] left-0 -translate-x-1/2",
+    pos: "top-[36%] left-0 -translate-x-[90%]",
     label: "YOU DEFINE THIS",
     text: "The pathway is yours — we just put it in front of people.",
     delay: 600,
   },
   {
     side: "right" as const,
-    pos: "top-[16%] right-0 translate-x-1/2",
+    pos: "top-[22%] right-0 translate-x-[75%]",
     label: "LIVE DATA",
     text: "Her group and giving, straight from your church software.",
     delay: 1200,
   },
   {
     side: "right" as const,
-    pos: "bottom-[8%] right-0 translate-x-1/2",
+    pos: "bottom-[16%] right-0 translate-x-[75%]",
     label: "THE PAYOFF",
     text: "One clear next step, every single visit.",
     delay: 1800,

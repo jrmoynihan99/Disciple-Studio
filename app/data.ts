@@ -17,7 +17,7 @@ export const DATA = {
     kicker: "A studio for the local church",
     headline: ["Custom church websites built by disciples, to disciple."],
     sub: "We build modern and fast websites that welcome new people in and help the people already there grow as disciples \u2014 all while practically running itself.",
-    primary: "Book A Call",
+    primary: "Let’s Chat",
     secondary: "See Our Latest Work",
   },
 
@@ -61,9 +61,9 @@ export const DATA = {
     title: "Every church website we visited informed.",
     titleEm: "Almost none discipled.",
     body: [
-      "We noticed that most churches used an inflexible template that didn't match their branding, and couldn't really be adjusted.",
-      "When we talked to staff, we heard about the headache it was to manage the content on their site, and that it was a constant battle",
-      "And what we couldn\u2019t find was anything that helped a member take a next step. The site never knew its people.",
+      "Most churches used an inflexible template that didn't match their branding, and couldn't really be adjusted.",
+      "When we talked to staff, we heard about the headache it was to manage and maintain the content on their site.",
+      "And what we couldn\u2019t find was anything that helped streamline discipleship for it's members. To make their next step clear. The site never knew its people.",
     ],
     beliefLabel: "And we couldn\u2019t shake this",
     beliefLead:
@@ -77,7 +77,8 @@ export const DATA = {
       n: "01",
       tag: "The front door",
       title: "A custom, beautiful site that nails your branding",
-      body: "Built on the same technology behind some of the fastest sites on the web. It loads instantly, looks right on every device, and has room to grow with your church for years \u2014 not a template you\u2019ll outgrow in two.",
+      body: "Templates didn't cut it. We wanted something better. An experience specifically for your church. Built on the same technology behind some of the fastest sites on the web. It loads instantly, looks right on every device, and has room to grow with your church for years.",
+      cta: { label: "See a live demo", href: DEMO_URL },
       points: [],
     },
     {
@@ -87,6 +88,7 @@ export const DATA = {
       title:
         "A streamlined CMS your staff can easily use \u2014 and expand on their own.",
       body: "We build your CMS from scratch, tailored to you. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it with the blocks we set up. No bloated builder, no code.",
+      cta: null,
       points: [],
     },
     {
@@ -95,6 +97,7 @@ export const DATA = {
       tag: "Integration",
       title: "Your content stays in sync, automatically.",
       body: "We build a custom connection to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on the website. No double entry, no data falling out of sync — and your admin team gets those hours back.",
+      cta: null,
       points: [],
     },
   ],
@@ -103,7 +106,7 @@ export const DATA = {
     eyebrow: "All to empower this",
     titleA: "Then a member signs in,",
     titleB: "and the website starts discipling.",
-    sub: "The site reads the church software you already run. The moment someone signs in, it knows them \u2014 their group, their giving, their place on the discipleship track you\u2019ve built \u2014 and shows them one clear next step toward following Jesus.",
+    sub: "The site reads the data from the church software you already run. The moment someone signs in, it knows them \u2014 their group, their giving, their place on the discipleship track you\u2019ve built \u2014 and shows them one clear next step toward following Jesus.",
     tabs: { before: "Any visitor", after: "Sarah, signed in" },
     beats: [
       {
@@ -124,7 +127,7 @@ export const DATA = {
     ],
     cta: "See it in action",
     ctaNote: "Opens the live member experience on our latest build.",
-    secondary: "Book a call",
+    secondary: "Let’s Chat",
   },
 
   backendsLead: "We integrate with the tools you already use",
@@ -167,11 +170,13 @@ export const DATA = {
       {
         name: "Jason",
         role: "Design & Engineering",
-        bio: "Hey! I came to saving faith in 2024. I spearhead the design and building of the websites. I believe that software can be leveraged for the Glory of God and the furthering of his Kingdom!",
+        photo: "/jason.jpg",
+        bio: "Hey! I came to saving faith in 2024. I spearhead the design and engineering of the websites. I love leveraging software for the Glory of God and the furthering of his Kingdom!",
       },
       {
         name: "Arjun",
-        role: "Marketing & Relationships",
+        role: "Relationships",
+        photo: "/arjun.jpg",
         bio: "I’m the one on the call with your team, learning how your church runs and connecting the website to the tools you already use — so the tech disappears and the ministry comes forward.",
       },
     ],
@@ -205,8 +210,8 @@ export const DATA = {
 
   finalCta: {
     title: ["We\u2019d love to hear", "your church\u2019s story."],
-    sub: "Book a short call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. We\u2019d love to see how we can further God's Kingdom together!",
-    primary: "Book a 20-min call",
+    sub: "Hop on a 20-minute call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. We\u2019d love to see how we can further God's Kingdom together!",
+    primary: "Let’s Chat",
     secondary: "See a live demo",
   },
 
@@ -216,9 +221,11 @@ export const DATA = {
       title: "It started with a build for our own church.",
       paragraphs: [
         "My pastor said he wanted a better website \u2014 something that looked better and worked better. I knew how to do that, so I dove in.",
-        "Since I wasn\u2019t using a template anymore, I had to build the church a new CMS to power the site. That\u2019s when I saw what their old setup was really like for the staff: bloated, confusing, and hard to maintain. So I built them a clean, custom CMS instead \u2014 exactly what they needed, with the ability to make new landing pages and add whatever content they wanted.",
-        "Then I realized the church kept everything \u2014 member profiles, events, groups, class registrations \u2014 in their church management software, Church Community Builder. Staff were entering groups and events there, and then entering them again into the website. The two systems weren\u2019t talking. So I built a custom integration between them: their backend became the single source of truth, and the website stayed in sync automatically.",
-        "The last realization was the biggest. I could give members a login on the website that linked to their profile in the church\u2019s backend, and surface everything the church already knew \u2014 their group, their classes, their next step. A personalized discipleship engine that every member of the church could see and use for themselves. That\u2019s when I knew this was the most powerful thing we had to offer.",
+        "I started where anyone would: the templates. The ones in our church software, the ones on every platform I could find. Some had modern design, but none had the functionality or flexibility I wanted for our church. So I built the site from scratch.",
+        "Since I wasn\u2019t using a template anymore, I had to build a new CMS to power the site. The old one was bloated, confusing, and hard for staff to maintain \u2014 so I built them a clean, custom one. Exactly what they needed, nothing they didn\u2019t.",
+        "Then I realized the church already kept everything \u2014 members, groups, events, registrations \u2014 in their church management software, Church Community Builder. Staff entered it all there, then typed it again into the website. So I built a custom integration: their backend became the single source of truth, and the website stayed in sync automatically.",
+        "The last realization was the biggest. I could give members a login that surfaced everything the church already knew about their journey \u2014 their group, their classes, their next step. A personalized discipleship engine every member could use.",
+        "That\u2019s when Arjun approached me and said we need to bring this to other churches. And here we are today!",
         "\u2014 Jason",
       ],
     },
@@ -255,9 +262,10 @@ export const DATA = {
         {
           name: "Jason",
           role: "Design & Engineering",
+          photo: "/jason.jpg",
           paragraphs: [
-            "I came to saving faith in 2024, and it rewired how I think about my work. Before that, I had been designing and building software for years \u2014 but it was always for the next startup, the next product, the next thing. When God saved me, I started asking a different question: what if I used these skills for something that actually matters forever?",
-            "I lead the design and engineering side of Disciple Studio. That means I\u2019m the one in Figma at midnight getting the spacing right, and the one writing the code that makes it all come alive. I care deeply about craft \u2014 every animation, every layout, every interaction should feel intentional and warm, the way a good church lobby does.",
+            "I came to saving faith in 2024, and it rewired how I think about my work. Before that, I had been designing and building software for years \u2014 but I never really had a strong 'why'. After the Lord saved me, I began trying to find ways to use my skills and passion for his kingdom. ([see another passion project I built here](https://apps.apple.com/us/app/anchor-fight-lust-together/id6752869901)).",
+            "I lead the design and engineering side of Disciple Studio. I come alongside your church as a partner, helping develop the perfect product for your church's needs. I love seeing a vision come to life.",
             "My hope for Disciple Studio is simple: that the websites we build help someone who has never walked into a church feel welcome enough to show up, and help someone who is already there take their next step toward Jesus.",
           ],
           verse: {
@@ -267,7 +275,8 @@ export const DATA = {
         },
         {
           name: "Arjun",
-          role: "Marketing & Relationships",
+          role: "Relationships",
+          photo: "/arjun.jpg",
           paragraphs: [
             "I\u2019ve spent years working at the intersection of marketing, operations, and ministry \u2014 and the pattern I kept seeing was this: churches had great vision but clunky tools. Staff were spending hours on manual data entry, fighting with website builders, and duct-taping together systems that were never designed to talk to each other.",
             "At Disciple Studio, I handle the relationships and the integrations. I\u2019m the one on the call with your team learning how you run things, what tools you use, and where the friction is. Then I work with Jason to make sure the website connects to all of it \u2014 Planning Center, Breeze, your giving platform, whatever you have \u2014 so that your team gets time back.",
@@ -283,8 +292,8 @@ export const DATA = {
 
     cta: {
       title: ["We\u2019d love to hear", "your church\u2019s story."],
-      sub: "Book a short call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. Let's see how we might be able to further God's kingdom together!",
-      primary: "Book a 20-min call",
+      sub: "Hop on a 20-minute call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. Let's see how we might be able to further God's kingdom together!",
+      primary: "Let’s Chat",
       secondary: "Back to homepage",
     },
   },

@@ -51,7 +51,7 @@ export default function Nav() {
             Our Latest Work
           </a>
           <Btn href="/book" sm>
-            Book a call
+            Let{"’"}s Chat
           </Btn>
         </div>
       </div>

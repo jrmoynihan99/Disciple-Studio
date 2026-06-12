@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { DATA } from "@/app/data";
-import { Eyebrow, SecTitle, TrafficLights, Wrap } from "@/app/components/ui";
+import { Btn, Eyebrow, SecTitle, TrafficLights, Wrap } from "@/app/components/ui";
 
 /* ---------- shared hooks ---------- */
 function useInView() {
@@ -82,12 +82,10 @@ function DemoFrame({
 }
 
 /* ---- 01: Modern ---- */
-const SITE_BLOCKS = [
-  { t: "Welcome to Grace", s: "hero", h: 78 },
-  { t: "Plan your visit", s: "split", h: 52 },
-  { t: "Latest sermons", s: "grid", h: 56 },
-  { t: "Find a group", s: "cards", h: 52 },
-  { t: "Give", s: "band", h: 40 },
+const BRANDS = [
+  { name: "Grace Community", domain: "gracecommunity.example", c: "#bb4a23" },
+  { name: "Hillside Chapel", domain: "hillsidechapel.example", c: "#345044" },
+  { name: "New City Church", domain: "newcitychurch.example", c: "#3a5878" },
 ];
 
 function Gauge({ on }: { on: boolean }) {
@@ -149,75 +147,99 @@ function Gauge({ on }: { on: boolean }) {
 }
 
 function DemoModern({ on }: { on: boolean }) {
-  const [built, setBuilt] = useState(1);
-  useEffect(() => {
-    if (!on) return;
-    setBuilt(1);
-    let n = 1;
-    const t = setInterval(() => {
-      n = n >= SITE_BLOCKS.length ? 1 : n + 1;
-      setBuilt(n);
-    }, 950);
-    return () => clearInterval(t);
-  }, [on]);
+  const bi = useCycle(BRANDS.length, 2800, on);
+  const b = BRANDS[bi];
   return (
-    <DemoFrame bar="gracecommunity.example">
+    <DemoFrame bar={b.domain}>
       <div className="grid grid-cols-[1fr_120px] gap-4 max-[940px]:grid-cols-[1fr_100px]">
-        <div className="flex min-h-[270px] flex-col gap-2 rounded-xl bg-paper-2 p-3">
-          {SITE_BLOCKS.map((b, i) => (
-            <div
-              key={i}
-              className={`flex items-center gap-2.5 rounded-[9px] border px-3 py-2.5 transition-[opacity,translate,scale] duration-500 ${
-                b.s === "hero"
-                  ? "border-transparent bg-accent-tint"
-                  : "border-line bg-card"
-              } ${
-                i < built
-                  ? "translate-y-0 scale-100 opacity-100"
-                  : "translate-y-2.5 scale-[0.98] opacity-0"
-              }`}
-              style={{
-                height: b.h,
-                transitionDelay: i === built - 1 ? ".05s" : "0s",
-              }}
+        {/* the mini site, re-skinned by whichever brand is active */}
+        <div className="flex min-h-[270px] flex-col overflow-hidden rounded-xl border border-line bg-card">
+          <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-2.5">
+            <b
+              className="font-serif text-[13px] leading-none transition-colors duration-500"
+              style={{ color: b.c }}
             >
-              <span
-                className={`text-xs font-semibold ${
-                  b.s === "hero" ? "text-accent" : "text-ink-soft"
-                }`}
-              >
-                {b.t}
-              </span>
-              {b.s === "grid" && (
-                <div className="ml-auto flex gap-1.5">
-                  <i className="block h-[22px] w-[22px] rounded-[5px] bg-paper-3" />
-                  <i className="block h-[22px] w-[22px] rounded-[5px] bg-paper-3" />
-                  <i className="block h-[22px] w-[22px] rounded-[5px] bg-paper-3" />
-                </div>
-              )}
-              {b.s === "cards" && (
-                <div className="ml-auto flex gap-1.5">
-                  <i className="block h-[22px] w-[22px] rounded-[5px] bg-paper-3" />
-                  <i className="block h-[22px] w-[22px] rounded-[5px] bg-paper-3" />
-                </div>
-              )}
+              {b.name}
+            </b>
+            <span className="ml-auto flex gap-1.5">
+              <i className="block h-1 w-5 rounded-[2px] bg-line" />
+              <i className="block h-1 w-5 rounded-[2px] bg-line" />
+              <i className="block h-1 w-5 rounded-[2px] bg-line" />
+            </span>
+            <span
+              className="rounded-full px-2.5 py-1 text-[9px] font-semibold text-white transition-colors duration-500"
+              style={{ background: b.c }}
+            >
+              Visit
+            </span>
+          </div>
+          <div
+            className="flex flex-col gap-1.5 px-3.5 pb-4 pt-4 transition-colors duration-500"
+            style={{
+              background: `color-mix(in oklab, ${b.c} 9%, var(--color-card))`,
+            }}
+          >
+            <div className="font-serif text-[18px] leading-[1.1]">
+              You&rsquo;re welcome here.
             </div>
-          ))}
-          <div className="rounded-lg border border-dashed border-line p-2 text-center font-mono text-[11px] text-muted">
-            + section
+            <div className="h-1 w-[55%] rounded-[3px] bg-ink/15" />
+            <div className="h-1 w-[35%] rounded-[3px] bg-ink/15" />
+            <span
+              className="mt-1.5 self-start rounded-full px-2.5 py-1.5 text-[9.5px] font-semibold text-white transition-colors duration-500"
+              style={{ background: b.c }}
+            >
+              Plan your visit
+            </span>
+          </div>
+          <div className="flex-1 px-3.5 py-3">
+            <div
+              className="mb-2 font-mono text-[8.5px] tracking-[0.13em] transition-colors duration-500"
+              style={{ color: b.c }}
+            >
+              THIS SUNDAY
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="flex flex-col gap-1 rounded-md border border-line bg-paper p-1.5"
+                >
+                  <div
+                    className="h-8 rounded-[4px] transition-colors duration-500"
+                    style={{
+                      background: `color-mix(in oklab, ${b.c} 16%, var(--color-paper-2))`,
+                    }}
+                  />
+                  <div className="h-[3px] w-[70%] rounded-[3px] bg-ink/15" />
+                  <div className="h-[3px] w-[45%] rounded-[3px] bg-ink/15" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         <div className="flex flex-col gap-3">
+          <div className="rounded-[10px] bg-paper-2 px-3 py-2.5">
+            <span className="mb-2 block text-center font-mono text-[8.5px] tracking-[0.12em] text-muted">
+              YOUR BRAND
+            </span>
+            <div className="flex justify-center gap-2">
+              {BRANDS.map((x, i) => (
+                <span
+                  key={i}
+                  className={`h-[18px] w-[18px] rounded-full transition-[scale,opacity,box-shadow] duration-300 ${
+                    i === bi
+                      ? "scale-110 shadow-[0_0_0_2px_var(--color-card),0_0_0_3.5px_currentColor]"
+                      : "opacity-45"
+                  }`}
+                  style={{ background: x.c, color: x.c }}
+                />
+              ))}
+            </div>
+          </div>
           <Gauge on={on} />
           <div className="rounded-[10px] bg-paper-2 px-3 py-2.5 text-center">
             <b className="block font-serif text-xl">0.4s</b>
             <span className="font-mono text-[10px] text-muted">load time</span>
-          </div>
-          <div className="rounded-[10px] bg-paper-2 px-3 py-2.5 text-center">
-            <b className="block font-serif text-xl">&infin;</b>
-            <span className="font-mono text-[10px] text-muted">
-              room to grow
-            </span>
           </div>
         </div>
       </div>
@@ -327,11 +349,26 @@ function DemoCMS({ on }: { on: boolean }) {
 }
 
 /* ---- 03: Sync ---- */
-const SYNC_EVENTS = [
-  { t: "Sunday Worship", d: "Sun · 10am", c: "#bb4a23" },
-  { t: "Youth Night", d: "Wed · 7pm", c: "#345044" },
-  { t: "Women’s Bible Study", d: "Thu · 9am", c: "#8a6d2f" },
-  { t: "Membership Class", d: "Sat · 1pm", c: "#3a5878" },
+const SYNC_ITEMS = [
+  {
+    t: "Sunday Worship",
+    d: "Sun · 10am",
+    kind: "event" as const,
+    c: "#bb4a23",
+  },
+  { t: "Youth Night", d: "Wed · 7pm", kind: "event" as const, c: "#3a5878" },
+  {
+    t: "Women’s Bible Study",
+    d: "Thu · 9am",
+    kind: "group" as const,
+    c: "#345044",
+  },
+  { t: "Young Adults", d: "Fri · 7pm", kind: "group" as const, c: "#8a6d2f" },
+];
+
+const SYNC_SECTIONS = [
+  { label: "Events", kind: "event" as const },
+  { label: "Groups", kind: "group" as const },
 ];
 
 function DemoSync({ on }: { on: boolean }) {
@@ -346,12 +383,12 @@ function DemoSync({ on }: { on: boolean }) {
     setIdx(0);
     setPhase(0);
     const loop = () => {
-      i = (i + 1) % SYNC_EVENTS.length;
+      i = (i + 1) % SYNC_ITEMS.length;
       setIdx(i);
       setPhase(1);
       setTimeout(() => {
         setPhase(2);
-        setPlaced((p) => [...p, i].slice(-4));
+        setPlaced((p) => [...p.filter((x) => x !== i), i].slice(-4));
       }, 900);
       setTimeout(() => setPhase(0), 1500);
     };
@@ -359,35 +396,48 @@ function DemoSync({ on }: { on: boolean }) {
     return () => clearInterval(t);
   }, [on]);
 
-  const ev = SYNC_EVENTS[idx];
+  const ev = SYNC_ITEMS[idx];
   return (
-    <DemoFrame bar="sync &middot; planning center &rarr; website">
+    <DemoFrame bar="sync · church backend → website">
       <div className="grid min-h-[250px] grid-cols-[1fr_1.1fr_1fr] items-stretch gap-2.5 max-[940px]:min-h-0 max-[940px]:grid-cols-1 max-[940px]:gap-4">
         <div className="flex flex-col">
           <div className="mb-2.5 flex items-center gap-2 text-xs font-semibold">
-            <span className="grid h-[22px] w-[22px] place-items-center rounded-md bg-[#2c5fa8] text-[10px] font-bold text-white">
-              PC
+            <span className="grid h-[22px] w-[22px] place-items-center rounded-md bg-ink">
+              <span className="flex flex-col gap-[2.5px]">
+                <i className="block h-[2px] w-3 rounded-full bg-paper" />
+                <i className="block h-[2px] w-3 rounded-full bg-paper/70" />
+                <i className="block h-[2px] w-3 rounded-full bg-paper/45" />
+              </span>
             </span>{" "}
-            Planning Center
+            Church Backend
           </div>
-          <div className="flex flex-col gap-[7px]">
-            {SYNC_EVENTS.map((e, i) => (
-              <div
-                key={i}
-                className={`flex items-center gap-2 rounded-lg border bg-paper-2 px-2.5 py-[9px] text-xs transition-[border-color,translate] duration-300 ${
-                  i === idx && phase >= 1
-                    ? "translate-x-[3px] border-accent"
-                    : "border-transparent"
-                }`}
-              >
-                <span
-                  className="h-2 w-2 flex-none rounded-full"
-                  style={{ background: e.c }}
-                />
-                <span>{e.t}</span>
+          {SYNC_SECTIONS.map((s) => (
+            <div key={s.kind} className="mb-2.5 last:mb-0">
+              <div className="mb-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-muted">
+                {s.label}
               </div>
-            ))}
-          </div>
+              <div className="flex flex-col gap-[7px]">
+                {SYNC_ITEMS.map((e, i) =>
+                  e.kind === s.kind ? (
+                    <div
+                      key={i}
+                      className={`flex items-center gap-2 rounded-lg border bg-paper-2 px-2.5 py-[9px] text-xs transition-[border-color,translate] duration-300 ${
+                        i === idx && phase >= 1
+                          ? "translate-x-[3px] border-accent"
+                          : "border-transparent"
+                      }`}
+                    >
+                      <span
+                        className="h-2 w-2 flex-none rounded-full"
+                        style={{ background: e.c }}
+                      />
+                      <span>{e.t}</span>
+                    </div>
+                  ) : null,
+                )}
+              </div>
+            </div>
+          ))}
         </div>
         <div className="relative flex flex-col items-center justify-center max-[940px]:flex-row max-[940px]:py-3">
           <div className="absolute inset-x-0 top-1/2 h-0.5 bg-[repeating-linear-gradient(90deg,var(--color-line),var(--color-line)_5px,transparent_5px,transparent_11px)] max-[940px]:hidden" />
@@ -402,8 +452,8 @@ function DemoSync({ on }: { on: boolean }) {
             />
             {ev.t}
           </div>
-          <div className="z-[2] rounded-[10px] border border-line bg-card px-3.5 py-2.5 text-center font-mono text-xs font-bold tracking-[0.12em] text-accent">
-            SANITY
+          <div className="z-[2] whitespace-nowrap rounded-[10px] border border-line bg-card px-3.5 py-2.5 text-center font-mono text-xs font-bold tracking-[0.12em] text-accent">
+            WEBSITE CMS
             <br />
             <small className="text-[8px] tracking-[0.1em] text-muted">
               auto-sync
@@ -413,28 +463,46 @@ function DemoSync({ on }: { on: boolean }) {
         <div className="flex flex-col">
           <div className="mb-2.5 flex items-center gap-2 text-xs font-semibold">
             <span className="grid h-[22px] w-[22px] place-items-center rounded-md bg-accent text-[10px] font-bold text-white">
-              &nearr;
+              {"↗"}
             </span>{" "}
             Your website
           </div>
-          <div className="flex flex-col gap-[7px]">
-            {placed.map((p, i) => {
-              const e = SYNC_EVENTS[p];
-              return (
-                <div
-                  key={i}
-                  className="flex animate-pop flex-col gap-px rounded-r-lg border-l-[3px] bg-paper-2 px-2.5 py-2 text-[11px]"
-                  style={{ borderColor: e.c }}
-                >
-                  <b className="font-mono text-[9.5px]" style={{ color: e.c }}>
-                    {e.d}
-                  </b>
-                  <span className="text-ink-soft">{e.t}</span>
+          {SYNC_SECTIONS.map((s) => {
+            const items = placed.filter((p) => SYNC_ITEMS[p].kind === s.kind);
+            return (
+              <div key={s.kind} className="mb-2.5 last:mb-0">
+                <div className="mb-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-muted">
+                  {s.label}
                 </div>
-              );
-            })}
-          </div>
-          <div className="mt-3 font-mono text-[10px] text-muted">
+                <div className="flex flex-col gap-[7px]">
+                  {items.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-line px-2.5 py-2 font-mono text-[10px] text-muted">
+                      syncing…
+                    </div>
+                  )}
+                  {items.map((p) => {
+                    const e = SYNC_ITEMS[p];
+                    return (
+                      <div
+                        key={p}
+                        className="flex animate-pop flex-col gap-px rounded-r-lg border-l-[3px] bg-paper-2 px-2.5 py-2 text-[11px]"
+                        style={{ borderColor: e.c }}
+                      >
+                        <b
+                          className="font-mono text-[9.5px]"
+                          style={{ color: e.c }}
+                        >
+                          {e.d}
+                        </b>
+                        <span className="text-ink-soft">{e.t}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          <div className="mt-1 font-mono text-[10px] text-muted">
             No double entry. Ever.
           </div>
         </div>
@@ -496,6 +564,16 @@ function FeatureRow({
             </li>
           ))}
         </ul>
+        {f.cta && (
+          <Btn
+            href={f.cta.href}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-7 self-start"
+          >
+            {f.cta.label} <span>{"↗"}</span>
+          </Btn>
+        )}
       </div>
       <div
         className={`transition-[opacity,translate,scale] duration-[800ms] max-[940px]:translate-y-0 max-[940px]:scale-100 max-[940px]:overflow-x-auto max-[940px]:opacity-100 ${
@@ -522,7 +600,7 @@ export default function Features() {
         <div className="mb-20 max-w-[760px]">
           <Eyebrow>So we started building</Eyebrow>
           <SecTitle>
-            First, the foundation — a custom website your staff can run,{" "}
+            First, the foundation — a custom website your staff can easily run,{" "}
             <em className="italic text-accent">
               synced to the tools you already use.
             </em>

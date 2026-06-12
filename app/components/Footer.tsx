@@ -25,7 +25,7 @@ export default function Footer() {
             </a>
           ))}
           <a href="/book" className="text-sm text-ink-soft hover:text-accent">
-            Book a call
+            Let{"’"}s Chat
           </a>
         </div>
         <div className="col-span-full mt-[34px] flex flex-wrap justify-between gap-3.5 border-t border-line pt-[22px] font-mono text-[11.5px] text-muted">

@@ -1,5 +1,6 @@
 import Nav from "@/app/components/Nav";
 import Footer from "@/app/components/Footer";
+import Image from "next/image";
 import { DATA } from "@/app/data";
 import type { Metadata } from "next";
 import { Arrow, Btn, Eyebrow, SecTitle, Wrap } from "@/app/components/ui";
@@ -10,8 +11,24 @@ export const metadata: Metadata = {
     "Meet Jason and Arjun — two disciples building custom websites for the local church.",
 };
 
-const STRIPES =
-  "bg-[repeating-linear-gradient(45deg,var(--color-paper-2),var(--color-paper-2)_9px,var(--color-paper-3)_9px,var(--color-paper-3)_18px)]";
+/* renders [label](url) spans in copy strings as links */
+function withLinks(text: string) {
+  return text.split(/(\[[^\]]+\]\([^)\s]+\))/g).map((part, i) => {
+    const m = part.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/);
+    if (!m) return part;
+    return (
+      <a
+        key={i}
+        href={m[2]}
+        target="_blank"
+        rel="noreferrer"
+        className="text-accent underline underline-offset-[3px] transition-opacity hover:opacity-75"
+      >
+        {m[1]}
+      </a>
+    );
+  });
+}
 
 export default function AboutUs() {
   const a = DATA.aboutUs;
@@ -22,65 +39,17 @@ export default function AboutUs() {
         {/* Our Story */}
         <section className="pb-[120px] pt-[160px] max-[720px]:pb-[78px] max-[600px]:pt-[120px]">
           <Wrap>
-            <div className="grid grid-cols-[1.1fr_0.9fr] items-center gap-[60px] max-[940px]:grid-cols-1 max-[940px]:gap-10">
-              <div>
-                <Eyebrow>{a.story.eyebrow}</Eyebrow>
-                <h1 className="mt-[18px] font-serif text-[clamp(36px,5vw,56px)] leading-[1.04] tracking-[-0.025em] [font-weight:460]">
-                  {a.story.title}
-                </h1>
-                <div className="mt-8 flex flex-col gap-5">
-                  {a.story.paragraphs.map((p, i) => (
-                    <p
-                      key={i}
-                      className="text-[18px] leading-[1.65] text-ink-soft"
-                    >
-                      {p}
-                    </p>
-                  ))}
-                </div>
-              </div>
-              <div
-                className={`grid aspect-[4/5] place-items-center rounded-[22px] max-[940px]:mx-auto max-[940px]:max-w-[400px] ${STRIPES}`}
-              >
-                <span className="font-mono text-xs tracking-[0.05em] text-muted">
-                  photo
-                </span>
-              </div>
+            <div className="mx-auto max-w-[760px] text-center">
+              <Eyebrow className="justify-center">{a.story.eyebrow}</Eyebrow>
+              <h1 className="mt-[18px] font-serif text-[clamp(36px,5vw,56px)] leading-[1.04] tracking-[-0.025em] [font-weight:460]">
+                {a.story.title}
+              </h1>
             </div>
-          </Wrap>
-        </section>
-
-        {/* Mission & Values */}
-        <section className="border-y border-line bg-paper-2 py-[120px] max-[720px]:py-[78px]">
-          <Wrap>
-            <div className="mx-auto mb-14 max-w-[760px] text-center">
-              <Eyebrow>{a.mission.eyebrow}</Eyebrow>
-              <SecTitle>{a.mission.title}</SecTitle>
-              <p className="mx-auto mt-[22px] max-w-[640px] text-[17px] leading-[1.6] text-ink-soft">
-                {a.mission.intro}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3.5 max-[600px]:grid-cols-1">
-              {a.mission.values.map((v, i) => (
-                <div
-                  key={i}
-                  className="flex flex-col gap-3.5 rounded-[22px] border border-line bg-card p-[30px] transition-[translate,box-shadow] duration-[250ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] hover:-translate-y-1 hover:shadow-[0_30px_52px_-34px_rgba(28,24,19,0.42)]"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs tracking-[0.16em] text-muted">
-                      {"0" + (i + 1)}
-                    </span>
-                    <span className="rounded-full bg-accent-tint px-[11px] py-[5px] font-mono text-[11px] tracking-[0.03em] text-accent-deep">
-                      {v.label}
-                    </span>
-                  </div>
-                  <h3 className="font-serif text-[clamp(19px,2.1vw,22px)] tracking-[-0.015em] [font-weight:460]">
-                    {v.label}
-                  </h3>
-                  <p className="text-[14.5px] leading-[1.58] text-ink-soft">
-                    {v.body}
-                  </p>
-                </div>
+            <div className="mx-auto mt-10 flex max-w-[680px] flex-col gap-5">
+              {a.story.paragraphs.map((p, i) => (
+                <p key={i} className="text-[18px] leading-[1.65] text-ink-soft">
+                  {withLinks(p)}
+                </p>
               ))}
             </div>
           </Wrap>
@@ -96,24 +65,34 @@ export default function AboutUs() {
             <div className="mt-16 grid grid-cols-2 gap-8 max-[860px]:mx-auto max-[860px]:max-w-[560px] max-[860px]:grid-cols-1">
               {a.bios.people.map((person, i) => (
                 <div key={i} className="flex flex-col">
-                  <div className="relative grid aspect-[3/2] place-items-center overflow-hidden rounded-[22px] bg-paper-3">
-                    <div className="flex h-full w-full items-end justify-center bg-[linear-gradient(180deg,var(--color-paper-2)_0%,var(--color-paper-3)_100%)]">
-                      <svg
-                        viewBox="0 0 120 140"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-[45%] text-ink/8"
-                      >
-                        <circle cx="60" cy="40" r="28" fill="currentColor" />
-                        <ellipse
-                          cx="60"
-                          cy="130"
-                          rx="48"
-                          ry="42"
-                          fill="currentColor"
-                        />
-                      </svg>
-                    </div>
+                  <div className="relative grid aspect-[4/5] place-items-center overflow-hidden rounded-[22px] bg-paper-3">
+                    {person.photo ? (
+                      <Image
+                        src={person.photo}
+                        alt={`Photo of ${person.name}`}
+                        fill
+                        sizes="(max-width: 860px) 100vw, 620px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-end justify-center bg-[linear-gradient(180deg,var(--color-paper-2)_0%,var(--color-paper-3)_100%)]">
+                        <svg
+                          viewBox="0 0 120 140"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="w-[45%] text-ink/8"
+                        >
+                          <circle cx="60" cy="40" r="28" fill="currentColor" />
+                          <ellipse
+                            cx="60"
+                            cy="130"
+                            rx="48"
+                            ry="42"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                   <div className="pt-7">
                     <div className="font-serif text-[clamp(24px,2.5vw,30px)]">
@@ -129,7 +108,7 @@ export default function AboutUs() {
                           j > 0 ? "mt-3.5" : ""
                         }`}
                       >
-                        {p}
+                        {withLinks(p)}
                       </p>
                     ))}
                     {person.verse && (

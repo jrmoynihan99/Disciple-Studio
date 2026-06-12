@@ -45,7 +45,7 @@ export default function Pricing() {
               {p.sub}
             </p>
             <Btn href="/book">
-              Book a call <Arrow />
+              Let{"’"}s Chat <Arrow />
             </Btn>
             <p className="mt-5 font-mono text-[11.5px] tracking-[0.04em] text-muted">
               {p.note}

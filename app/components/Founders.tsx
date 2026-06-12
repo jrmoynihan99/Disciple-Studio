@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { DATA } from "@/app/data";
 import { Arrow, Btn, Eyebrow, SecTitle, Wrap } from "@/app/components/ui";
 
@@ -27,14 +28,24 @@ export default function Founders() {
             {f.people.map((p, i) => (
               <div
                 key={i}
-                className="grid grid-cols-[120px_1fr] items-center gap-[22px]"
+                className="grid grid-cols-[150px_1fr] items-center gap-[22px]"
               >
                 <div
-                  className={`grid aspect-square place-items-center rounded-[14px] ${STRIPES}`}
+                  className={`relative grid aspect-[3/4] place-items-center overflow-hidden rounded-[14px] ${STRIPES}`}
                 >
-                  <span className="font-mono text-[11px] tracking-[0.05em] text-muted">
-                    portrait
-                  </span>
+                  {p.photo ? (
+                    <Image
+                      src={p.photo}
+                      alt={`Photo of ${p.name}`}
+                      fill
+                      sizes="150px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <span className="font-mono text-[11px] tracking-[0.05em] text-muted">
+                      portrait
+                    </span>
+                  )}
                 </div>
                 <div>
                   <div className="font-serif text-[22px]">{p.name}</div>
