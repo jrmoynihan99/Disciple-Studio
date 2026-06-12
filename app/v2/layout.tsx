@@ -14,7 +14,7 @@ const caveat = Caveat({
 
 export const metadata: Metadata = {
   title:
-    "disciple.studio — Custom church websites built by disciples, to disciple",
+    "disciple.studio — We build websites that help churches make disciples.",
   description:
     "We're Jason and Arjun. We met at our church, came to faith together, and now serve the kingdom by building church websites that help people find and follow Jesus.",
 };

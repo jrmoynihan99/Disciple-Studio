@@ -22,9 +22,13 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Disciple Studio — Custom Church Websites Built By Disciples, To Disciple",
+  title:
+    "Disciple Studio — We build websites that help churches make disciples.",
   description:
     "Custom church websites that sync with your tools, are easy for staff to run, and built to disciple. Pay once, own it forever",
+  openGraph: {
+    images: ["/jason.jpg"],
+  },
 };
 
 export default function RootLayout({
