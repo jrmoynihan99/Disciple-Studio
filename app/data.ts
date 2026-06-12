@@ -144,7 +144,7 @@ export const DATA = {
 
   showcase: {
     eyebrow: "The work",
-    title: "Our first build is live.",
+    title: "Our latest build is live.",
     sub: "A full ground-up website and content studio, connected to their church management system. Go see it for yourself.",
     church: "Aletheia Church",
     location: "Built ground-up \u00B7 2025",
@@ -208,7 +208,7 @@ export const DATA = {
 
   finalCta: {
     title: ["We\u2019d love to hear", "your church\u2019s story."],
-    sub: "Hop on a 20-minute call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. We\u2019d love to see how we can further God's Kingdom together!",
+    sub: "Every church runs differently, so every build starts with what yours actually needs.Hop on a 20-minute call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. We\u2019d love to see how we can further God's Kingdom together!",
     primary: "Let’s Chat",
     secondary: "See a live demo",
   },
@@ -290,7 +290,7 @@ export const DATA = {
 
     cta: {
       title: ["We\u2019d love to hear", "your church\u2019s story."],
-      sub: "Hop on a 20-minute call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. Let's see how we might be able to further God's kingdom together!",
+      sub: "Every church runs differently, so every build starts with what yours actually needs. Hop on a 20-minute call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. Let's see how we might be able to further God's kingdom together!",
       primary: "Let’s Chat",
       secondary: "Back to homepage",
     },
