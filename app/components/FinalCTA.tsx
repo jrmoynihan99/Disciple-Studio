@@ -21,10 +21,7 @@ export default function FinalCTA() {
           <Btn href="/book">
             {c.primary} <Arrow />
           </Btn>
-          <Btn
-            variant="ghostLight"
-            href="https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37"
-          >
+          <Btn variant="ghostLight" href={DATA.demoUrl}>
             &#9654; {c.secondary}
           </Btn>
         </div>

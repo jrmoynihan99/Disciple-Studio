@@ -1,10 +1,14 @@
+const DEMO_URL =
+  "https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37";
+
 export const DATA = {
   brand: "Disciple Studio",
   tagline: "Modern, fast, custom websites for churches.",
+  demoUrl: DEMO_URL,
 
   nav: [
-    { label: "The Problem", href: "/#why" },
-    { label: "Our Solution", href: "/#features" },
+    { label: "What We Noticed", href: "/#why" },
+    { label: "What We Build", href: "/#features" },
     { label: "Work", href: "/#showcase" },
     { label: "Who We Are", href: "/#founders" },
   ],
@@ -53,32 +57,18 @@ export const DATA = {
   },
 
   problem: {
-    eyebrow: "The problem",
-    title: "Most churches are renting a website they\u2019ve outgrown.",
-    pain: [
-      {
-        k: "The basic template",
-        tag: "Same as everyone",
-        v: "Templates look bland and don't function well. You\u2019re boxed into what the template allows \u2014 and you hit that ceiling fast.",
-      },
-      {
-        k: "The clunky CMS",
-        tag: "Hours lost",
-        v: "Staff are scared to touch it. Editing a single event means wrestling a builder full of features you\u2019ll never use.",
-      },
-      {
-        k: "The disconnected stack",
-        tag: "Double entry",
-        v: "Your website and your church software live in separate worlds, so someone re-types every event, group, and sermon by hand.",
-      },
-      {
-        k: "The monthly bill",
-        tag: "$100\u2013400 / mo",
-        v: "$100\u2013$400 every month to platforms like Squarespace, Ekklesia 360, or Subsplash \u2014 forever, just to keep the lights on.",
-      },
+    eyebrow: "What we noticed",
+    title: "Every church website we visited informed.",
+    titleEm: "Almost none discipled.",
+    body: [
+      "We noticed that most churches used an inflexible template that didn't match their branding, and couldn't really be adjusted.",
+      "When we talked to staff, we heard about the headache it was to manage the content on their site, and that it was a constant battle",
+      "And what we couldn\u2019t find was anything that helped a member take a next step. The site never knew its people.",
     ],
-    beliefLabel: "And most importantly...",
-    beliefHighlight: "The lack of deeper, personalized discipleship.",
+    beliefLabel: "And we couldn\u2019t shake this",
+    beliefLead:
+      "It wasn\u2019t a lack of heart. The churches we love long to disciple \u2014",
+    beliefHighlight: "their websites just weren\u2019t built for it.",
   },
 
   features: [
@@ -88,7 +78,7 @@ export const DATA = {
       tag: "The front door",
       title: "A custom, beautiful site that nails your branding",
       body: "Built on the same technology behind some of the fastest sites on the web. It loads instantly, looks right on every device, and has room to grow with your church for years \u2014 not a template you\u2019ll outgrow in two.",
-      points: ["Custom Online Sermon Experience", "Custom Groups Finder"],
+      points: [],
     },
     {
       id: "cms" as const,
@@ -96,26 +86,46 @@ export const DATA = {
       tag: "Streamlined CMS",
       title:
         "A streamlined CMS your staff can easily use \u2014 and expand on their own.",
-      body: "We build your CMS from scrath tailored to you. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it with the blocks we set up. No bloated builder, no code.",
-      points: ["Multi-campus support", "Designed for your needs"],
+      body: "We build your CMS from scratch, tailored to you. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it with the blocks we set up. No bloated builder, no code.",
+      points: [],
     },
     {
       id: "sync" as const,
       n: "03",
       tag: "Integration",
       title: "Your content stays in sync, automatically.",
-      body: "We build a custom connection to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on the website. No double entry, no data falling out of sync. A standing gift of time back to your admin team.",
+      body: "We build a custom connection to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on the website. No double entry, no data falling out of sync — and your admin team gets those hours back.",
       points: [],
     },
-    {
-      id: "login" as const,
-      n: "",
-      tag: "The whole point",
-      title: "Built-in member login with personalized next steps.",
-      body: "You track discipleship data \u2014 we surface it. Members sign in and see their groups, their classes, and their next step. The website becomes a personalized hub that streamlines discipleship and moves people through the path you\u2019ve already built.",
-      points: ["Secure member login", "Personalized next steps"],
-    },
   ],
+
+  discipleship: {
+    eyebrow: "All to empower this",
+    titleA: "Then a member signs in,",
+    titleB: "and the website starts discipling.",
+    sub: "The site reads the church software you already run. The moment someone signs in, it knows them \u2014 their group, their giving, their place on the discipleship track you\u2019ve built \u2014 and shows them one clear next step toward following Jesus.",
+    tabs: { before: "Any visitor", after: "Sarah, signed in" },
+    beats: [
+      {
+        n: "01",
+        k: "You define the pathway",
+        v: "Baptism, community group, membership class, serving \u2014 whatever your church does to help people follow Jesus.",
+      },
+      {
+        n: "02",
+        k: "We connect your data",
+        v: "Planning Center, Breeze, CCB \u2014 the site reads where each person actually is. No new system for your staff to manage.",
+      },
+      {
+        n: "03",
+        k: "Every member sees one next step",
+        v: "Not a generic homepage. Their group, their progress, and the single next thing to do \u2014 every time they visit.",
+      },
+    ],
+    cta: "See it in action",
+    ctaNote: "Opens the live member experience on our latest build.",
+    secondary: "Book a call",
+  },
 
   backendsLead: "We integrate with the tools you already use",
   backends: [
@@ -137,7 +147,7 @@ export const DATA = {
     sub: "A full ground-up website and content studio, connected to their church management system. Go see it for yourself.",
     church: "Aletheia Church",
     location: "Built ground-up \u00B7 2025",
-    url: "https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37",
+    url: DEMO_URL,
     urlLabel: "aletheia.org",
     stats: [] as { k: string; v: string }[],
   },
@@ -162,28 +172,40 @@ export const DATA = {
       {
         name: "Arjun",
         role: "Marketing & Relationships",
-        bio: "Connects the website to the tools churches already run, so the tech disappears and the ministry comes forward.",
+        bio: "I’m the one on the call with your team, learning how your church runs and connecting the website to the tools you already use — so the tech disappears and the ministry comes forward.",
       },
     ],
   },
 
   pricing: {
-    eyebrow: "Simple by design",
-    title: "Pay once. Own it forever.",
-    sub: "One project fee to design and build. After that, the site is yours \u2014 built on modern tooling with generous free tiers, so there\u2019s no subscription, no hosting bill, no lock-in.",
-    rows: [
-      { k: "Custom design & build", v: "Included" },
-      { k: "Tailored content studio (CMS)", v: "Included" },
-      { k: "Church software integration", v: "Included" },
-      { k: "Member login & discipleship steps", v: "Included" },
-      { k: "Monthly platform fees", v: "$0" },
-      { k: "Hosting", v: "$0" },
-    ],
+    eyebrow: "How we work",
+    title: "One build. One partnership.",
+    sub: "One project fee covers the design and build, and the site is yours. After launch, we work with you monthly: direct access to the people who built your site, whenever you need us. We\u2019d love to come alongside your team and make sure the whole system keeps working great for you.",
+    note: "We\u2019ll walk through exact pricing together on the call \u2014 no surprises.",
+    build: {
+      label: "The build",
+      note: "one project fee",
+      rows: [
+        { k: "Custom design & build", v: "Included" },
+        { k: "Tailored content studio (CMS)", v: "Included" },
+        { k: "Church software integration", v: "Included" },
+        { k: "Member login & discipleship steps", v: "Included" },
+      ],
+    },
+    partnership: {
+      label: "The partnership",
+      note: "monthly",
+      rows: [
+        { k: "Direct access to us \u2014 call, text, email", v: "Always" },
+        { k: "Fixes, updates & new pages", v: "Covered" },
+        { k: "Hosting, domain & upkeep", v: "Handled" },
+      ],
+    },
   },
 
   finalCta: {
-    title: ["Let\u2019s build the website", "your church deserves."],
-    sub: "Book a short call, or jump straight into a live demo. We\u2019d love to see how we can help further God\u2019s kingdom together!",
+    title: ["We\u2019d love to hear", "your church\u2019s story."],
+    sub: "Book a short call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. We\u2019d love to see how we can further God's Kingdom together!",
     primary: "Book a 20-min call",
     secondary: "See a live demo",
   },
@@ -191,11 +213,13 @@ export const DATA = {
   aboutUs: {
     story: {
       eyebrow: "Our story",
-      title: "It started with a conversation at church.",
+      title: "It started with a build for our own church.",
       paragraphs: [
-        "We met at Aletheia Church in the fall of 2024. Jason had just come to saving faith earlier that year, and Arjun had been serving in ministry operations for a while. A casual conversation after service turned into an hours-long talk about something we both noticed: the tools churches use online are not serving them well.",
-        "Most church websites we looked at were template-based, disconnected from the software the church actually runs on, and built in a way that made staff afraid to touch them. But the deeper issue was this \u2014 none of them were designed to help someone grow as a disciple. They were digital brochures, not discipleship tools.",
-        "So we started building. Jason brought the design and engineering background, Arjun brought the relational and operational side, and together we set out to build church websites that actually serve the mission of the church \u2014 to make disciples.",
+        "My pastor said he wanted a better website \u2014 something that looked better and worked better. I knew how to do that, so I dove in.",
+        "Since I wasn\u2019t using a template anymore, I had to build the church a new CMS to power the site. That\u2019s when I saw what their old setup was really like for the staff: bloated, confusing, and hard to maintain. So I built them a clean, custom CMS instead \u2014 exactly what they needed, with the ability to make new landing pages and add whatever content they wanted.",
+        "Then I realized the church kept everything \u2014 member profiles, events, groups, class registrations \u2014 in their church management software, Church Community Builder. Staff were entering groups and events there, and then entering them again into the website. The two systems weren\u2019t talking. So I built a custom integration between them: their backend became the single source of truth, and the website stayed in sync automatically.",
+        "The last realization was the biggest. I could give members a login on the website that linked to their profile in the church\u2019s backend, and surface everything the church already knew \u2014 their group, their classes, their next step. A personalized discipleship engine that every member of the church could see and use for themselves. That\u2019s when I knew this was the most powerful thing we had to offer.",
+        "\u2014 Jason",
       ],
     },
 
@@ -211,11 +235,11 @@ export const DATA = {
         },
         {
           label: "Built to last",
-          body: "We don\u2019t rent you a platform that disappears when you stop paying. We build you a website on modern, open technology that you own outright. No monthly fees, no lock-in, no expiration date.",
+          body: "We don\u2019t rent you a platform that disappears when you stop paying. We build you a website on modern, open technology that you own outright. No platform rent, no lock-in, no expiration date.",
         },
         {
           label: "Serve, not sell",
-          body: "We\u2019re not a SaaS company looking for recurring revenue. We\u2019re two guys who love the local church and want to serve it well. That shapes everything \u2014 how we price, how we communicate, and how we build.",
+          body: "We\u2019re not a platform collecting rent. When churches partner with us monthly, it\u2019s for people, not software \u2014 direct access to the two who built their site. We love the local church and want to serve it well, and that shapes how we price, how we communicate, and how we build.",
         },
         {
           label: "Craft over speed",

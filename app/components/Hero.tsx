@@ -79,7 +79,7 @@ function MiniSite({ mode }: { mode: "desktop" | "mobile" }) {
   );
 }
 
-function HeroDevices() {
+export function HeroDevices() {
   return (
     <div className="relative pb-[30px] pt-2">
       <div className="relative ml-auto mr-6 w-full max-w-[462px] max-[920px]:max-w-[340px]">
@@ -136,7 +136,7 @@ export default function Hero() {
             </Btn>
             <Btn
               variant="ghost"
-              href="https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37"
+              href={DATA.demoUrl}
               target="_blank"
               rel="noreferrer"
               className={mobileBtn}

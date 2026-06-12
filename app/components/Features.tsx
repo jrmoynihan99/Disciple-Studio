@@ -443,177 +443,20 @@ function DemoSync({ on }: { on: boolean }) {
   );
 }
 
-/* ---- 04: Login / Member Portal ---- */
-const STEPS = [
-  { t: "Attend a Sunday gathering", s: "done" },
-  { t: "Get baptized", s: "done" },
-  { t: "Join a community group", s: "now" },
-  { t: "Take the membership class", s: "next" },
-  { t: "Find a place to serve", s: "next" },
-] as const;
-
-const STEP_STYLES = {
-  done: {
-    row: "bg-paper text-muted",
-    mark: "bg-[#3a6a4e] text-white",
-    text: "line-through",
-  },
-  now: {
-    row: "bg-accent-tint shadow-[inset_0_0_0_1px_var(--color-accent)]",
-    mark: "shadow-[inset_0_0_0_2px_var(--color-accent)]",
-    text: "",
-  },
-  next: {
-    row: "bg-paper",
-    mark: "shadow-[inset_0_0_0_2px_var(--color-line)]",
-    text: "",
-  },
-};
-
-function DemoLogin({ on }: { on: boolean }) {
-  const [screen, setScreen] = useState("login");
-
-  useEffect(() => {
-    if (!on) return;
-    const seq: [string, number][] = [
-      ["login", 1300],
-      ["loading", 700],
-      ["dash", 4800],
-    ];
-    let i = 0;
-    let timer: ReturnType<typeof setTimeout>;
-    const run = () => {
-      setScreen(seq[i][0]);
-      timer = setTimeout(() => {
-        i = (i + 1) % seq.length;
-        run();
-      }, seq[i][1]);
-    };
-    run();
-    return () => clearTimeout(timer);
-  }, [on]);
-
-  const label =
-    "mb-3 block font-mono text-[9.5px] tracking-[0.13em] text-muted";
-  const meta = "text-xs text-muted";
-  return (
-    <DemoFrame bar="grace &middot; member portal">
-      <div className="relative">
-        {/* Dashboard always renders in flow to set the container height */}
-        <div
-          className="flex animate-fade-in flex-col gap-4"
-          style={{ visibility: screen === "dash" ? "visible" : "hidden" }}
-        >
-          <div className="flex items-center gap-3 border-b border-line pb-[13px]">
-            <span className="font-serif text-base">Grace</span>
-            <span className="ml-1.5 flex gap-[7px]">
-              <i className="block h-[5px] w-[26px] rounded-[3px] bg-line" />
-              <i className="block h-[5px] w-[26px] rounded-[3px] bg-line" />
-              <i className="block h-[5px] w-[26px] rounded-[3px] bg-line" />
-            </span>
-            <span className="ml-auto flex items-center gap-2 text-[13px] font-medium">
-              <span className="grid h-6 w-6 place-items-center rounded-full bg-accent text-[11px] font-semibold text-white">
-                S
-              </span>
-              Sarah
-            </span>
-          </div>
-          <div className="text-2xl tracking-[-0.01em]">
-            Welcome back, <b className="font-serif text-accent">Sarah.</b>
-          </div>
-          <div className="grid grid-cols-[1.35fr_0.95fr] gap-3.5 max-[560px]:grid-cols-1">
-            <div className="rounded-xl border border-line bg-card p-4">
-              <span className={label}>YOUR NEXT STEPS</span>
-              <div className="flex flex-col gap-2">
-                {STEPS.map((s, i) => {
-                  const st = STEP_STYLES[s.s];
-                  return (
-                    <div
-                      key={i}
-                      className={`flex animate-fade-in-back items-center gap-2.5 rounded-[9px] px-[11px] py-[9px] text-[13px] ${st.row}`}
-                      style={{ animationDelay: i * 80 + "ms" }}
-                    >
-                      <span
-                        className={`grid h-[18px] w-[18px] flex-none place-items-center rounded-full text-[10px] ${st.mark}`}
-                      >
-                        {s.s === "done" ? "✓" : ""}
-                      </span>
-                      <span className={`flex-1 ${st.text}`}>{s.t}</span>
-                      {s.s === "now" && (
-                        <span className="font-mono text-[9px] text-accent">
-                          You&rsquo;re here
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="flex flex-col gap-3.5">
-              <div className="rounded-xl bg-paper-2 p-4">
-                <span className={label}>YOUR GROUP</span>
-                <div className="mb-[3px] text-[15px] font-semibold">
-                  Tuesday Women&rsquo;s Group
-                </div>
-                <div className={meta}>
-                  Next: Tue 7:00pm &middot; Hosted by Beth
-                </div>
-              </div>
-              <div className="rounded-xl bg-accent-tint p-4">
-                <span className={label}>THIS YEAR</span>
-                <div className="mb-1 font-serif text-[26px] leading-none text-accent">
-                  $1,240
-                </div>
-                <div className={meta}>in generosity &middot; thank you</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* Login & loading overlay on top */}
-        {screen === "login" && (
-          <div className="absolute inset-0 z-[1] grid place-items-center bg-card">
-            <div className="flex w-[252px] flex-col gap-[11px] rounded-[14px] border border-line bg-card px-6 py-7 text-center shadow-[0_24px_46px_-28px_rgba(28,24,19,0.4)]">
-              <div className="font-serif text-[30px] leading-none">Grace</div>
-              <div className="mb-1.5 text-xs text-muted">Member sign in</div>
-              <div className="rounded-[9px] border border-line bg-paper-2 px-3 py-[11px] text-left font-mono text-xs text-muted">
-                sarah@email.com
-              </div>
-              <div className="rounded-[9px] border border-line bg-paper-2 px-3 py-[11px] text-left font-mono text-xs text-muted">
-                &bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;
-              </div>
-              <div className="mt-1 rounded-[9px] bg-accent p-[11px] text-[13px] font-semibold text-white">
-                Sign in
-              </div>
-            </div>
-          </div>
-        )}
-        {screen === "loading" && (
-          <div className="absolute inset-0 z-[1] grid place-items-center bg-card">
-            <div className="h-8 w-8 animate-spinner rounded-full border-[3px] border-line border-t-accent" />
-          </div>
-        )}
-      </div>
-    </DemoFrame>
-  );
-}
-
 /* ---------- demo registry ---------- */
 const DEMOS: Record<string, React.ComponentType<{ on: boolean }>> = {
   modern: DemoModern,
   cms: DemoCMS,
   sync: DemoSync,
-  login: DemoLogin,
 };
 
 /* ---------- Feature row ---------- */
 function FeatureRow({
   f,
   i,
-  climax = false,
 }: {
   f: (typeof DATA.features)[number];
   i: number;
-  climax?: boolean;
 }) {
   const [ref, inView] = useInView();
   const Demo = DEMOS[f.id];
@@ -628,23 +471,13 @@ function FeatureRow({
           flip ? "min-[941px]:order-2" : ""
         } ${inView ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"}`}
       >
-        {!climax && (
-          <div className="mb-[18px] flex items-center gap-3 font-mono text-[13px] text-muted after:h-px after:flex-1 after:bg-line after:content-['']">
-            {f.n && (
-              <span className="font-semibold text-accent">{f.n}</span>
-            )}
-            <em className="text-[11.5px] not-italic uppercase tracking-[0.14em]">
-              {f.tag}
-            </em>
-          </div>
-        )}
-        <h3
-          className={`font-serif leading-[1.04] tracking-[-0.02em] [font-weight:460] ${
-            climax
-              ? "text-[clamp(32px,3.2vw,42px)]"
-              : "text-[clamp(30px,3vw,36px)]"
-          }`}
-        >
+        <div className="mb-[18px] flex items-center gap-3 font-mono text-[13px] text-muted after:h-px after:flex-1 after:bg-line after:content-['']">
+          {f.n && <span className="font-semibold text-accent">{f.n}</span>}
+          <em className="text-[11.5px] not-italic uppercase tracking-[0.14em]">
+            {f.tag}
+          </em>
+        </div>
+        <h3 className="font-serif text-[clamp(30px,3vw,36px)] leading-[1.04] tracking-[-0.02em] [font-weight:460]">
           {f.title}
         </h3>
         <p className="mt-[18px] text-[16.5px] leading-[1.6] text-ink-soft">
@@ -680,44 +513,28 @@ function FeatureRow({
 }
 
 export default function Features() {
-  const trio = DATA.features.slice(0, 3);
-  const climax = DATA.features[3];
   return (
     <section
       id="features"
-      className="scroll-mt-[88px] bg-paper pt-[120px] max-[720px]:pt-[78px]"
+      className="scroll-mt-[88px] bg-paper py-[120px] max-[720px]:py-[78px]"
     >
       <Wrap>
         <div className="mb-20 max-w-[760px]">
-          <Eyebrow>What we build</Eyebrow>
+          <Eyebrow>So we started building</Eyebrow>
           <SecTitle>
-            A custom website that&rsquo;s connected to your church tools, easy
-            for your staff to run, and{" "}
-            <em className="italic text-accent">built to disciple.</em>
+            First, the foundation — a custom website your staff can run,{" "}
+            <em className="italic text-accent">
+              synced to the tools you already use.
+            </em>
           </SecTitle>
         </div>
 
-        <div className="flex flex-col gap-[130px] pb-[120px] max-[940px]:gap-[90px]">
-          {trio.map((f, i) => (
+        <div className="flex flex-col gap-[130px] max-[940px]:gap-[90px]">
+          {DATA.features.map((f, i) => (
             <FeatureRow key={f.id} f={f} i={i} />
           ))}
         </div>
       </Wrap>
-
-      <div className="border-t border-[color-mix(in_oklab,var(--color-accent)_12%,var(--color-line))] bg-[color-mix(in_oklab,var(--color-accent)_4%,var(--color-paper))] pb-[120px] pt-20 max-[940px]:pb-[78px] max-[940px]:pt-14">
-        <Wrap>
-          <div className="mx-auto mb-[72px] flex max-w-[700px] flex-col items-center gap-[22px] text-center max-[940px]:mb-12">
-            <Eyebrow className="justify-center">
-              And then we go further
-            </Eyebrow>
-            <h3 className="font-serif text-[clamp(24px,3vw,36px)] leading-[1.3] tracking-[-0.02em] text-ink [font-weight:460]">
-              Your website becomes the hub for{" "}
-              <em className="italic text-accent">discipleship.</em>
-            </h3>
-          </div>
-          <FeatureRow f={climax} i={0} climax />
-        </Wrap>
-      </div>
     </section>
   );
 }
