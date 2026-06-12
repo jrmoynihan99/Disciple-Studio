@@ -7,10 +7,10 @@ export const DATA = {
   demoUrl: DEMO_URL,
 
   nav: [
-    { label: "What We Noticed", href: "/#why" },
-    { label: "What We Build", href: "/#features" },
+    { label: "The Problem", href: "/#why" },
+    { label: "Our Solution", href: "/#features" },
     { label: "Work", href: "/#showcase" },
-    { label: "Who We Are", href: "/#founders" },
+    { label: "Who We Are", href: "/about-us" },
   ],
 
   hero: {
@@ -183,8 +183,8 @@ export const DATA = {
   pricing: {
     eyebrow: "How we work",
     title: "One build.\nOne partnership.",
-    sub: "One project fee covers the design and build, and the site is yours. After launch, we work with you monthly: direct access to the people who built your site, whenever you need us. We\u2019d love to come alongside your team and make sure the whole system keeps working great for you.",
-    note: "We\u2019ll walk through exact pricing together on the call \u2014 no surprises.",
+    sub: "One project fee covers the design and build, and the site is yours. After launch, we stick around for when you need us. Direct access to the people who built your site, whenever you need us.",
+    note: "We\u2019ll discuss pricing together on the call, based on your needs.",
     build: {
       label: "The build",
       note: "one project fee",
