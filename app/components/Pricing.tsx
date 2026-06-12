@@ -40,7 +40,7 @@ export default function Pricing() {
         <div className="grid grid-cols-2 gap-[50px] rounded-[22px] border border-line bg-card p-[52px] max-[820px]:grid-cols-1 max-[820px]:gap-8 max-[820px]:p-8">
           <div>
             <Eyebrow>{p.eyebrow}</Eyebrow>
-            <SecTitle>{p.title}</SecTitle>
+            <SecTitle className="whitespace-pre-line">{p.title}</SecTitle>
             <p className="mb-[30px] mt-5 text-[17px] leading-[1.6] text-ink-soft">
               {p.sub}
             </p>

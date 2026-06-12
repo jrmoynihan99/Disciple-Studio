@@ -136,12 +136,10 @@ export const DATA = {
     "Breeze",
     "Church Community Builder",
     "Rock RMS",
-    "Tithe.ly",
-    "Pushpay",
-    "Subsplash",
-    "Elvanto",
+    "MinistryPlatform",
+    "Tithely ChMS",
     "FellowshipOne",
-    "ChurchTrac",
+    "Subsplash",
   ],
 
   showcase: {
@@ -184,7 +182,7 @@ export const DATA = {
 
   pricing: {
     eyebrow: "How we work",
-    title: "One build. One partnership.",
+    title: "One build.\nOne partnership.",
     sub: "One project fee covers the design and build, and the site is yours. After launch, we work with you monthly: direct access to the people who built your site, whenever you need us. We\u2019d love to come alongside your team and make sure the whole system keeps working great for you.",
     note: "We\u2019ll walk through exact pricing together on the call \u2014 no surprises.",
     build: {

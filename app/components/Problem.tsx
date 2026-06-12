@@ -33,7 +33,6 @@ export default function Problem() {
           </div>
         </div>
         <div className="mx-auto mt-[72px] flex max-w-[800px] flex-col items-center gap-[22px] text-center">
-          <Eyebrow className="justify-center">{p.beliefLabel}</Eyebrow>
           <h3 className="font-serif text-[clamp(24px,3vw,36px)] leading-[1.3] tracking-[-0.02em] [font-weight:460]">
             {p.beliefLead} <em className="text-accent">{p.beliefHighlight}</em>
           </h3>
