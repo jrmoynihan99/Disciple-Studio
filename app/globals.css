@@ -114,6 +114,69 @@
   }
 }
 
+/* ============================================================
+   /v2 — "Notebook" tokens (handcrafted paper · Lora + Caveat)
+   Prefixed nb- so they don't collide with the v1 tokens above.
+   ============================================================ */
+
+/* inline so the var(--font-*) refs resolve on the element using the
+   utility — the next/font variables live on the /v2 wrapper div, not
+   on :root, so a :root-level reference would invalidate. */
+@theme inline {
+  --font-nb-serif: var(--font-lora), Georgia, serif;
+  --font-nb-hand: var(--font-caveat), cursive;
+}
+
+@theme {
+  --color-nb-paper: #f7f2e8;
+  --color-nb-ink: #3a342c;
+  --color-nb-red: #b3402f;
+  --color-nb-tan: #8a6d3f;
+  --color-nb-muted: #6e6354;
+  --color-nb-soft: #5c5345;
+  --color-nb-faded: #9a8e7b;
+  --color-nb-card: #fffdf7;
+  --color-nb-border: #e2d8c2;
+  --color-nb-cream: #f1eadb;
+  --color-nb-cream-2: #e9e0cc;
+  --color-nb-receipt: #fbf3d9;
+  --color-nb-receipt-line: #e5d391;
+  --color-nb-green: #4a7b57;
+  --color-nb-hl: #f4df7e;
+  --color-nb-sel: #f4e3a1;
+  --color-nb-gold: #dec98a;
+  --color-nb-dark-muted: #c9bfa9;
+  --color-nb-dark-body: #d9d0bd;
+
+  --animate-nb-pop: nb-pop 0.4s;
+  --animate-nb-pop-back: nb-pop 0.4s backwards;
+  --animate-nb-fade: nb-fade 0.35s;
+  --animate-nb-pulse: nb-pulse 2s infinite;
+
+  @keyframes nb-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.85) rotate(-2deg);
+    }
+  }
+  @keyframes nb-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes nb-pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(179, 64, 47, 0.5);
+    }
+    70% {
+      box-shadow: 0 0 0 7px rgba(179, 64, 47, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(179, 64, 47, 0);
+    }
+  }
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;

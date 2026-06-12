@@ -1,5 +1,5 @@
 import Nav from "@/app/components/Nav";
-import HeroSwitcher from "@/app/components/hero-variants/HeroSwitcher";
+import Hero from "@/app/components/hero-variants/HeroFaces";
 import TwoJobs from "@/app/components/TwoJobs";
 import Problem from "@/app/components/Problem";
 import Features from "@/app/components/Features";
@@ -16,7 +16,7 @@ export default function Home() {
     <>
       <Nav />
       <main>
-        <HeroSwitcher />
+        <Hero />
         <Problem />
         {/* <TwoJobs /> */}
         <Features />
