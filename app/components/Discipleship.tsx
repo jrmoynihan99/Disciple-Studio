@@ -154,7 +154,7 @@ function PublicSite({ phase }: { phase: Phase }) {
           Plan your visit
         </span>
       </div>
-      <div className="flex-1 px-5 py-5">
+      <div className="flex flex-1 flex-col px-5 py-5">
         <div className="mb-3 font-mono text-[9px] tracking-[0.14em] text-accent">
           THIS SUNDAY
         </div>
@@ -170,8 +170,43 @@ function PublicSite({ phase }: { phase: Phase }) {
             </div>
           ))}
         </div>
-        <div className="mt-4 font-mono text-[10px] text-muted">
-          The same page, for everyone, every visit.
+        <div className="mt-5 hidden max-[640px]:block">
+          <div className="mb-3 font-mono text-[9px] tracking-[0.14em] text-accent">
+            UPCOMING
+          </div>
+          <div className="flex flex-col gap-2">
+            {[
+              ["Sun · 10am", "Worship Gathering"],
+              ["Wed · 7pm", "Youth Night"],
+              ["Sat · 9am", "Men’s Breakfast"],
+            ].map(([when, what], i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-lg border border-line bg-card px-3 py-2.5"
+              >
+                <span className="font-mono text-[9.5px] text-accent">
+                  {when}
+                </span>
+                <span className="text-xs text-ink-soft">{what}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-5 hidden max-[640px]:block">
+          <div className="mb-3 font-mono text-[9px] tracking-[0.14em] text-accent">
+            LATEST SERMON
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border border-line bg-card px-3 py-3">
+            <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-accent text-[10px] text-white">
+              {"▶"}
+            </span>
+            <span className="flex flex-col gap-px">
+              <span className="text-xs font-semibold">The Prodigal Son</span>
+              <span className="text-[10.5px] text-muted">
+                Parables · Pastor James
+              </span>
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -257,7 +292,7 @@ function Dashboard({ prog, cycle }: { prog: number; cycle: number }) {
             </div>
           </div>
           <div
-            className="animate-fade-in-back rounded-xl bg-accent-tint p-4"
+            className="animate-fade-in-back rounded-xl bg-accent-tint p-4 max-[640px]:hidden"
             style={d(480)}
           >
             <span className={label}>THIS YEAR</span>

@@ -313,9 +313,6 @@ function DemoCMS({ on }: { on: boolean }) {
               />
             </span>
           </div>
-          <div className="mt-1 font-mono text-[10.5px] text-muted">
-            4 fields. That&rsquo;s the whole form.
-          </div>
         </div>
         <div className="rounded-xl bg-paper-2 p-3.5">
           <div className="mb-2.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
@@ -399,7 +396,13 @@ function DemoSync({ on }: { on: boolean }) {
   const ev = SYNC_ITEMS[idx];
   return (
     <DemoFrame bar="sync · church backend → website">
-      <div className="grid min-h-[250px] grid-cols-[1fr_1.1fr_1fr] items-stretch gap-2.5 max-[940px]:min-h-0 max-[940px]:grid-cols-1 max-[940px]:gap-4">
+      <div className="mb-3 hidden items-center justify-center max-[940px]:flex">
+        <span className="inline-flex items-center gap-2 rounded-full border border-line bg-paper-2 px-3 py-1.5 font-mono text-[9.5px] tracking-[0.1em] text-ink-soft">
+          <span className="h-[7px] w-[7px] animate-pulse-dot rounded-full bg-accent" />
+          AUTO-SYNC · WEBSITE CMS
+        </span>
+      </div>
+      <div className="grid min-h-[250px] grid-cols-[1fr_1.1fr_1fr] items-stretch gap-2.5 max-[940px]:min-h-0 max-[940px]:grid-cols-2 max-[940px]:gap-3">
         <div className="flex flex-col">
           <div className="mb-2.5 flex items-center gap-2 text-xs font-semibold">
             <span className="grid h-[22px] w-[22px] place-items-center rounded-md bg-ink">
@@ -439,7 +442,7 @@ function DemoSync({ on }: { on: boolean }) {
             </div>
           ))}
         </div>
-        <div className="relative flex flex-col items-center justify-center max-[940px]:flex-row max-[940px]:py-3">
+        <div className="relative flex flex-col items-center justify-center max-[940px]:hidden">
           <div className="absolute inset-x-0 top-1/2 h-0.5 bg-[repeating-linear-gradient(90deg,var(--color-line),var(--color-line)_5px,transparent_5px,transparent_11px)] max-[940px]:hidden" />
           <div
             className={`absolute left-0 top-1/2 z-[3] inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-accent bg-card px-2.5 py-[5px] text-[11px] opacity-0 shadow-[0_6px_16px_-8px_var(--color-accent)] [transform:translate(-10px,-50%)] max-[940px]:hidden ${
@@ -502,9 +505,6 @@ function DemoSync({ on }: { on: boolean }) {
               </div>
             );
           })}
-          <div className="mt-1 font-mono text-[10px] text-muted">
-            No double entry. Ever.
-          </div>
         </div>
       </div>
     </DemoFrame>
