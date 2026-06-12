@@ -84,7 +84,7 @@ export default function HeroFaces() {
           </div>
         </div>
 
-        <div className="max-[920px]:mx-auto max-[920px]:max-w-[560px]">
+        <div>
           <div className="grid grid-cols-2 items-start gap-5 pb-10">
             <Portrait
               name="Jason"

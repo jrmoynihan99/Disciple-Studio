@@ -551,19 +551,21 @@ function FeatureRow({
         <p className="mt-[18px] text-[16.5px] leading-[1.6] text-ink-soft">
           {f.body}
         </p>
-        <ul className="mt-6 flex list-none flex-col gap-[11px]">
-          {f.points.map((p, k) => (
-            <li
-              key={k}
-              className="flex items-center gap-[11px] text-[15px] font-medium"
-            >
-              <span className="grid h-[21px] w-[21px] place-items-center rounded-full bg-accent-tint text-[11px] text-accent">
-                {"✓"}
-              </span>
-              {p}
-            </li>
-          ))}
-        </ul>
+        {f.points.length > 0 && (
+          <ul className="mt-6 flex list-none flex-col gap-[11px]">
+            {f.points.map((p, k) => (
+              <li
+                key={k}
+                className="flex items-center gap-[11px] text-[15px] font-medium"
+              >
+                <span className="grid h-[21px] w-[21px] place-items-center rounded-full bg-accent-tint text-[11px] text-accent">
+                  {"✓"}
+                </span>
+                {p}
+              </li>
+            ))}
+          </ul>
+        )}
         {f.cta && (
           <Btn
             href={f.cta.href}
