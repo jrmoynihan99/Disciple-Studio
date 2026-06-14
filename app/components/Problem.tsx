@@ -1,8 +1,6 @@
+import Image from "next/image";
 import { DATA } from "@/app/data";
 import { Eyebrow, SecTitle, Wrap } from "@/app/components/ui";
-
-const STRIPES =
-  "bg-[repeating-linear-gradient(45deg,var(--color-paper-2),var(--color-paper-2)_10px,var(--color-paper-3)_10px,var(--color-paper-3)_20px)]";
 
 export default function Problem() {
   const p = DATA.problem;
@@ -13,12 +11,14 @@ export default function Problem() {
     >
       <Wrap>
         <div className="grid grid-cols-[0.9fr_1.1fr] items-center gap-16 max-[900px]:grid-cols-1 max-[900px]:gap-10">
-          <div
-            className={`grid aspect-[4/3] place-items-center overflow-hidden rounded-[22px] border border-line shadow-[0_30px_50px_-34px_rgba(28,24,19,0.4)] ${STRIPES} max-[900px]:order-2 max-[900px]:mx-auto max-[900px]:w-full max-[900px]:max-w-[520px]`}
-          >
-            <span className="font-mono text-[11px] tracking-[0.05em] text-muted">
-              image
-            </span>
+          <div className="relative aspect-[4/3] overflow-hidden rounded-[22px] border border-line shadow-[0_30px_50px_-34px_rgba(28,24,19,0.4)] max-[900px]:order-2 max-[900px]:mx-auto max-[900px]:w-full max-[900px]:max-w-[520px]">
+            <Image
+              src="/laptop.jpg"
+              alt="Jason and Arjun looking at a church website together"
+              fill
+              sizes="(max-width: 900px) 520px, 48vw"
+              className="object-cover"
+            />
           </div>
           <div>
             <Eyebrow>{p.eyebrow}</Eyebrow>
