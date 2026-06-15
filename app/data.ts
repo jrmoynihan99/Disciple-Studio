@@ -1,5 +1,6 @@
 const DEMO_URL =
   "https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37";
+const LIVE_URL = "https://aletheia-website-seven.vercel.app/";
 
 export const DATA = {
   brand: "Disciple Studio",
@@ -61,7 +62,7 @@ export const DATA = {
     title: "Every church website we visited informed.",
     titleEm: "Almost none discipled.",
     body: [
-      "Most churches used an inflexible template that didn't match their branding, and couldn't really be adjusted.",
+      "Most churches used an inflexible template that wasn't that great to use, and couldn't be meaningfully improved.",
       "When we talked to staff, we heard about the headache it was to manage and maintain the content on their site.",
       "And what we couldn\u2019t find was anything that helped streamline discipleship for it's members. To make their next step clear. The site never knew its people.",
     ],
@@ -76,9 +77,46 @@ export const DATA = {
       id: "modern" as const,
       n: "01",
       tag: "The front door",
-      title: "A custom, beautiful site that nails your branding",
-      body: "Templates didn't cut it. We wanted something better. An experience specifically for your church. Built on the same technology behind some of the fastest sites on the web. It loads instantly, looks right on every device, and has room to grow with your church for years.",
-      cta: { label: "See a live demo", href: DEMO_URL },
+      title: "A 100% custom site, built specifically for your church.",
+      body: "Templates don't cut it. We work with you personally to build the site of your dreams. Built on the same technology behind the fastest sites on the web, it loads instantly, looks right on every device, and grows with your church for years. See below for a few of the custom features we've built:",
+      cta: { label: "See a live demo", href: LIVE_URL },
+      pages: [
+        {
+          title: "Interactive Discipleship Track",
+          blurb:
+            "We take your discipleship pathway and make it interactive. People click through each step or class, see what it is at a glance, and can jump into any one at any point.",
+          href: `${LIVE_URL}next-steps`,
+        },
+        {
+          title: "Custom Sermon Experience",
+          blurb:
+            "A focused, full-screen view for watching a sermon — the video, the slides, and a place to take notes, all on one page and nothing else.",
+          href: `${LIVE_URL}watch/from-scarcity-to-surrender-cambridge`,
+        },
+        {
+          title: "Custom Small Groups Finder",
+          blurb:
+            "Browse every group as a list or on a map. It filters down the moment someone searches or picks a filter — by day, location, life stage, or whatever you set up.",
+          href: `${LIVE_URL}groups`,
+        },
+        {
+          title: "Built In Custom Giving",
+          blurb:
+            "A giving page built into your site that links straight to your giving platform — with the fund and amount already filled in, so giving takes one tap.",
+          href: `${LIVE_URL}give`,
+        },
+        {
+          title: "Custom Class Pages",
+          blurb:
+            "A complete home for each class — videos, podcasts, and everything you teach in one place, with a direct link to sign up for the next session.",
+          href: `${LIVE_URL}establishing-foundations`,
+        },
+        {
+          title: "Whatever You Dream Of",
+          blurb:
+            "If your church needs a page or tool that doesn't exist yet, we build it. Make a list and bring it to our call!",
+        },
+      ] as { title: string; blurb: string; href?: string }[],
       points: [],
     },
     {
@@ -89,6 +127,7 @@ export const DATA = {
         "A streamlined CMS your staff can easily use \u2014 and expand on their own.",
       body: "We build your CMS from scratch, tailored to you. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it with the blocks we set up. No bloated builder, no code.",
       cta: null,
+      pages: [] as { title: string; blurb: string; href?: string }[],
       points: [],
     },
     {
@@ -98,6 +137,7 @@ export const DATA = {
       title: "Your content stays in sync, automatically.",
       body: "We build a custom connection to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on the website. No double entry, no data falling out of sync — and your admin team gets those hours back.",
       cta: null,
+      pages: [] as { title: string; blurb: string; href?: string }[],
       points: [],
     },
   ],

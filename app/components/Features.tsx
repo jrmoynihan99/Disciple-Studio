@@ -151,9 +151,9 @@ function DemoModern({ on }: { on: boolean }) {
   const b = BRANDS[bi];
   return (
     <DemoFrame bar={b.domain}>
-      <div className="grid grid-cols-[1fr_120px] gap-4 max-[940px]:grid-cols-[1fr_100px]">
+      <div className="grid h-[360px] grid-cols-[1fr_120px] gap-4 max-[940px]:grid-cols-[1fr_100px]">
         {/* the mini site, re-skinned by whichever brand is active */}
-        <div className="flex min-h-[270px] flex-col overflow-hidden rounded-xl border border-line bg-card">
+        <div className="flex h-full flex-col overflow-hidden rounded-xl border border-line bg-card">
           <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-2.5">
             <b
               className="font-serif text-[13px] leading-none transition-colors duration-500"
@@ -191,7 +191,7 @@ function DemoModern({ on }: { on: boolean }) {
               Plan your visit
             </span>
           </div>
-          <div className="flex-1 px-3.5 py-3">
+          <div className="px-3.5 py-3">
             <div
               className="mb-2 font-mono text-[8.5px] tracking-[0.13em] transition-colors duration-500"
               style={{ color: b.c }}
@@ -216,8 +216,34 @@ function DemoModern({ on }: { on: boolean }) {
               ))}
             </div>
           </div>
+          <div className="mt-auto flex items-center gap-2.5 border-t border-line px-3.5 py-3">
+            <span
+              className="grid h-9 w-9 flex-none place-items-center rounded-lg text-[12px] text-white transition-colors duration-500"
+              style={{ background: b.c }}
+            >
+              {"▶"}
+            </span>
+            <div className="min-w-0">
+              <div
+                className="font-mono text-[8px] uppercase tracking-[0.13em] transition-colors duration-500"
+                style={{ color: b.c }}
+              >
+                Latest sermon
+              </div>
+              <div className="truncate text-[12px] font-semibold">
+                The Prodigal Son
+              </div>
+              <div className="text-[10px] text-muted">Pastor James · 38 min</div>
+            </div>
+            <span
+              className="ml-auto whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-semibold text-white transition-colors duration-500"
+              style={{ background: b.c }}
+            >
+              Watch
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex h-full flex-col justify-between gap-3">
           <div className="rounded-[10px] bg-paper-2 px-3 py-2.5">
             <span className="mb-2 block text-center font-mono text-[8.5px] tracking-[0.12em] text-muted">
               YOUR BRAND
@@ -518,6 +544,672 @@ const DEMOS: Record<string, React.ComponentType<{ on: boolean }>> = {
   sync: DemoSync,
 };
 
+/* ---------- page visuals (feature 01) ---------- */
+const PANEL = "h-[360px]"; // every feature-01 visual matches the default panel
+
+/* a framed "church page" wrapper shared by every feature-01 visual */
+function PageShell({
+  bar,
+  title,
+  sub,
+  children,
+}: {
+  bar: string;
+  title?: string;
+  sub?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <DemoFrame bar={bar}>
+      <div
+        className={`flex flex-col overflow-hidden rounded-xl border border-line bg-card ${PANEL}`}
+      >
+        <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-2.5">
+          <b className="font-serif text-[13px] leading-none text-accent">
+            Grace Community
+          </b>
+          <span className="ml-auto flex gap-1.5">
+            <i className="block h-1 w-5 rounded-[2px] bg-line" />
+            <i className="block h-1 w-5 rounded-[2px] bg-line" />
+            <i className="block h-1 w-5 rounded-[2px] bg-line" />
+          </span>
+          <span className="rounded-full bg-accent px-2.5 py-1 text-[9px] font-semibold text-white">
+            Visit
+          </span>
+        </div>
+        <div className="flex flex-1 flex-col px-4 py-3">
+          {title && (
+            <div className="mb-2.5">
+              <div className="font-sans text-[15px] font-bold leading-tight tracking-[-0.01em]">
+                {title}
+              </div>
+              {sub && (
+                <div className="mt-0.5 font-mono text-[8px] uppercase tracking-[0.13em] text-muted">
+                  {sub}
+                </div>
+              )}
+            </div>
+          )}
+          {children}
+        </div>
+      </div>
+    </DemoFrame>
+  );
+}
+
+const TRACK = [
+  {
+    k: "Engage",
+    sub: "Culture & community",
+    v: "A first step into the life of the church — discovering what it means to follow Jesus here.",
+    items: ["Discover Discipleship", "Welcome Lunch"],
+  },
+  {
+    k: "Establish",
+    sub: "Biblical foundations",
+    v: "Laying strong foundations in faith, Scripture, and spiritual family.",
+    items: ["Foundations Class", "Baptism", "Join a Group"],
+  },
+  {
+    k: "Equip",
+    sub: "Believers to minister",
+    v: "Growing in the gifts to serve others and take ownership in the church.",
+    items: ["Serve Team Training", "Spiritual Gifts"],
+  },
+  {
+    k: "Empower",
+    sub: "Disciples to make disciples",
+    v: "Sending mature disciples out to lead, disciple others, and multiply.",
+    items: ["Leadership Cohort", "Disciple-Making 101"],
+  },
+];
+
+function DemoTrack() {
+  const active = useCycle(TRACK.length, 2600, true);
+  const a = TRACK[active];
+  const R = 38;
+  const C = 2 * Math.PI * R;
+  const segLen = (C * 80) / 360;
+  return (
+    <PageShell
+      bar="gracecommunity.example/discipleship"
+      title="Your Discipleship Journey"
+      sub="A clear path to follow Jesus"
+    >
+      <div className="grid flex-1 grid-cols-[0.85fr_1.15fr] items-center gap-3.5">
+        {/* ring + legend */}
+        <div className="flex h-full flex-col items-center justify-center gap-2.5">
+          <div className="relative aspect-square w-full max-w-[136px]">
+            <svg viewBox="0 0 100 100" className="h-full w-full">
+              {TRACK.map((_, i) => (
+                <circle
+                  key={i}
+                  cx="50"
+                  cy="50"
+                  r={R}
+                  fill="none"
+                  strokeWidth="13"
+                  stroke={
+                    i === active
+                      ? "var(--color-accent)"
+                      : "var(--color-line-2)"
+                  }
+                  strokeDasharray={`${segLen} ${C - segLen}`}
+                  transform={`rotate(${-135 + i * 90} 50 50)`}
+                  style={{ transition: "stroke .4s ease" }}
+                />
+              ))}
+            </svg>
+            <div className="absolute inset-0 grid place-items-center">
+              <div className="grid aspect-square w-[40%] place-items-center rounded-full bg-card text-center shadow-[0_2px_10px_-4px_rgba(28,24,19,0.25)]">
+                <div>
+                  <div className="font-serif text-[17px] leading-none text-accent">
+                    {active + 1}
+                  </div>
+                  <div className="font-mono text-[6px] tracking-[0.15em] text-muted">
+                    OF 4
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {TRACK.map((t, i) => (
+              <span
+                key={i}
+                className={`rounded-full px-2 py-[3px] font-mono text-[8px] uppercase tracking-[0.06em] transition-colors duration-300 ${
+                  i === active
+                    ? "bg-accent text-white"
+                    : "bg-paper-2 text-ink-soft"
+                }`}
+              >
+                {t.k}
+              </span>
+            ))}
+          </div>
+        </div>
+        {/* active stage detail */}
+        <div key={active} className="flex animate-fade-in-back flex-col">
+          <div className="mb-1.5 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.1em]">
+            <span className="font-semibold text-accent">Stage {active + 1}</span>
+            <span className="text-muted">{a.sub}</span>
+          </div>
+          <div className="font-serif text-[19px] leading-[1.1]">{a.k}</div>
+          <p className="mt-1.5 text-[11.5px] leading-[1.5] text-ink-soft">
+            {a.v}
+          </p>
+          <div className="mt-2 flex flex-col gap-1.5">
+            {a.items.map((it) => (
+              <div
+                key={it}
+                className="flex items-center gap-2 rounded-lg border border-line bg-paper-2 px-2.5 py-1.5 text-[11px]"
+              >
+                <span className="h-1.5 w-1.5 flex-none rounded-full bg-accent" />
+                {it}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* bottom next-step band */}
+      <div className="mt-2.5 flex items-center gap-2.5 rounded-xl border border-accent/25 bg-accent-tint px-3 py-2.5">
+        <div className="min-w-0">
+          <span className="block font-mono text-[8px] uppercase tracking-[0.13em] text-accent">
+            Your next step
+          </span>
+          <b className="text-[12px]">{a.items[0]}</b>
+        </div>
+        <span className="ml-auto whitespace-nowrap rounded-full bg-accent px-3 py-1.5 text-[10px] font-semibold text-white">
+          Sign up →
+        </span>
+      </div>
+    </PageShell>
+  );
+}
+
+/* ---- Custom Sermon Experience ---- */
+const SLIDE_COUNT = 7;
+
+function DemoSermons() {
+  const slide = useCycle(SLIDE_COUNT, 1500, true);
+  return (
+    <PageShell bar="gracecommunity.example/sermons">
+      <div className="flex flex-1 flex-col gap-2.5">
+        <div className="grid flex-1 grid-cols-[1.35fr_1fr] gap-2.5">
+          {/* video */}
+          <div className="relative grid place-items-center overflow-hidden rounded-xl bg-[repeating-linear-gradient(45deg,var(--color-paper-2),var(--color-paper-2)_9px,var(--color-paper-3)_9px,var(--color-paper-3)_18px)]">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-accent text-[15px] text-white shadow-[0_6px_16px_-6px_rgba(28,24,19,0.6)]">
+              {"▶"}
+            </span>
+            <div className="absolute inset-x-0 bottom-0 flex items-end gap-2 bg-gradient-to-t from-ink/60 to-transparent px-3 pb-2 pt-7">
+              <div className="min-w-0">
+                <div className="font-mono text-[7.5px] uppercase tracking-[0.12em] text-white/75">
+                  Parables
+                </div>
+                <div className="font-serif text-[13px] leading-tight text-white">
+                  The Prodigal Son
+                </div>
+              </div>
+              <span className="ml-auto whitespace-nowrap font-mono text-[8px] text-white/70">
+                12:04 / 38:00
+              </span>
+            </div>
+          </div>
+          {/* notes */}
+          <div className="flex flex-col rounded-xl border border-line bg-paper-2 p-2.5">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
+                My notes
+              </span>
+              <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-line bg-card px-2 py-[3px] font-mono text-[7.5px] uppercase tracking-[0.06em] text-ink-soft">
+                ↓ Download
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5 text-[10px] leading-[1.45] text-ink-soft">
+              <div className="flex gap-1.5">
+                <span className="text-accent">•</span> Grace runs to meet us
+              </div>
+              <div className="flex gap-1.5">
+                <span className="text-accent">•</span> The father saw him &ldquo;far
+                off&rdquo;
+              </div>
+              <div className="h-1.5 w-[82%] rounded-[3px] bg-ink/10" />
+              <div className="flex items-center">
+                <span className="h-1.5 w-[52%] rounded-[3px] bg-ink/10" />
+                <i className="ml-px inline-block h-3 w-[1.5px] animate-blink bg-accent" />
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* slides row */}
+        <div>
+          <span className="mb-1.5 block font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
+            Slides
+          </span>
+          <div className="flex gap-1.5">
+            {Array.from({ length: SLIDE_COUNT }).map((_, i) => (
+              <div
+                key={i}
+                className={`grid h-9 flex-1 place-items-center rounded-md border font-mono text-[8px] transition-colors duration-300 ${
+                  i === slide
+                    ? "border-accent bg-accent-tint text-accent"
+                    : "border-line bg-card text-muted"
+                }`}
+              >
+                {i + 1}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </PageShell>
+  );
+}
+
+/* ---- Custom Small Groups Finder ---- */
+const GROUPS = [
+  { name: "Tuesday Women's", when: "Tue · 7:00pm", host: "Beth" },
+  { name: "Men's Breakfast", when: "Sat · 8:00am", host: "Carlos" },
+  { name: "Young Adults", when: "Fri · 7:00pm", host: "Priya" },
+  { name: "Downtown Group", when: "Wed · 6:30pm", host: "Marcus" },
+];
+const GROUP_FILTERS = ["All Days", "Mornings", "Evenings", "Childcare"];
+const MAP_PINS = [
+  "left-[20%] top-[26%]",
+  "left-[44%] top-[20%]",
+  "left-[66%] top-[32%]",
+  "left-[32%] top-[54%]",
+  "left-[56%] top-[60%]",
+  "left-[76%] top-[52%]",
+];
+
+function DemoGroups() {
+  const v = useCycle(2, 3200, true);
+  const view = v === 0 ? "list" : "map";
+  return (
+    <PageShell
+      bar="gracecommunity.example/groups"
+      title="Find a Group"
+      sub="Community near you"
+    >
+      <div className="flex flex-1 flex-col gap-2.5">
+        {/* toolbar: filters + view toggle */}
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap gap-1.5">
+            {GROUP_FILTERS.map((t, i) => (
+              <span
+                key={t}
+                className={`whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-[8px] uppercase tracking-[0.05em] ${
+                  i === 0 ? "bg-accent text-white" : "bg-paper-2 text-ink-soft"
+                }`}
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+          <div className="ml-auto flex flex-none rounded-full border border-line bg-paper-2 p-0.5 font-mono text-[8px] uppercase tracking-[0.06em]">
+            <span
+              className={`rounded-full px-2.5 py-1 transition-colors duration-300 ${
+                view === "list"
+                  ? "bg-card text-ink shadow-[0_1px_3px_rgba(28,24,19,0.15)]"
+                  : "text-muted"
+              }`}
+            >
+              List
+            </span>
+            <span
+              className={`rounded-full px-2.5 py-1 transition-colors duration-300 ${
+                view === "map"
+                  ? "bg-card text-ink shadow-[0_1px_3px_rgba(28,24,19,0.15)]"
+                  : "text-muted"
+              }`}
+            >
+              Map
+            </span>
+          </div>
+        </div>
+        {/* content: list or map */}
+        {view === "list" ? (
+          <div
+            key="list"
+            className="flex flex-1 animate-fade-in-back flex-col gap-2"
+          >
+            {GROUPS.map((g) => (
+              <div
+                key={g.name}
+                className="flex items-center gap-2.5 rounded-xl border border-line bg-card px-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <div className="text-[12px] font-semibold">{g.name}</div>
+                  <div className="text-[10px] text-muted">
+                    {g.when} · Hosted by {g.host}
+                  </div>
+                </div>
+                <span className="ml-auto whitespace-nowrap rounded-full bg-accent px-3 py-1.5 text-[10px] font-semibold text-white">
+                  Join
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            key="map"
+            className="relative flex-1 animate-fade-in-back overflow-hidden rounded-xl border border-line bg-paper-3"
+          >
+            <div className="absolute inset-0 opacity-70">
+              <div className="absolute inset-x-0 top-1/3 h-px bg-line" />
+              <div className="absolute inset-x-0 top-2/3 h-px bg-line" />
+              <div className="absolute inset-y-0 left-1/4 w-px bg-line" />
+              <div className="absolute inset-y-0 left-2/3 w-px bg-line" />
+            </div>
+            {MAP_PINS.map((p, i) => (
+              <span
+                key={i}
+                className={`absolute ${p} -translate-x-1/2 -translate-y-1/2`}
+              >
+                <span className="block h-3 w-3 rotate-45 rounded-full rounded-bl-none bg-accent shadow-[0_3px_6px_-2px_rgba(28,24,19,0.5)]" />
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </PageShell>
+  );
+}
+
+/* ---- Built In Custom Giving ---- */
+const AMOUNTS = ["$25", "$50", "$100", "$250"];
+
+function DemoGiving() {
+  const sel = useCycle(AMOUNTS.length, 2200, true);
+  return (
+    <PageShell
+      bar="gracecommunity.example/give"
+      title="Give"
+      sub="Secure, simple generosity"
+    >
+      <div className="flex flex-1 flex-col gap-2.5">
+        <div className="flex gap-1.5">
+          <span className="rounded-full bg-ink px-3 py-1 text-[9px] font-semibold text-paper">
+            One-time
+          </span>
+          <span className="rounded-full bg-paper-2 px-3 py-1 text-[9px] font-semibold text-ink-soft">
+            Monthly
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {AMOUNTS.map((amt, i) => (
+            <div
+              key={amt}
+              className={`grid place-items-center rounded-xl border py-3 font-serif text-[18px] transition-colors duration-300 ${
+                i === sel
+                  ? "border-accent bg-accent-tint text-accent"
+                  : "border-line bg-card text-ink"
+              }`}
+            >
+              {amt}
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-line bg-paper-2 px-3 py-2 text-[11px]">
+          <span className="text-muted">Fund</span>
+          <span className="font-medium">General Fund ▾</span>
+        </div>
+        <div className="mt-auto grid place-items-center rounded-xl bg-accent py-2.5 text-[12px] font-semibold text-white">
+          Give {AMOUNTS[sel]} →
+        </div>
+        <div className="flex items-center justify-center gap-1.5 font-mono text-[8.5px] text-muted">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#3a6a4e]" />
+          Secured &amp; encrypted
+        </div>
+      </div>
+    </PageShell>
+  );
+}
+
+/* ---- Custom Class Pages ---- */
+const LESSONS = [
+  "Introduction",
+  "Engage Culture & Community",
+  "Establish Biblical Foundations",
+  "Equip Believers to Minister",
+  "Empower Disciples",
+  "Conclusion",
+];
+const CLASS_STEPS: [string, string][] = [
+  ["1", "Watch the class videos"],
+  ["2", "Complete the worksheet"],
+  ["3", "Attend a 90-min session"],
+];
+
+function DemoClasses() {
+  const open = useCycle(LESSONS.length, 2200, true);
+  return (
+    <PageShell bar="gracecommunity.example/classes">
+      <div className="grid flex-1 grid-cols-[1fr_1.05fr] gap-3.5">
+        {/* class content */}
+        <div className="flex flex-col justify-center">
+          <div className="font-sans text-[15px] font-bold leading-tight tracking-[-0.01em]">
+            What is Making Disciples?
+          </div>
+          <p className="mt-1.5 text-[10.5px] leading-[1.5] text-ink-soft">
+            Every disciple is called to make disciples. This class equips you to
+            engage others with the gospel and establish new believers.
+          </p>
+          <span className="mt-3 font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
+            How it works
+          </span>
+          <div className="mt-2 flex flex-col gap-2">
+            {CLASS_STEPS.map(([n, t]) => (
+              <div key={n} className="flex items-center gap-2 text-[10.5px]">
+                <span className="grid h-4 w-4 flex-none place-items-center rounded-full bg-paper-2 font-mono text-[8px] text-ink-soft">
+                  {n}
+                </span>
+                {t}
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-[9.5px] font-semibold text-paper">
+              ↓ Class PDF
+            </span>
+            <span className="whitespace-nowrap rounded-full border border-line px-3 py-1.5 text-[9.5px] font-semibold text-ink-soft">
+              Sign up
+            </span>
+          </div>
+        </div>
+        {/* lessons accordion */}
+        <div className="flex flex-col">
+          <span className="mb-1.5 font-mono text-[8px] uppercase tracking-[0.12em] text-muted">
+            Video lessons
+          </span>
+          <div className="flex flex-col overflow-hidden rounded-xl border border-line">
+            {LESSONS.map((l, i) => (
+              <div
+                key={l}
+                className={`border-b border-line last:border-b-0 ${
+                  i === open ? "bg-paper-2" : "bg-card"
+                }`}
+              >
+                <div className="flex items-center gap-2 px-2.5 py-[7px]">
+                  <span
+                    className={`grid h-4 w-4 flex-none place-items-center rounded-full font-mono text-[8px] transition-colors duration-300 ${
+                      i === open
+                        ? "bg-accent text-white"
+                        : "bg-paper-2 text-ink-soft"
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="truncate text-[10px] font-medium">{l}</span>
+                  <span
+                    className={`ml-auto text-[8px] text-muted transition-transform duration-300 ${
+                      i === open ? "rotate-180" : ""
+                    }`}
+                  >
+                    ▾
+                  </span>
+                </div>
+                {i === open && (
+                  <div className="px-2.5 pb-2.5">
+                    <div className="flex items-center gap-2 rounded-lg border border-line bg-card px-2 py-1.5">
+                      <span className="grid h-6 w-6 flex-none place-items-center rounded-full bg-accent text-[9px] text-white">
+                        {"▶"}
+                      </span>
+                      <div className="h-1 flex-1 rounded-full bg-line">
+                        <div className="h-1 w-1/4 rounded-full bg-accent" />
+                      </div>
+                      <span className="whitespace-nowrap font-mono text-[7.5px] text-muted">
+                        0:00 / 41:40
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </PageShell>
+  );
+}
+
+/* ---- Whatever You Dream Of ---- */
+const DREAMS = [
+  "Prayer Wall",
+  "Missions Map",
+  "Devotional Plans",
+  "Event Hub",
+  "Volunteer Signups",
+];
+
+function DemoDream() {
+  const d = useCycle(DREAMS.length, 1900, true);
+  return (
+    <PageShell
+      bar="gracecommunity.example"
+      title="Whatever You Dream Of"
+      sub="If you can imagine it, we build it"
+    >
+      <div className="grid flex-1 grid-cols-[0.9fr_1.1fr] items-center gap-3">
+        <div className="flex flex-col gap-1.5">
+          {DREAMS.map((t, i) => (
+            <div
+              key={t}
+              className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors duration-300 ${
+                i === d
+                  ? "border-accent bg-accent-tint font-medium text-accent"
+                  : "border-line bg-card text-ink-soft"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 flex-none rounded-full ${
+                  i === d ? "bg-accent" : "bg-line-2"
+                }`}
+              />
+              {t}
+            </div>
+          ))}
+        </div>
+        <div
+          key={d}
+          className="flex animate-fade-in-back flex-col rounded-xl border border-line bg-paper-2 p-3"
+        >
+          <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-accent">
+            Custom build
+          </span>
+          <div className="mt-1 font-serif text-[16px] leading-[1.1]">
+            {DREAMS[d]}
+          </div>
+          <div className="mt-2.5 flex flex-col gap-1.5">
+            <div className="h-1.5 w-[80%] rounded-[3px] bg-ink/10" />
+            <div className="h-1.5 w-[60%] rounded-[3px] bg-ink/10" />
+            <div className="grid grid-cols-3 gap-1.5 pt-1">
+              <div className="h-9 rounded-md border border-line bg-card" />
+              <div className="h-9 rounded-md border border-line bg-card" />
+              <div className="h-9 rounded-md border border-line bg-card" />
+            </div>
+          </div>
+          <span className="mt-2.5 self-start font-mono text-[9px] uppercase tracking-[0.1em] text-accent">
+            + build it
+          </span>
+        </div>
+      </div>
+    </PageShell>
+  );
+}
+
+/* index-aligned with feature 01's `pages` array in data.ts */
+const PAGE_VISUALS = [
+  DemoTrack,
+  DemoSermons,
+  DemoGroups,
+  DemoGiving,
+  DemoClasses,
+  DemoDream,
+];
+
+/* ---------- page accordion (feature 01) ---------- */
+function PagesAccordion({
+  pages,
+  open,
+  setOpen,
+}: {
+  pages: { title: string; blurb: string; href?: string }[];
+  open: number | null;
+  setOpen: (v: number | null) => void;
+}) {
+  return (
+    <div className="mt-7 border-t border-line">
+      {pages.map((pg, i) => {
+        const isOpen = open === i;
+        return (
+          <div key={i} className="border-b border-line">
+            <button
+              type="button"
+              onClick={() => setOpen(isOpen ? null : i)}
+              aria-expanded={isOpen}
+              className="flex w-full items-center justify-between gap-3 py-3.5 text-left"
+            >
+              <span className="text-[15px] font-medium">{pg.title}</span>
+              <span
+                className={`grid h-5 w-5 flex-none place-items-center rounded-full bg-accent-tint text-[15px] leading-none text-accent transition-transform duration-300 ${
+                  isOpen ? "rotate-45" : ""
+                }`}
+              >
+                +
+              </span>
+            </button>
+            <div
+              className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+              }`}
+            >
+              <div className="overflow-hidden">
+                <div className="pb-4">
+                  <p className="text-[14.5px] leading-[1.6] text-ink-soft">
+                    {pg.blurb}
+                  </p>
+                  {pg.href && (
+                    <a
+                      href={pg.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2.5 inline-flex items-center gap-1 font-mono text-[10.5px] uppercase tracking-[0.1em] text-accent transition-opacity hover:opacity-70"
+                    >
+                      View this page <span>{"↗"}</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ---------- Feature row ---------- */
 function FeatureRow({
   f,
@@ -527,8 +1219,10 @@ function FeatureRow({
   i: number;
 }) {
   const [ref, inView] = useInView();
+  const [openPage, setOpenPage] = useState<number | null>(null);
   const Demo = DEMOS[f.id];
   const flip = i % 2 === 1;
+  const hasPages = f.pages.length > 0;
   return (
     <div
       ref={ref}
@@ -551,6 +1245,13 @@ function FeatureRow({
         <p className="mt-[18px] text-[16.5px] leading-[1.6] text-ink-soft">
           {f.body}
         </p>
+        {hasPages && (
+          <PagesAccordion
+            pages={f.pages}
+            open={openPage}
+            setOpen={setOpenPage}
+          />
+        )}
         {f.points.length > 0 && (
           <ul className="mt-6 flex list-none flex-col gap-[11px]">
             {f.points.map((p, k) => (
@@ -571,14 +1272,14 @@ function FeatureRow({
             href={f.cta.href}
             target="_blank"
             rel="noreferrer"
-            className="mt-7 self-start"
+            className="mt-7 self-start min-[941px]:hidden"
           >
             {f.cta.label} <span>{"↗"}</span>
           </Btn>
         )}
       </div>
       <div
-        className={`transition-[opacity,translate,scale] duration-[800ms] max-[940px]:translate-y-0 max-[940px]:scale-100 max-[940px]:overflow-x-auto max-[940px]:opacity-100 ${
+        className={`flex flex-col transition-[opacity,translate,scale] duration-[800ms] max-[940px]:translate-y-0 max-[940px]:scale-100 max-[940px]:overflow-x-auto max-[940px]:opacity-100 ${
           flip ? "min-[941px]:order-1" : ""
         } ${
           inView
@@ -586,7 +1287,28 @@ function FeatureRow({
             : "translate-y-6 scale-[0.985] opacity-0"
         }`}
       >
-        {Demo && <Demo on={inView} />}
+        {hasPages ? (
+          openPage === null ? (
+            <DemoModern on={inView} />
+          ) : (
+            (() => {
+              const PageVisual = PAGE_VISUALS[openPage];
+              return <PageVisual />;
+            })()
+          )
+        ) : (
+          Demo && <Demo on={inView} />
+        )}
+        {f.cta && (
+          <Btn
+            href={f.cta.href}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-6 self-start max-[940px]:hidden"
+          >
+            {f.cta.label} <span>{"↗"}</span>
+          </Btn>
+        )}
       </div>
     </div>
   );
