@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { DATA } from "@/app/data";
 import { Btn, Eyebrow, SecTitle, TrafficLights, Wrap } from "@/app/components/ui";
+import { AppPhone, PUBLIC_DECK } from "@/app/components/DeviceDuo";
 
 /* ---------- shared hooks ---------- */
 function useInView() {
@@ -537,11 +538,61 @@ function DemoSync({ on }: { on: boolean }) {
   );
 }
 
+/* ---- 04: The app ---- */
+function FloatChip({
+  className,
+  label,
+  text,
+}: {
+  className: string;
+  label: string;
+  text: string;
+}) {
+  return (
+    <div
+      className={`absolute z-[2] w-[156px] animate-fade-in-back rounded-xl border border-line bg-card px-3 py-2.5 shadow-[0_18px_40px_-22px_rgba(28,24,19,0.5)] max-[940px]:hidden ${className}`}
+    >
+      <span className="mb-1 flex items-center gap-1.5 font-mono text-[9px] tracking-[0.12em] text-accent">
+        <span className="h-[5px] w-[5px] rounded-full bg-accent" />
+        {label}
+      </span>
+      <span className="text-[12px] leading-[1.4] text-ink-soft">{text}</span>
+    </div>
+  );
+}
+
+function DemoApp({ on }: { on: boolean }) {
+  return (
+    <div className="relative grid h-[360px] place-items-center">
+      <div className="pointer-events-none absolute h-[300px] w-[300px] rounded-full bg-[radial-gradient(closest-side,var(--color-accent-tint),transparent_72%)]" />
+      <FloatChip
+        className="left-0 top-[10%]"
+        label="NATIVE & FAST"
+        text="A true app on iOS & Android, instant and smooth."
+      />
+      <FloatChip
+        className="right-0 top-[30%]"
+        label="YOUR BRAND"
+        text="Your branding and name, in both app stores."
+      />
+      <FloatChip
+        className="bottom-[8%] left-[3%]"
+        label="ONE BACKEND"
+        text="Same CMS and sync as your site. Publish once."
+      />
+      <div className="relative w-[168px]">
+        <AppPhone on={on} deck={PUBLIC_DECK} />
+      </div>
+    </div>
+  );
+}
+
 /* ---------- demo registry ---------- */
 const DEMOS: Record<string, React.ComponentType<{ on: boolean }>> = {
   modern: DemoModern,
   cms: DemoCMS,
   sync: DemoSync,
+  app: DemoApp,
 };
 
 /* ---------- page visuals (feature 01) ---------- */
@@ -1269,7 +1320,12 @@ function FeatureRow({
         )}
         {f.cta && (
           <Btn
-            href={f.cta.href}
+            href={
+              (hasPages &&
+                openPage !== null &&
+                f.pages[openPage].href) ||
+              f.cta.href
+            }
             target="_blank"
             rel="noreferrer"
             className="mt-7 self-start min-[941px]:hidden"
@@ -1301,7 +1357,12 @@ function FeatureRow({
         )}
         {f.cta && (
           <Btn
-            href={f.cta.href}
+            href={
+              (hasPages &&
+                openPage !== null &&
+                f.pages[openPage].href) ||
+              f.cta.href
+            }
             target="_blank"
             rel="noreferrer"
             className="mt-6 self-start max-[940px]:hidden"

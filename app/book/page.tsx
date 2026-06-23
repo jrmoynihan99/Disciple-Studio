@@ -29,6 +29,15 @@ export default function Book() {
                   to hear about your church, answer any questions, and see how
                   we can help!
                 </p>
+                <p className="mt-4 text-[15px] leading-[1.6] text-ink-soft">
+                  Or email me here:{" "}
+                  <a
+                    href="mailto:jrmoynihan99@gmail.com"
+                    className="font-medium text-accent underline underline-offset-[3px] transition-opacity hover:opacity-75"
+                  >
+                    jrmoynihan99@gmail.com
+                  </a>
+                </p>
               </div>
               <div
                 className="relative w-full min-w-0 overflow-hidden rounded-[22px]"

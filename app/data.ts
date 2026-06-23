@@ -125,7 +125,7 @@ export const DATA = {
       tag: "Streamlined CMS",
       title:
         "A streamlined CMS your staff can easily use \u2014 and expand on their own.",
-      body: "We build your CMS from scratch, tailored to you. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it with the blocks we set up. No bloated builder, no code.",
+      body: "We build your CMS from scratch, tailored to you. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it once with the blocks we set up — and it publishes to your site and app together. No bloated builder, no code.",
       cta: null,
       pages: [] as { title: string; blurb: string; href?: string }[],
       points: [],
@@ -135,7 +135,17 @@ export const DATA = {
       n: "03",
       tag: "Integration",
       title: "Your content stays in sync, automatically.",
-      body: "We build a custom connection to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on the website. No double entry, no data falling out of sync — and your admin team gets those hours back.",
+      body: "We build a custom connection to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on your website and app. No double entry, no data falling out of sync — and your admin team gets those hours back.",
+      cta: null,
+      pages: [] as { title: string; blurb: string; href?: string }[],
+      points: [],
+    },
+    {
+      id: "app" as const,
+      n: "04",
+      tag: "In their pocket",
+      title: "And the same craft, as a native app for your church.",
+      body: "Everything we built for the web, reimagined as a true native app for iOS and Android. Your branding and your content, from sermons and groups to events and giving, fast and right in their pocket. It runs on the same CMS and the same sync, so anything you publish to your site is already here.",
       cta: null,
       pages: [] as { title: string; blurb: string; href?: string }[],
       points: [],
@@ -145,8 +155,8 @@ export const DATA = {
   discipleship: {
     eyebrow: "All to empower this",
     titleA: "Then a member signs in,",
-    titleB: "and the website starts discipling.",
-    sub: "The site reads the data from the church software you already run. The moment someone signs in, it knows them \u2014 their group, their giving, their place on the discipleship track you\u2019ve built \u2014 and shows them one clear next step toward following Jesus.",
+    titleB: "and the website starts discipling. So does the app.",
+    sub: "The moment someone signs in, on your website or in the app, it knows them: their group, their giving, and their place on the discipleship track you've built. It shows one clear next step. And the app can send a gentle push when it's time, so it reaches them on Sunday and every day after.",
     tabs: { before: "Any visitor", after: "Sarah, signed in" },
     beats: [
       {
@@ -162,7 +172,7 @@ export const DATA = {
       {
         n: "03",
         k: "Every member sees one next step",
-        v: "Not a generic homepage. Their group, their progress, and the single next thing to do \u2014 every time they visit.",
+        v: "Not a generic homepage. Their group, their progress, and the single next thing to do, shown on the website, in the app, and pushed to their pocket when it matters.",
       },
     ],
     cta: "See it in action",

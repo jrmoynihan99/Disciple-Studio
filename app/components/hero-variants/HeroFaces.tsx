@@ -58,15 +58,15 @@ export default function HeroFaces() {
         <div>
           <Eyebrow>Two disciples serving the local church</Eyebrow>
           <h1 className="mt-[22px] max-w-[10.5em] font-serif text-[clamp(44px,6.2vw,76px)] leading-[1.04] tracking-[-0.03em] [font-weight:460]">
-            <span>We build websites that help churches</span>
+            <span>We build websites and apps that help churches</span>
             <span className="italic">
               <em className="text-accent"> make disciples.</em>
             </span>
           </h1>
           <p className="mt-[26px] max-w-[31em] text-[clamp(17px,1.7vw,19px)] leading-[1.6] text-ink-soft">
             We&rsquo;re Jason and Arjun. We met at our church, saw that church
-            sites could be doing a lot more to help people follow Jesus, and
-            started building ones that do.
+            sites and apps could be doing a lot more to help people follow
+            Jesus, and started building ones that do.
           </p>
           <div className="mt-[34px] flex flex-wrap gap-3.5 max-[920px]:flex-nowrap">
             <Btn href="/book" className={mobileBtn}>
