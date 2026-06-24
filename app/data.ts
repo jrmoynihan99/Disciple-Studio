@@ -316,6 +316,7 @@ export const DATA = {
         "Since I wasn\u2019t using a template anymore, I had to build a new CMS to power the site. The old one was bloated, confusing, and hard for staff to maintain \u2014 so I built them a clean, custom one. Exactly what they needed, nothing they didn\u2019t.",
         "Then I realized the church already kept everything \u2014 members, groups, events, registrations \u2014 in their church management software, Church Community Builder. Staff entered it all there, then typed it again into the website. So I built a custom integration: their backend became the single source of truth, and the website stayed in sync automatically.",
         "The last realization was the biggest. I could give members a login that surfaced everything the church already knew about their journey \u2014 their group, their classes, their next step. A personalized discipleship engine every member could use.",
+        "Then I took it one step further and built a native mobile app \u2014 an even more personalized experience that reached people right where they were, at just the right moment. It connected even more of them to the life of the church.",
         "That\u2019s when Arjun approached me and said we need to bring this to other churches. And here we are today!",
         "\u2014 Jason",
       ],
@@ -357,7 +358,7 @@ export const DATA = {
           paragraphs: [
             "I came to saving faith in 2024, and it rewired how I think about my work. Before that, I had been designing and building software for years \u2014 but I never really had a strong 'why'. After the Lord saved me, I began trying to find ways to use my skills and passion for his kingdom. ([see another passion project I built here](https://apps.apple.com/us/app/anchor-fight-lust-together/id6752869901)).",
             "I lead the design and engineering side of Disciple Studio. I come alongside your church as a partner, helping develop the perfect product for your church's needs. I love seeing a vision come to life.",
-            "My hope for Disciple Studio is simple: that the websites we build help someone who has never walked into a church feel welcome enough to show up, and help someone who is already there take their next step toward Jesus.",
+            "My hope for Disciple Studio is simple: that the websites & apps we build help someone who has never walked into a church feel welcome enough to show up, and help someone who is already there take their next step toward Jesus.",
           ],
           verse: {
             text: "Whatever you do, work heartily, as for the Lord and not for men.",
