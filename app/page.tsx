@@ -1,5 +1,6 @@
 import Nav from "@/app/components/Nav";
 import Hero from "@/app/components/hero-variants/HeroFaces";
+import WhatYouGet from "@/app/components/WhatYouGet";
 import TwoJobs from "@/app/components/TwoJobs";
 import Problem from "@/app/components/Problem";
 import Features from "@/app/components/Features";
@@ -17,6 +18,7 @@ export default function Home() {
       <Nav />
       <main>
         <Hero />
+        {/*<WhatYouGet />*/}
         <Problem />
         {/* <TwoJobs /> */}
         <Features />

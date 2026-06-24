@@ -22,6 +22,37 @@ export const DATA = {
     secondary: "See Our Latest Work",
   },
 
+  whatYouGet: {
+    kicker: "Everything in one build",
+    items: [
+      {
+        icon: "site",
+        k: "A custom website",
+        v: "Designed from scratch for your church.",
+      },
+      {
+        icon: "app",
+        k: "A mobile app",
+        v: "Native on iOS & Android, same content.",
+      },
+      {
+        icon: "cms",
+        k: "Your own CMS",
+        v: "One simple place to manage it all.",
+      },
+      {
+        icon: "sync",
+        k: "Auto-sync",
+        v: "Connected to the software you already use.",
+      },
+    ],
+    engine: {
+      lead: "Together, they become",
+      k: "A discipleship engine for your church",
+      v: "Your website and app know each member, and show their next step.",
+    },
+  },
+
   twoJobs: {
     eyebrow: "What a church website is really for",
     title: "Two jobs. One website.",
