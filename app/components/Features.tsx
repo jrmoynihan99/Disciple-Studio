@@ -1550,8 +1550,7 @@ export default function Features() {
         <div className="mb-20 max-w-[780px]">
           <Eyebrow>So we started building</Eyebrow>
           <SecTitle>
-            First, the foundation — a custom website & app your staff can easily
-            run,{" "}
+            A custom website & app your staff can easily run,{" "}
             <em className="italic text-accent">
               synced to the tools you already use.
             </em>

@@ -187,7 +187,7 @@ export const DATA = {
       n: "04",
       tag: "Integration",
       title: "Your content stays in sync, automatically.",
-      body: "We build a custom connection to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on your website and app. No double entry, no data falling out of sync — and your admin team gets those hours back.",
+      body: "We build a custom 2 way integration with Planning Center, Breeze, CCB, or whatever ChMS you run. Add a group or event there once and it shows up on your website and app. No double entry, no data falling out of sync — and your admin team gets those hours back.",
       cta: null,
       pages: [] as { title: string; blurb: string; href?: string }[],
       points: [],
