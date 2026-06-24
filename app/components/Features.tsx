@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { DATA } from "@/app/data";
-import { Btn, Eyebrow, SecTitle, TrafficLights, Wrap } from "@/app/components/ui";
+import {
+  Btn,
+  Eyebrow,
+  SecTitle,
+  TrafficLights,
+  Wrap,
+} from "@/app/components/ui";
 import {
   AppPhone,
   PhoneShell,
@@ -244,7 +250,9 @@ function DemoModern({ on }: { on: boolean }) {
               <div className="truncate text-[12px] font-semibold">
                 The Prodigal Son
               </div>
-              <div className="text-[10px] text-muted">Pastor James · 38 min</div>
+              <div className="text-[10px] text-muted">
+                Pastor James · 38 min
+              </div>
             </div>
             <span
               className="ml-auto whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-semibold text-white transition-colors duration-500"
@@ -711,9 +719,7 @@ function DemoTrack() {
                   fill="none"
                   strokeWidth="13"
                   stroke={
-                    i === active
-                      ? "var(--color-accent)"
-                      : "var(--color-line-2)"
+                    i === active ? "var(--color-accent)" : "var(--color-line-2)"
                   }
                   strokeDasharray={`${segLen} ${C - segLen}`}
                   transform={`rotate(${-135 + i * 90} 50 50)`}
@@ -752,7 +758,9 @@ function DemoTrack() {
         {/* active stage detail */}
         <div key={active} className="flex animate-fade-in-back flex-col">
           <div className="mb-1.5 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.1em]">
-            <span className="font-semibold text-accent">Stage {active + 1}</span>
+            <span className="font-semibold text-accent">
+              Stage {active + 1}
+            </span>
             <span className="text-muted">{a.sub}</span>
           </div>
           <div className="font-serif text-[19px] leading-[1.1]">{a.k}</div>
@@ -831,8 +839,8 @@ function DemoSermons() {
                 <span className="text-accent">•</span> Grace runs to meet us
               </div>
               <div className="flex gap-1.5">
-                <span className="text-accent">•</span> The father saw him &ldquo;far
-                off&rdquo;
+                <span className="text-accent">•</span> The father saw him
+                &ldquo;far off&rdquo;
               </div>
               <div className="h-1.5 w-[82%] rounded-[3px] bg-ink/10" />
               <div className="flex items-center">
@@ -1293,7 +1301,11 @@ function PageIcon({ name }: { name?: string }) {
       return (
         <svg {...common}>
           <circle cx="12" cy="12" r="9" />
-          <path d="M10.5 9.2l4.2 2.8-4.2 2.8z" fill="currentColor" stroke="none" />
+          <path
+            d="M10.5 9.2l4.2 2.8-4.2 2.8z"
+            fill="currentColor"
+            stroke="none"
+          />
         </svg>
       );
     case "groups": // map pin
@@ -1370,9 +1382,7 @@ function PagesAccordion({
             >
               <span
                 className={`grid h-7 w-7 flex-none place-items-center rounded-[9px] transition-colors duration-300 ${
-                  isOpen
-                    ? "bg-accent text-white"
-                    : "bg-accent-tint text-accent"
+                  isOpen ? "bg-accent text-white" : "bg-accent-tint text-accent"
                 }`}
               >
                 <PageIcon name={pg.icon} />
@@ -1476,9 +1486,7 @@ function FeatureRow({
         {f.cta && (
           <Btn
             href={
-              (hasPages &&
-                openPage !== null &&
-                f.pages[openPage].href) ||
+              (hasPages && openPage !== null && f.pages[openPage].href) ||
               f.cta.href
             }
             target="_blank"
@@ -1517,9 +1525,7 @@ function FeatureRow({
         {f.cta && (
           <Btn
             href={
-              (hasPages &&
-                openPage !== null &&
-                f.pages[openPage].href) ||
+              (hasPages && openPage !== null && f.pages[openPage].href) ||
               f.cta.href
             }
             target="_blank"
@@ -1541,10 +1547,11 @@ export default function Features() {
       className="scroll-mt-[88px] bg-paper py-[120px] max-[720px]:py-[78px]"
     >
       <Wrap>
-        <div className="mb-20 max-w-[760px]">
+        <div className="mb-20 max-w-[780px]">
           <Eyebrow>So we started building</Eyebrow>
           <SecTitle>
-            First, the foundation — a custom website your staff can easily run,{" "}
+            First, the foundation — a custom website & app your staff can easily
+            run,{" "}
             <em className="italic text-accent">
               synced to the tools you already use.
             </em>

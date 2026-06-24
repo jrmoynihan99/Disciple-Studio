@@ -176,9 +176,8 @@ export const DATA = {
       id: "cms" as const,
       n: "03",
       tag: "Streamlined CMS",
-      title:
-        "A streamlined CMS your staff can easily use \u2014 and expand on their own.",
-      body: "We build your CMS from scratch, tailored to you. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it once with the blocks we set up — and it publishes to your site and app together, since both run on this one CMS. No bloated builder, no code.",
+      title: "One streamlined CMS that powers both your site and app.",
+      body: "We build your CMS from scratch, tailored to you — exactly what you need, nothing you don't, and easy enough that your staff can run and expand it on their own. And it's your single source of content: update a sermon, an event, or a series once, and both your website and app pull from it. No double entry, no bloated builder, no code.",
       cta: null,
       pages: [] as { title: string; blurb: string; href?: string }[],
       points: [],
