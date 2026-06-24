@@ -554,6 +554,292 @@ function ScreenJourney() {
 }
 
 /* ============================================================
+   APP page visuals — one screen per feature-02 accordion item
+   (Next Steps reuses ScreenJourney, Giving reuses ScreenGive)
+   ============================================================ */
+function ScreenPush() {
+  return (
+    <div className="absolute inset-0 flex flex-col bg-[radial-gradient(120%_80%_at_50%_0%,#2a2017,#0e0b07_70%)]">
+      <StatusBar dark />
+      <div className="absolute inset-x-0 top-[13%] flex flex-col items-center">
+        <span className="font-sans text-[11px] font-medium text-white/55">
+          Tuesday · 5:00 PM
+        </span>
+        <span className="font-sans text-[54px] font-semibold leading-none tracking-[-0.02em] text-white/95">
+          5:00
+        </span>
+      </div>
+      <div className="mt-auto flex flex-col gap-2 px-3 pb-7">
+        <div className="mx-2 rounded-[16px] border border-white/10 bg-white/[0.07] p-2 backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <span className="grid h-5 w-5 flex-none place-items-center rounded-[6px] bg-accent text-[9px] text-white">
+              {"✝"}
+            </span>
+            <span className="font-sans text-[8.5px] font-semibold text-white/70">
+              GRACE CHURCH
+            </span>
+            <span className="ml-auto font-sans text-[8px] text-white/40">
+              1h ago
+            </span>
+          </div>
+        </div>
+        <div className="animate-pop rounded-[18px] border border-white/10 bg-white/[0.13] p-3 backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <span className="grid h-7 w-7 flex-none place-items-center rounded-[8px] bg-accent text-[13px] text-white">
+              {"✝"}
+            </span>
+            <span className="font-sans text-[10.5px] font-semibold text-white">
+              GRACE CHURCH
+            </span>
+            <span className="ml-auto font-sans text-[9px] text-white/55">
+              now
+            </span>
+          </div>
+          <div className="mt-2">
+            <div className="font-sans text-[12px] font-semibold leading-tight text-white">
+              Your group meets in 2 hours
+            </div>
+            <div className="mt-0.5 font-sans text-[10.5px] leading-snug text-white/75">
+              Tuesday Women&rsquo;s at Beth&rsquo;s — see you at 7?
+            </div>
+          </div>
+        </div>
+        <span className="self-center font-mono text-[7.5px] uppercase tracking-[0.14em] text-white/40">
+          Timed &amp; configured by your staff
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ScreenSermon() {
+  return (
+    <div className="absolute inset-0 flex flex-col bg-paper">
+      <StatusBar />
+      <div className="flex items-center gap-2 px-4 pb-2 pt-2.5">
+        <span className="font-sans text-[15px] text-ink-soft">‹</span>
+        <b className="font-serif text-[14px]">Now Playing</b>
+      </div>
+      <div className="flex flex-1 flex-col gap-2.5 overflow-hidden px-3 pb-3">
+        <div
+          className={`relative grid h-[104px] place-items-center overflow-hidden rounded-[16px] ${STRIPES}`}
+        >
+          <span className="grid h-10 w-10 place-items-center rounded-full bg-accent text-[13px] text-white shadow-[0_6px_16px_-6px_rgba(28,24,19,0.6)]">
+            {"▶"}
+          </span>
+          <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-ink/60 to-transparent px-2.5 pb-1.5 pt-6">
+            <span className="font-mono text-[8px] text-white/80">12:04</span>
+            <span className="h-[3px] flex-1 rounded-full bg-white/30">
+              <span className="block h-full w-[34%] rounded-full bg-accent" />
+            </span>
+            <span className="font-mono text-[8px] text-white/60">38:00</span>
+          </div>
+        </div>
+        <div>
+          <span className="font-mono text-[7.5px] uppercase tracking-[0.12em] text-accent">
+            Parables
+          </span>
+          <div className="text-[13px] font-semibold leading-tight">
+            The Prodigal Son
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col rounded-[14px] border border-line bg-card p-2.5">
+          <span className="font-mono text-[7.5px] uppercase tracking-[0.12em] text-muted">
+            My notes
+          </span>
+          <div className="mt-1.5 flex flex-col gap-1.5 text-[10px] leading-[1.4] text-ink-soft">
+            <div className="flex gap-1.5">
+              <span className="text-accent">•</span> Grace runs to meet us
+            </div>
+            <div className="flex items-center">
+              <span className="h-1.5 w-[60%] rounded-[3px] bg-ink/10" />
+              <i className="ml-px inline-block h-3 w-[1.5px] animate-blink bg-accent" />
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <span className="flex flex-1 items-center justify-center gap-1 rounded-full bg-accent-tint py-1.5 text-[9px] font-semibold text-accent">
+            ♪ Audio
+          </span>
+          <span className="flex flex-1 items-center justify-center gap-1 rounded-full bg-paper-2 py-1.5 text-[9px] font-semibold text-ink-soft">
+            ⤓ Background
+          </span>
+        </div>
+      </div>
+      <TabBar active={2} tabs={MEMBER_TABS} />
+    </div>
+  );
+}
+
+function ScreenGroupsMap() {
+  const pins: [number, number][] = [
+    [54, 60],
+    [96, 150],
+    [150, 116],
+  ];
+  return (
+    <div className="absolute inset-0 flex flex-col bg-paper">
+      <StatusBar />
+      <div className="flex items-center gap-2 px-4 pb-2 pt-2.5">
+        <b className="font-serif text-[14px]">Find a Group</b>
+        <span className="ml-auto flex gap-[2px] rounded-full bg-paper-2 p-[2px]">
+          <span className="rounded-full px-2 py-[3px] text-[8px] font-semibold text-muted">
+            List
+          </span>
+          <span className="rounded-full bg-accent px-2 py-[3px] text-[8px] font-semibold text-white">
+            Map
+          </span>
+        </span>
+      </div>
+      <div className="flex gap-1.5 px-3 pb-2">
+        {["All", "Evenings", "Near me"].map((t, i) => (
+          <span
+            key={t}
+            className={`rounded-full px-2 py-[3px] text-[8px] font-semibold ${
+              i === 2 ? "bg-accent text-white" : "bg-paper-2 text-ink-soft"
+            }`}
+          >
+            {t}
+          </span>
+        ))}
+      </div>
+      <div className="relative flex-1 overflow-hidden">
+        <svg
+          viewBox="0 0 168 232"
+          preserveAspectRatio="xMidYMid slice"
+          className="absolute inset-0 h-full w-full"
+        >
+          <rect x="0" y="0" width="168" height="232" fill="#e8ece6" />
+          {/* park */}
+          <ellipse cx="142" cy="42" rx="34" ry="26" fill="#d6e2ce" />
+          {/* streets */}
+          <g stroke="#d3d9cd" strokeWidth="6" fill="none" strokeLinecap="round">
+            <path d="M-10 64 H190" />
+            <path d="M-10 128 H190" />
+            <path d="M-10 196 H190" />
+            <path d="M44 -10 V250" />
+            <path d="M118 -10 V250" />
+          </g>
+          <g stroke="#dfe4da" strokeWidth="3" fill="none">
+            <path d="M-10 96 H190" />
+            <path d="M82 -10 V250" />
+          </g>
+          {/* route */}
+          <path
+            d="M40 176 C 62 156, 92 140, 118 92"
+            fill="none"
+            stroke="var(--color-accent)"
+            strokeWidth="2.5"
+            strokeDasharray="5 6"
+            strokeLinecap="round"
+          />
+          {/* unselected pins */}
+          {pins.map(([cx, cy], i) => (
+            <g key={i}>
+              <circle cx={cx} cy={cy} r="6" fill="#fff" />
+              <circle cx={cx} cy={cy} r="3.4" fill="var(--color-accent)" />
+            </g>
+          ))}
+          {/* you */}
+          <circle cx="40" cy="176" r="11" fill="#3a6aff" opacity="0.18" />
+          <circle cx="40" cy="176" r="5" fill="#3a6aff" stroke="#fff" strokeWidth="2" />
+          {/* selected pin */}
+          <circle cx="118" cy="92" r="13" fill="var(--color-accent)" opacity="0.16" />
+          <circle cx="118" cy="92" r="8.5" fill="#fff" />
+          <circle cx="118" cy="92" r="5.5" fill="var(--color-accent)" />
+          <circle cx="118" cy="92" r="1.9" fill="#fff" />
+          {/* commute badge */}
+          <g>
+            <rect x="49" y="128" width="62" height="16" rx="8" fill="var(--color-ink)" />
+            <text
+              x="80"
+              y="139.5"
+              textAnchor="middle"
+              fontSize="8"
+              fontWeight="600"
+              fill="#fff"
+            >
+              12 min · 3.4 mi
+            </text>
+          </g>
+        </svg>
+        {/* preview card */}
+        <div className="absolute inset-x-2 bottom-2 rounded-[14px] border border-line bg-card/95 p-2.5 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.45)] backdrop-blur">
+          <div className="flex items-center gap-2">
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-[11px] font-semibold">
+                Downtown Young Adults
+              </span>
+              <span className="text-[9px] text-muted">Wed · 6:30pm · Marcus</span>
+            </span>
+            <span className="ml-auto whitespace-nowrap rounded-full bg-accent px-2.5 py-1 text-[9px] font-semibold text-white">
+              Join
+            </span>
+          </div>
+        </div>
+      </div>
+      <TabBar active={2} tabs={PUBLIC_TABS} />
+    </div>
+  );
+}
+
+function ScreenDream() {
+  const tiles: [string, string][] = [
+    ["✝", "Prayer Wall"],
+    ["✓", "Serve Sign-up"],
+    ["♫", "Worship Sets"],
+    ["☰", "Events"],
+  ];
+  return (
+    <div className="absolute inset-0 flex flex-col bg-paper">
+      <StatusBar />
+      <div className="flex items-center px-4 pb-2 pt-2.5">
+        <b className="font-serif text-[14px]">Your App</b>
+        <span className="ml-auto font-mono text-[7.5px] uppercase tracking-[0.12em] text-accent">
+          Custom
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col gap-2 overflow-hidden px-3 pb-3">
+        <div className="grid grid-cols-2 gap-2">
+          {tiles.map(([icon, t]) => (
+            <div
+              key={t}
+              className="flex flex-col items-center gap-1 rounded-[12px] border border-line bg-card py-3"
+            >
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-accent-tint text-[12px] text-accent">
+                {icon}
+              </span>
+              <span className="text-[9px] font-semibold">{t}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-auto grid place-items-center gap-1 rounded-[14px] border-2 border-dashed border-accent/40 bg-accent-tint/40 py-4">
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-[15px] text-white">
+            +
+          </span>
+          <span className="text-[10px] font-semibold text-accent">
+            Build anything you dream up
+          </span>
+          <span className="text-[8.5px] text-muted">
+            Bring your list to the call
+          </span>
+        </div>
+      </div>
+      <TabBar active={0} tabs={PUBLIC_TABS} />
+    </div>
+  );
+}
+
+export {
+  ScreenJourney,
+  ScreenGive,
+  ScreenPush,
+  ScreenSermon,
+  ScreenGroupsMap,
+  ScreenDream,
+};
+
+/* ============================================================
    Phone shell + deck cycler
    ============================================================ */
 type ScreenDef = { name: string; ms: number; Comp: React.ComponentType };
@@ -586,7 +872,7 @@ function useDeck(on: boolean, deck: ScreenDef[]) {
   return idx;
 }
 
-function PhoneShell({ children }: { children: ReactNode }) {
+export function PhoneShell({ children }: { children: ReactNode }) {
   return (
     <div className="rounded-[34px] border border-white/10 bg-[#0b0907] p-[7px] shadow-[0_50px_90px_-30px_rgba(0,0,0,0.75)]">
       <div className="relative aspect-[9/19.3] w-full overflow-hidden rounded-[27px] bg-paper">

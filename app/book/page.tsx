@@ -30,7 +30,7 @@ export default function Book() {
                   we can help!
                 </p>
                 <p className="mt-4 text-[15px] leading-[1.6] text-ink-soft">
-                  Or email me here:{" "}
+                  Or email us here:{" "}
                   <a
                     href="mailto:jrmoynihan99@gmail.com"
                     className="font-medium text-accent underline underline-offset-[3px] transition-opacity hover:opacity-75"

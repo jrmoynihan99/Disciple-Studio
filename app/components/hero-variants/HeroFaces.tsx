@@ -56,7 +56,7 @@ export default function HeroFaces() {
     >
       <Wrap className="grid min-h-[76vh] grid-cols-[1fr_1fr] items-center gap-16 pb-[70px] max-[920px]:min-h-0 max-[920px]:grid-cols-1 max-[920px]:gap-12 max-[920px]:pt-2.5">
         <div>
-          <Eyebrow>Two disciples serving the local church</Eyebrow>
+          <Eyebrow>Two disciples serving the church</Eyebrow>
           <h1 className="mt-[22px] max-w-[10.5em] font-serif text-[clamp(44px,6.2vw,76px)] leading-[1.04] tracking-[-0.03em] [font-weight:460]">
             <span>We build websites and apps that help churches</span>
             <span className="italic">

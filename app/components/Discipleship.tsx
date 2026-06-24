@@ -316,14 +316,15 @@ function SignInOverlay() {
 /* ---------- section ---------- */
 export default function Discipleship() {
   const ds = DATA.discipleship;
-  const [ref, t, seek] = useAutoCycle(17000);
+  const [ref, t, seek] = useAutoCycle(20000);
 
   // web: 0 - .5   |   app: .5 - 1
+  // public is just a brief glimpse before the sign-in popup pops
   const webPhase: WebPhase =
-    t < 0.16 ? "public" : t < 0.24 ? "signin" : "personal";
+    t < 0.03 ? "public" : t < 0.12 ? "signin" : "personal";
   const webOut = smooth(0.44, 0.52, t);
   const appIn = smooth(0.5, 0.6, t);
-  const appScreen = t < 0.72 ? 0 : t < 0.87 ? 1 : 2;
+  const appScreen = t < 0.66 ? 0 : t < 0.83 ? 1 : 2;
   const stage = t < 0.5 ? "web" : "app";
 
   const webShow = webPhase === "personal" ? 1 : 0;

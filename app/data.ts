@@ -62,14 +62,14 @@ export const DATA = {
     title: "Every church website we visited informed.",
     titleEm: "Almost none discipled.",
     body: [
-      "Most churches used an inflexible template that wasn't that great to use, and couldn't be meaningfully improved.",
+      "Most churches used an inflexible template that wasn't that great to use, and couldn't be meaningfully improved. Their app (if they had one) was even worse.",
       "When we talked to staff, we heard about the headache it was to manage and maintain the content on their site.",
-      "And what we couldn\u2019t find was anything that helped streamline discipleship for it's members. To make their next step clear. The site never knew its people.",
+      "And what we couldn\u2019t find was anything that helped streamline discipleship for it's members. To make their next step clear. The site/app never knew its people.",
     ],
     beliefLabel: "And we couldn\u2019t shake this",
     beliefLead:
       "It wasn\u2019t a lack of heart. The churches we love long to disciple \u2014",
-    beliefHighlight: "their websites just weren\u2019t built for it.",
+    beliefHighlight: "their tools just weren\u2019t built for it.",
   },
 
   features: [
@@ -83,69 +83,112 @@ export const DATA = {
       pages: [
         {
           title: "Interactive Discipleship Track",
+          icon: "track",
           blurb:
             "We take your discipleship pathway and make it interactive. People click through each step or class, see what it is at a glance, and can jump into any one at any point.",
           href: `${LIVE_URL}next-steps`,
         },
         {
           title: "Custom Sermon Experience",
+          icon: "sermon",
           blurb:
             "A focused, full-screen view for watching a sermon — the video, the slides, and a place to take notes, all on one page and nothing else.",
           href: `${LIVE_URL}watch/from-scarcity-to-surrender-cambridge`,
         },
         {
           title: "Custom Small Groups Finder",
+          icon: "groups",
           blurb:
             "Browse every group as a list or on a map. It filters down the moment someone searches or picks a filter — by day, location, life stage, or whatever you set up.",
           href: `${LIVE_URL}groups`,
         },
         {
           title: "Built In Custom Giving",
+          icon: "giving",
           blurb:
             "A giving page built into your site that links straight to your giving platform — with the fund and amount already filled in, so giving takes one tap.",
           href: `${LIVE_URL}give`,
         },
         {
           title: "Custom Class Pages",
+          icon: "class",
           blurb:
             "A complete home for each class — videos, podcasts, and everything you teach in one place, with a direct link to sign up for the next session.",
           href: `${LIVE_URL}establishing-foundations`,
         },
         {
           title: "Whatever You Dream Of",
+          icon: "dream",
           blurb:
             "If your church needs a page or tool that doesn't exist yet, we build it. Make a list and bring it to our call!",
         },
-      ] as { title: string; blurb: string; href?: string }[],
+      ] as { title: string; blurb: string; href?: string; icon?: string }[],
+      points: [],
+    },
+    {
+      id: "app" as const,
+      n: "02",
+      tag: "In their pocket",
+      title: "A 100% custom mobile app that feels like it was built by Apple.",
+      body: "A real native app for iOS and Android, with everything your website has — sermons, groups, events, and giving — built for the phone. Powered by the same CMS as your website, so your staff never changes anything twice. Publish once, and it's live on the web and in their pocket.",
+      cta: null,
+      pages: [
+        {
+          title: "Streamlined Next Steps",
+          icon: "track",
+          blurb:
+            "We take your discipleship pathway and make it interactive. People click through each step or class, see what it is at a glance, and can jump into any one at any point.",
+        },
+        {
+          title: "Configurable Push Notifications",
+          icon: "push",
+          blurb:
+            "Perfectly timed nudges to let people know their next step. Configurable by you, built to engage your church with what you've built to help them grow.",
+        },
+        {
+          title: "Custom Sermon Experience",
+          icon: "sermon",
+          blurb:
+            "A modern, immersive experience for watching sermons, developed specifically for mobile. Take notes, play audio or video, and listen in the background.",
+        },
+        {
+          title: "Custom Small Groups Finder",
+          icon: "groups",
+          blurb:
+            "A beautiful intuitive groups finder — filter by type, day, or topic, and preview each group on the map. Get immediate directions and commute times, right in the app",
+        },
+        {
+          title: "Built In Custom Giving",
+          icon: "giving",
+          blurb:
+            "A giving form built into the app that links straight to your giving platform — with the giving info already filled in, streamlining the experience.",
+        },
+        {
+          title: "Whatever You Dream Of",
+          icon: "dream",
+          blurb:
+            "If your church needs a page or tool that doesn't exist yet, we build it. Make a list and bring it to our call!",
+        },
+      ] as { title: string; blurb: string; href?: string; icon?: string }[],
       points: [],
     },
     {
       id: "cms" as const,
-      n: "02",
+      n: "03",
       tag: "Streamlined CMS",
       title:
         "A streamlined CMS your staff can easily use \u2014 and expand on their own.",
-      body: "We build your CMS from scratch, tailored to you. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it once with the blocks we set up — and it publishes to your site and app together. No bloated builder, no code.",
+      body: "We build your CMS from scratch, tailored to you. Exactly what you need, nothing you don't. Need a new sermon series page or a Christmas landing page? Build it once with the blocks we set up — and it publishes to your site and app together, since both run on this one CMS. No bloated builder, no code.",
       cta: null,
       pages: [] as { title: string; blurb: string; href?: string }[],
       points: [],
     },
     {
       id: "sync" as const,
-      n: "03",
+      n: "04",
       tag: "Integration",
       title: "Your content stays in sync, automatically.",
       body: "We build a custom connection to Planning Center, Breeze, CCB, or whatever you run. Add a group or event there once and it shows up on your website and app. No double entry, no data falling out of sync — and your admin team gets those hours back.",
-      cta: null,
-      pages: [] as { title: string; blurb: string; href?: string }[],
-      points: [],
-    },
-    {
-      id: "app" as const,
-      n: "04",
-      tag: "In their pocket",
-      title: "And the same craft, as a native app for your church.",
-      body: "Everything we built for the web, reimagined as a true native app for iOS and Android. Your branding and your content, from sermons and groups to events and giving, fast and right in their pocket. It runs on the same CMS and the same sync, so anything you publish to your site is already here.",
       cta: null,
       pages: [] as { title: string; blurb: string; href?: string }[],
       points: [],
@@ -155,7 +198,7 @@ export const DATA = {
   discipleship: {
     eyebrow: "All to empower this",
     titleA: "Then a member signs in,",
-    titleB: "and the website starts discipling. So does the app.",
+    titleB: "and the website & app start discipling.",
     sub: "The moment someone signs in, on your website or in the app, it knows them: their group, their giving, and their place on the discipleship track you've built. It shows one clear next step. And the app can send a gentle push when it's time, so it reaches them on Sunday and every day after.",
     tabs: { before: "Any visitor", after: "Sarah, signed in" },
     beats: [
@@ -212,7 +255,7 @@ export const DATA = {
 
   founders: {
     eyebrow: "Who we are",
-    title: "Two disciples serving the local church.",
+    title: "Two disciples serving the church.",
     body: "We\u2019re on a mission to further God\u2019s kingdom by helping churches better welcome and disciple the world.",
     people: [
       {
@@ -233,13 +276,14 @@ export const DATA = {
   pricing: {
     eyebrow: "How we work",
     title: "One build.\nOne partnership.",
-    sub: "One project fee covers the design and build, and the site is yours. After launch, we stick around for when you need us. Direct access to the people who built your site, whenever you need us.",
+    sub: "One project fee covers the design and build, and the site, app, and CMS are yours. After launch, we stick around for when you need us. Direct access to the people who built your tools, whenever you need us.",
     note: "We\u2019ll discuss pricing together on the call, based on your needs.",
     build: {
       label: "The build",
       note: "one project fee",
       rows: [
-        { k: "Custom design & build", v: "Included" },
+        { k: "Website: Custom design & build", v: "Included" },
+        { k: "Mobile App: Custom design & build", v: "Included" },
         { k: "Tailored content studio (CMS)", v: "Included" },
         { k: "Church software integration", v: "Included" },
         { k: "Member login & discipleship steps", v: "Included" },
@@ -258,7 +302,7 @@ export const DATA = {
 
   finalCta: {
     title: ["We\u2019d love to hear", "your church\u2019s story."],
-    sub: "Every church runs differently, so every build starts with what yours actually needs.Hop on a 20-minute call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. We\u2019d love to see how we can further God's Kingdom together!",
+    sub: "Every church runs differently, so every build starts with what yours actually needs. Hop on a 20-minute call and tell us about your church \u2014 what\u2019s working, what\u2019s not, and what you dream it could be. We\u2019d love to see how we can further God's Kingdom together!",
     primary: "Let’s Chat",
     secondary: "See a live demo",
   },

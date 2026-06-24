@@ -3,7 +3,17 @@
 import { useState, useEffect, useRef } from "react";
 import { DATA } from "@/app/data";
 import { Btn, Eyebrow, SecTitle, TrafficLights, Wrap } from "@/app/components/ui";
-import { AppPhone, PUBLIC_DECK } from "@/app/components/DeviceDuo";
+import {
+  AppPhone,
+  PhoneShell,
+  PUBLIC_DECK,
+  ScreenJourney,
+  ScreenGive,
+  ScreenPush,
+  ScreenSermon,
+  ScreenGroupsMap,
+  ScreenDream,
+} from "@/app/components/DeviceDuo";
 
 /* ---------- shared hooks ---------- */
 function useInView() {
@@ -563,8 +573,8 @@ function FloatChip({
 
 function DemoApp({ on }: { on: boolean }) {
   return (
-    <div className="relative grid h-[360px] place-items-center">
-      <div className="pointer-events-none absolute h-[300px] w-[300px] rounded-full bg-[radial-gradient(closest-side,var(--color-accent-tint),transparent_72%)]" />
+    <div className="relative grid h-[500px] place-items-center max-[940px]:h-[440px]">
+      <div className="pointer-events-none absolute h-[420px] w-[420px] rounded-full bg-[radial-gradient(closest-side,var(--color-accent-tint),transparent_72%)]" />
       <FloatChip
         className="left-0 top-[10%]"
         label="NATIVE & FAST"
@@ -580,7 +590,7 @@ function DemoApp({ on }: { on: boolean }) {
         label="ONE BACKEND"
         text="Same CMS and sync as your site. Publish once."
       />
-      <div className="relative w-[168px]">
+      <div className="relative w-[232px] max-[940px]:w-[204px]">
         <AppPhone on={on} deck={PUBLIC_DECK} />
       </div>
     </div>
@@ -1200,13 +1210,149 @@ const PAGE_VISUALS = [
   DemoDream,
 ];
 
+/* ---------- app page visuals (feature 02) ---------- */
+/* the phone frame stays put; only the screen inside swaps per accordion item */
+function AppMock({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative grid h-[500px] place-items-center max-[940px]:h-[440px]">
+      <div className="pointer-events-none absolute h-[420px] w-[420px] rounded-full bg-[radial-gradient(closest-side,var(--color-accent-tint),transparent_72%)]" />
+      <div className="relative w-[232px] max-[940px]:w-[204px]">
+        <PhoneShell>{children}</PhoneShell>
+      </div>
+    </div>
+  );
+}
+
+const AppTrack = () => (
+  <AppMock>
+    <ScreenJourney />
+  </AppMock>
+);
+const AppPush = () => (
+  <AppMock>
+    <ScreenPush />
+  </AppMock>
+);
+const AppSermon = () => (
+  <AppMock>
+    <ScreenSermon />
+  </AppMock>
+);
+const AppGroups = () => (
+  <AppMock>
+    <ScreenGroupsMap />
+  </AppMock>
+);
+const AppGiving = () => (
+  <AppMock>
+    <ScreenGive />
+  </AppMock>
+);
+const AppDream = () => (
+  <AppMock>
+    <ScreenDream />
+  </AppMock>
+);
+
+/* index-aligned with feature 02's `pages` array in data.ts */
+const APP_PAGE_VISUALS = [
+  AppTrack,
+  AppPush,
+  AppSermon,
+  AppGroups,
+  AppGiving,
+  AppDream,
+];
+
+const PAGE_VISUALS_BY_FEATURE: Record<string, React.ComponentType[]> = {
+  modern: PAGE_VISUALS,
+  app: APP_PAGE_VISUALS,
+};
+
 /* ---------- page accordion (feature 01) ---------- */
+function PageIcon({ name }: { name?: string }) {
+  const common = {
+    width: 15,
+    height: 15,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  switch (name) {
+    case "track": // flag / milestone
+      return (
+        <svg {...common}>
+          <path d="M6 21V4" />
+          <path d="M6 4h11l-2.2 3.2L17 10.5H6" />
+        </svg>
+      );
+    case "sermon": // play
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M10.5 9.2l4.2 2.8-4.2 2.8z" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "groups": // map pin
+      return (
+        <svg {...common}>
+          <path d="M12 21c4.5-4 7-7 7-10a7 7 0 0 0-14 0c0 3 2.5 6 7 10z" />
+          <circle cx="12" cy="11" r="2.4" />
+        </svg>
+      );
+    case "giving": // heart
+      return (
+        <svg {...common}>
+          <path d="M12 20s-6.5-4.3-6.5-9A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 6.5 3c0 4.7-6.5 9-6.5 9z" />
+        </svg>
+      );
+    case "class": // open book
+      return (
+        <svg {...common}>
+          <path d="M12 6.5S9.5 5 5 5v12.5c4.5 0 7 1.5 7 1.5s2.5-1.5 7-1.5V5c-4.5 0-7 1.5-7 1.5z" />
+          <path d="M12 6.5V19" />
+        </svg>
+      );
+    case "push": // bell
+      return (
+        <svg {...common}>
+          <path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 4.5 1.8 5.8 1.8 5.8H4.7s1.8-1.3 1.8-5.8z" />
+          <path d="M10 18.5a2 2 0 0 0 4 0" />
+        </svg>
+      );
+    case "dream": // sparkle
+      return (
+        <svg {...common}>
+          <path
+            d="M12 3.5c.5 4 1.5 5 5.5 5.5-4 .5-5 1.5-5.5 5.5-.5-4-1.5-5-5.5-5.5 4-.5 5-1.5 5.5-5.5z"
+            fill="currentColor"
+            stroke="none"
+          />
+          <path
+            d="M18.5 14.5c.2 1.7.7 2.2 2.5 2.5-1.8.3-2.3.8-2.5 2.5-.2-1.7-.7-2.2-2.5-2.5 1.8-.3 2.3-.8 2.5-2.5z"
+            fill="currentColor"
+            stroke="none"
+          />
+        </svg>
+      );
+    default:
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="3.5" />
+        </svg>
+      );
+  }
+}
+
 function PagesAccordion({
   pages,
   open,
   setOpen,
 }: {
-  pages: { title: string; blurb: string; href?: string }[];
+  pages: { title: string; blurb: string; href?: string; icon?: string }[];
   open: number | null;
   setOpen: (v: number | null) => void;
 }) {
@@ -1220,11 +1366,20 @@ function PagesAccordion({
               type="button"
               onClick={() => setOpen(isOpen ? null : i)}
               aria-expanded={isOpen}
-              className="flex w-full items-center justify-between gap-3 py-3.5 text-left"
+              className="flex w-full items-center gap-3 py-3.5 text-left"
             >
+              <span
+                className={`grid h-7 w-7 flex-none place-items-center rounded-[9px] transition-colors duration-300 ${
+                  isOpen
+                    ? "bg-accent text-white"
+                    : "bg-accent-tint text-accent"
+                }`}
+              >
+                <PageIcon name={pg.icon} />
+              </span>
               <span className="text-[15px] font-medium">{pg.title}</span>
               <span
-                className={`grid h-5 w-5 flex-none place-items-center rounded-full bg-accent-tint text-[15px] leading-none text-accent transition-transform duration-300 ${
+                className={`ml-auto grid h-5 w-5 flex-none place-items-center rounded-full bg-accent-tint text-[15px] leading-none text-accent transition-transform duration-300 ${
                   isOpen ? "rotate-45" : ""
                 }`}
               >
@@ -1345,11 +1500,15 @@ function FeatureRow({
       >
         {hasPages ? (
           openPage === null ? (
-            <DemoModern on={inView} />
+            Demo ? (
+              <Demo on={inView} />
+            ) : null
           ) : (
             (() => {
-              const PageVisual = PAGE_VISUALS[openPage];
-              return <PageVisual />;
+              const visuals = PAGE_VISUALS_BY_FEATURE[f.id] ?? [];
+              const PageVisual = visuals[openPage];
+              if (PageVisual) return <PageVisual />;
+              return Demo ? <Demo on={inView} /> : null;
             })()
           )
         ) : (
