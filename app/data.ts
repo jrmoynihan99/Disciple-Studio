@@ -109,7 +109,7 @@ export const DATA = {
       n: "01",
       tag: "The front door",
       title: "A 100% custom site, built specifically for your church.",
-      body: "Templates don't cut it. We work with you personally to build the site of your dreams. Built on the same technology behind the fastest sites on the web, it loads instantly, looks right on every device, and grows with your church for years. See below for a few of the custom features we've built:",
+      body: "Templates don't cut it. We work with you personally to build the site of your dreams, built to turn lookers into visitors. Built on the same technology behind the fastest sites on the web, itgrows with your church for years. See below for a few of the custom features we've built:",
       cta: { label: "See a live demo", href: LIVE_URL },
       pages: [
         {
@@ -161,7 +161,7 @@ export const DATA = {
       n: "02",
       tag: "In their pocket",
       title: "A 100% custom mobile app that feels like it was built by Apple.",
-      body: "A real native app for iOS and Android, with everything your website has — sermons, groups, events, and giving — built for the phone. Powered by the same CMS as your website, so your staff never changes anything twice. Publish once, and it's live on the web and in their pocket.",
+      body: "A real native app for iOS and Android, with everything your website has — sermons, groups, events, and giving — built for the phone. The power of your church, in their pocket. Built with configurable notifications to keep your members engaged and informed. Powered by the same CMS as your website, so your staff never changes anything twice. Publish once, and it's live on the web and in their pocket.",
       cta: null,
       pages: [
         {
@@ -208,7 +208,7 @@ export const DATA = {
       n: "03",
       tag: "Streamlined CMS",
       title: "One streamlined CMS that powers both your site and app.",
-      body: "We build your CMS from scratch, tailored to you — exactly what you need, nothing you don't, and easy enough that your staff can run and expand it on their own. And it's your single source of content: update a sermon, an event, or a series once, and both your website and app pull from it. No double entry, no bloated builder, no code.",
+      body: "We build your CMS from scratch, tailored to you — exactly what you need, nothing you don't, and effortless for your staff to run and expand on their own. Update a sermon, an event, or a series once, and both your website and app pull from it. No double entry, no bloated builder, no code.",
       cta: null,
       pages: [] as { title: string; blurb: string; href?: string }[],
       points: [],
