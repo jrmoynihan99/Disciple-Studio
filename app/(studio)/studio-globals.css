@@ -1,0 +1,235 @@
+@import "tailwindcss";
+
+/* ══════════════════════════════════════════════════════════════════
+   DESIGN TOKEN SYSTEM (church-demos)
+
+   Three layers, all consumed as Tailwind utilities (bg-*, text-*, …):
+
+   1. App UI — the dark chrome used by /admin, the index, and the generic
+      member dropdown. Tokens: fg / surface / line / success / error.
+   2. Brand — the per-church accent, set at runtime by DemoChrome as an
+      "R G B" triple (--brand) plus a darker shade (--brand-card). Utilities
+      bg-brand / text-brand / border-brand, opacity via bg-brand/25, etc.
+   3. Template palette — the "warm paper" design language used by the
+      editorial dashboard. Semantic + themeable: a sibling template can
+      override these vars on its own root and reuse the same utilities.
+
+   Fonts: font-sans (Hanken Grotesk) and font-serif (Newsreader).
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── 1. App UI (dark) ── */
+  /* Foreground (text) */
+  --fg: 255 255 255;
+  --fg-secondary: 255 255 255;
+  --fg-secondary-alpha: 0.7;
+  --fg-tertiary: 255 255 255;
+  --fg-tertiary-alpha: 0.5;
+  --fg-muted: 255 255 255;
+  --fg-muted-alpha: 0.4;
+  --fg-faint: 255 255 255;
+  --fg-faint-alpha: 0.2;
+  --fg-inverted: 0 0 0;
+
+  /* Surfaces (backgrounds) */
+  --surface: 10 10 10;
+  --surface-raised: 255 255 255;
+  --surface-raised-alpha: 0.05;
+  --surface-hover: 255 255 255;
+  --surface-hover-alpha: 0.08;
+  --surface-elevated: 255 255 255;
+  --surface-elevated-alpha: 0.1;
+  --surface-inverted: 255 255 255;
+
+  /* Lines (borders) */
+  --line: 255 255 255;
+  --line-alpha: 0.1;
+  --line-strong: 255 255 255;
+  --line-strong-alpha: 0.2;
+  --line-hover: 255 255 255;
+  --line-hover-alpha: 0.3;
+
+  /* Status */
+  --success: 52 211 153; /* emerald-400 — "completed" reads as done everywhere */
+  --error: 248 113 113;
+
+  /* Component-specific */
+  --dropdown-bg-alpha: 0.5;
+
+  /* ── 2. Brand (per-church; overridden at runtime by DemoChrome) ── */
+  /* "R G B" triples so utilities can apply opacity: rgb(var(--brand) / a). */
+  --brand: 52 211 153;
+  --brand-card: 41 168 122;
+
+  /* ── 3. Template palette — "warm paper" (editorial defaults) ── */
+  --paper: #f4efe6; /* page background */
+  --ink: #211c16; /* primary text */
+  --ink-soft: #6b6157; /* secondary text */
+  --ink-muted: #837a6c; /* tertiary text */
+  --faint: #a9a08f; /* eyebrows / labels */
+  --card: #fffefb; /* raised card surface */
+  --card-2: #fdf3ef; /* warm inset (logo text, focal button) */
+  --edge: #ebe2d3; /* card borders */
+  --hairline: #e6ded0; /* header / strong dividers */
+  --hairline-soft: #f0e8da; /* subtle dividers */
+  --upcoming: #e1d8c8; /* incomplete-step rings / connectors */
+  --on-accent: #f6e7e2; /* text/icon on accent surfaces */
+}
+
+:root.light {
+  --fg: 23 23 23;
+  --fg-secondary: 23 23 23;
+  --fg-secondary-alpha: 0.7;
+  --fg-tertiary: 23 23 23;
+  --fg-tertiary-alpha: 0.5;
+  --fg-muted: 23 23 23;
+  --fg-muted-alpha: 0.4;
+  --fg-faint: 23 23 23;
+  --fg-faint-alpha: 0.2;
+  --fg-inverted: 255 255 255;
+
+  --surface: 255 255 255;
+  --surface-raised: 0 0 0;
+  --surface-raised-alpha: 0.04;
+  --surface-hover: 0 0 0;
+  --surface-hover-alpha: 0.06;
+  --surface-elevated: 0 0 0;
+  --surface-elevated-alpha: 0.08;
+  --surface-inverted: 23 23 23;
+
+  --line: 0 0 0;
+  --line-alpha: 0.1;
+  --line-strong: 0 0 0;
+  --line-strong-alpha: 0.2;
+  --line-hover: 0 0 0;
+  --line-hover-alpha: 0.3;
+
+  --success: 5 150 105;
+  --error: 220 38 38;
+
+  --dropdown-bg-alpha: 0.75;
+}
+
+@theme inline {
+  --color-fg: rgb(var(--fg));
+  --color-fg-secondary: rgb(var(--fg-secondary) / var(--fg-secondary-alpha));
+  --color-fg-tertiary: rgb(var(--fg-tertiary) / var(--fg-tertiary-alpha));
+  --color-fg-muted: rgb(var(--fg-muted) / var(--fg-muted-alpha));
+  --color-fg-faint: rgb(var(--fg-faint) / var(--fg-faint-alpha));
+  --color-fg-inverted: rgb(var(--fg-inverted));
+
+  --color-surface: rgb(var(--surface));
+  --color-surface-raised: rgb(var(--surface-raised) / var(--surface-raised-alpha));
+  --color-surface-hover: rgb(var(--surface-hover) / var(--surface-hover-alpha));
+  --color-surface-elevated: rgb(var(--surface-elevated) / var(--surface-elevated-alpha));
+  --color-surface-inverted: rgb(var(--surface-inverted));
+
+  --color-line: rgb(var(--line) / var(--line-alpha));
+  --color-line-strong: rgb(var(--line-strong) / var(--line-strong-alpha));
+  --color-line-hover: rgb(var(--line-hover) / var(--line-hover-alpha));
+
+  --color-success: rgb(var(--success));
+  --color-error: rgb(var(--error));
+
+  /* Brand utilities — text-brand, bg-brand, border-brand (+ /opacity) */
+  --color-brand: rgb(var(--brand));
+  --color-brand-card: rgb(var(--brand-card));
+
+  /* Template "warm paper" palette utilities */
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-faint: var(--faint);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-edge: var(--edge);
+  --color-hairline: var(--hairline);
+  --color-hairline-soft: var(--hairline-soft);
+  --color-upcoming: var(--upcoming);
+  --color-on-accent: var(--on-accent);
+
+  /* Fonts. font-serif follows the per-template/church choice injected by
+     DemoChrome (--ds-serif); the base sans is set on the demo root. */
+  --font-sans: var(--font-hanken), "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--ds-serif, var(--font-newsreader));
+}
+
+/* The template palette + brand vars are injected per demo at runtime by
+   DemoChrome (themeToVars) from the resolved light/dark ColorSet. The :root
+   values above are editorial-light fallbacks for first paint. */
+
+html {
+  scrollbar-width: none;
+  color-scheme: dark;
+  background-color: rgb(var(--surface));
+  transition: background-color 300ms ease;
+}
+
+html.light {
+  color-scheme: light;
+}
+
+body {
+  background-color: transparent;
+  color: rgb(var(--fg));
+  transition: color 300ms ease;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Editorial dashboard template (MemberDashboardEditorial) ── */
+@keyframes edPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(138, 52, 65, 0.32); }
+  50% { box-shadow: 0 0 0 9px rgba(138, 52, 65, 0); }
+}
+@keyframes edDrift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(64px, 46px) scale(1.08); }
+}
+@keyframes edDrift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-56px, -42px) scale(1.1); }
+}
+@keyframes edDrift3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-40px, 52px) scale(1.06); }
+}
+
+/* Warm-bento / warm-guide current-step pulse (brand-colored) */
+@keyframes bnPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--brand) / 0.32); }
+  50% { box-shadow: 0 0 0 7px rgb(var(--brand) / 0); }
+}
+@keyframes ggPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--brand) / 0.3); }
+  50% { box-shadow: 0 0 0 7px rgb(var(--brand) / 0); }
+}
+
+/* ── Dropdown animations (member menu) ── */
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes dropdownOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-4px) scale(0.97); }
+}
+@keyframes dropdownItemIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes dropdownItemOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-6px); }
+}
