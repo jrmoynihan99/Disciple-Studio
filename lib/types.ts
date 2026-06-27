@@ -104,11 +104,18 @@ export interface GivingInfo {
   gratitude?: string;
 }
 
-/** Brand colors. `accent` seeds the accent token in BOTH light and dark unless
- *  overridden per-mode in `themeOverrides`. */
+/** Brand colors — an OPTIONAL accent override. When omitted, the accent comes
+ *  from the selected palette (each light/dark preset ships an accent tuned to
+ *  match it). When set, `accent` overrides that in BOTH modes; per-mode accents
+ *  can still be set individually via `themeOverrides.{light,dark}.accent`. */
 export interface BrandColors {
-  /** Primary accent, e.g. "#8a3441". */
-  accent: string;
+  /** Optional accent override for BOTH modes, e.g. "#8a3441". Omit to use the
+   *  palette's accent. The per-mode overrides below take precedence when set. */
+  accent?: string;
+  /** Optional light-mode accent override (falls back to `accent`, then palette). */
+  accentLight?: string;
+  /** Optional dark-mode accent override (falls back to `accent`, then palette). */
+  accentDark?: string;
 }
 
 /**
@@ -186,7 +193,8 @@ export interface ChurchConfig {
   // ── Branding ───────────────────────────────────────────────────────────
   /** Logo URL (optional; falls back to the church name as text). */
   logoUrl?: string;
-  brand: BrandColors;
+  /** Optional accent override. Omit to inherit the selected palette's accent. */
+  brand?: BrandColors;
   /** Which predetermined palette to use per mode (each template ships 2 light +
    *  2 dark). Omit to use the template defaults. See `lib/themes.ts`. */
   palette?: { light?: string; dark?: string };

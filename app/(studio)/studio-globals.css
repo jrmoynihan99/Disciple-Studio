@@ -58,22 +58,23 @@
 
   /* ── 2. Brand (per-church; overridden at runtime by DemoChrome) ── */
   /* "R G B" triples so utilities can apply opacity: rgb(var(--brand) / a). */
-  --brand: 52 211 153;
-  --brand-card: 41 168 122;
+  --brand: 158 100 80;
+  --brand-card: 127 78 61;
 
-  /* ── 3. Template palette — "warm paper" (editorial defaults) ── */
-  --paper: #f4efe6; /* page background */
-  --ink: #211c16; /* primary text */
-  --ink-soft: #6b6157; /* secondary text */
-  --ink-muted: #837a6c; /* tertiary text */
-  --faint: #a9a08f; /* eyebrows / labels */
-  --card: #fffefb; /* raised card surface */
-  --card-2: #fdf3ef; /* warm inset (logo text, focal button) */
-  --edge: #ebe2d3; /* card borders */
-  --hairline: #e6ded0; /* header / strong dividers */
-  --hairline-soft: #f0e8da; /* subtle dividers */
-  --upcoming: #e1d8c8; /* incomplete-step rings / connectors */
-  --on-accent: #f6e7e2; /* text/icon on accent surfaces */
+  /* ── 3. Template palette — "white" light preset (first-paint fallback) ── */
+  --paper: #f6f5f3; /* page background */
+  --ink: #222020; /* primary text */
+  --ink-soft: #575452; /* secondary text */
+  --ink-muted: #827e7a; /* tertiary text */
+  --faint: #aaa6a0; /* eyebrows / labels */
+  --card: #fdfdfc; /* raised card surface */
+  --card-2: #eeece8; /* inset (logo text, focal button) */
+  --edge: #e5e2dd; /* card borders */
+  --hairline: #e5e2dd; /* header / strong dividers */
+  --hairline-soft: #eeebe6; /* subtle dividers */
+  --upcoming: #e0ddd6; /* incomplete-step rings / connectors */
+  --on-accent: #fbf6f1; /* text/icon on accent surfaces */
+  --logo-filter: brightness(0); /* recolor uploaded logos to match the mode */
 }
 
 :root.light {
@@ -190,8 +191,8 @@ html::-webkit-scrollbar {
 
 /* ── Editorial dashboard template (MemberDashboardEditorial) ── */
 @keyframes edPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(138, 52, 65, 0.32); }
-  50% { box-shadow: 0 0 0 9px rgba(138, 52, 65, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--brand) / 0.32); }
+  50% { box-shadow: 0 0 0 9px rgb(var(--brand) / 0); }
 }
 @keyframes edDrift1 {
   0%, 100% { transform: translate(0, 0) scale(1); }

@@ -4,9 +4,9 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ChurchConfig, IconName, PathwayStep, StepStatus } from "@/lib/types";
 import { ICON_NAMES } from "@/lib/icons";
-import { getTemplateEntry, TEMPLATES } from "@/components/templates";
-import { listPalettes } from "@/lib/themes";
-import DemoChrome from "@/components/DemoChrome";
+import { TEMPLATES } from "@/components/templates";
+import { listPaletteSwatches, paletteAccents, paletteDefaults, type PaletteSwatch } from "@/lib/themes";
+import DemoExperience from "@/components/DemoExperience";
 
 /**
  * Local church builder + editor. Fill the form, watch the live preview, then
@@ -18,7 +18,18 @@ import DemoChrome from "@/components/DemoChrome";
  * `mergeConfig`.
  */
 
-type StepDraft = { key?: string; label: string; icon: IconName; status: StepStatus };
+type StepDraft = {
+  key?: string;
+  label: string;
+  icon: IconName;
+  status: StepStatus;
+  /** Longer copy shown in the focal step card on the right. */
+  description?: string;
+  /** Button label on the focal card, e.g. "Browse groups". */
+  ctaLabel?: string;
+  /** Small meta line under the card, e.g. "4 groups near you · ~2 min". */
+  meta?: string;
+};
 
 const STATUS_CYCLE: StepStatus[] = ["not-started", "in-progress", "complete"];
 const STATUS_LABEL: Record<StepStatus, string> = {
@@ -30,19 +41,67 @@ const STATUS_LABEL: Record<StepStatus, string> = {
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
-function randomSuffix(): string {
-  return Math.random().toString(36).slice(2, 8);
-}
+
+/** The demo member is the same for every demo — hardcoded, not configurable. */
+const DEMO_MEMBER = {
+  firstName: "Sarah",
+  lastName: "Thompson",
+  email: "sarah.t@example.com",
+  campus: "Downtown",
+  memberSince: "Member since 2023",
+};
 
 const DEFAULT_TRACK: StepDraft[] = [
-  { label: "Attend a Sunday gathering", icon: "church", status: "complete" },
-  { label: "Get baptized", icon: "droplets", status: "complete" },
-  { label: "Join a community group", icon: "users", status: "in-progress" },
-  { label: "Take the membership class", icon: "heart", status: "not-started" },
+  {
+    label: "Attend a Sunday gathering",
+    icon: "church",
+    status: "complete",
+    description: "You showed up — that's where it all starts. Worship together, hear the Word, and meet the family you're now part of.",
+    ctaLabel: "See service times",
+    meta: "Sundays · 9 & 11 AM",
+  },
+  {
+    label: "Get baptized",
+    icon: "droplets",
+    status: "complete",
+    description: "A public yes to following Jesus. You went under the water and came up new — the whole church celebrated with you.",
+    ctaLabel: "Watch your baptism",
+    meta: "Completed · 2023",
+  },
+  {
+    label: "Join a community group",
+    icon: "users",
+    status: "in-progress",
+    description: "Faith grows best in circles, not rows. Find a handful of people to share life, prayer, and a regular table with.",
+    ctaLabel: "Browse groups near you",
+    meta: "4 groups near you · ~2 min",
+  },
+  {
+    label: "Take the membership class",
+    icon: "heart",
+    status: "not-started",
+    description: "Make it official. Learn who we are, what we believe, and how you fit into the mission of this church.",
+    ctaLabel: "Reserve a seat",
+    meta: "Next class · first Sunday",
+  },
 ];
 const DEFAULT_NEXT: StepDraft[] = [
-  { label: "Find a place to serve", icon: "hand-heart", status: "not-started" },
-  { label: "Set up recurring giving", icon: "sparkles", status: "not-started" },
+  {
+    label: "Find a place to serve",
+    icon: "hand-heart",
+    status: "not-started",
+    description: "You were made to give, not just receive. Use your gifts to make a Sunday — and someone's week — better.",
+    ctaLabel: "Explore serving teams",
+    meta: "12 teams · all gifts welcome",
+  },
+  {
+    label: "Set up recurring giving",
+    icon: "sparkles",
+    status: "not-started",
+    description: "Generosity becomes a rhythm when it's automatic. Partner with what God is doing here, one gift at a time.",
+    ctaLabel: "Set up giving",
+    meta: "Takes about a minute",
+  },
 ];
 
 function AdminInner() {
@@ -50,21 +109,20 @@ function AdminInner() {
   const editingSlug = useSearchParams().get("slug");
 
   const [churchName, setChurchName] = useState("Grace Community Church");
-  const [suffix, setSuffix] = useState("a7f3c1");
   const [tagline, setTagline] = useState("Knowing God. Making Him known.");
-  const [accent, setAccent] = useState("#8a3441");
+  // Accent defaults to the chosen palette's accent; the override is opt-in and
+  // can set a separate accent per mode (light / dark).
+  const [accentOverride, setAccentOverride] = useState(false);
+  const [accentLight, setAccentLight] = useState("#9e6450");
+  const [accentDark, setAccentDark] = useState("#c98a6b");
   const [template, setTemplate] = useState("editorial");
   const [paletteLight, setPaletteLight] = useState("");
   const [paletteDark, setPaletteDark] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [welcomeLine, setWelcomeLine] = useState(
-    "You're a few steps into a life rooted in this church. Here's the next one.",
+    "We're so glad you're here — here are your next steps, your group, your giving, and more",
   );
-  const [firstName, setFirstName] = useState("Sarah");
-  const [lastName, setLastName] = useState("Thompson");
-  const [email, setEmail] = useState("sarah.t@example.com");
-  const [campus, setCampus] = useState("Downtown");
-  const [memberSince, setMemberSince] = useState("Member since 2023");
   const [track, setTrack] = useState<StepDraft[]>(DEFAULT_TRACK);
   const [next, setNext] = useState<StepDraft[]>(DEFAULT_NEXT);
 
@@ -81,17 +139,14 @@ function AdminInner() {
         setLoaded(c);
         setChurchName(c.churchName);
         setTagline(c.tagline ?? "");
-        setAccent(c.brand?.accent ?? "#8a3441");
+        setAccentOverride(!!(c.brand?.accent || c.brand?.accentLight || c.brand?.accentDark));
+        setAccentLight(c.brand?.accentLight ?? c.brand?.accent ?? "#9e6450");
+        setAccentDark(c.brand?.accentDark ?? c.brand?.accent ?? "#c98a6b");
         setTemplate(c.template);
         setPaletteLight(c.palette?.light ?? "");
         setPaletteDark(c.palette?.dark ?? "");
         setLogoUrl(c.logoUrl ?? "");
         setWelcomeLine(c.welcomeLine ?? "");
-        setFirstName(c.demoMember.firstName);
-        setLastName(c.demoMember.lastName);
-        setEmail(c.demoMember.email);
-        setCampus(c.demoMember.campus ?? "");
-        setMemberSince(c.demoMember.memberSince ?? "");
         const statusByKey = new Map(c.demoMember.steps.map((s) => [s.key, s.status]));
         const toDrafts = (steps: PathwayStep[]): StepDraft[] =>
           steps.map((s) => ({
@@ -99,6 +154,9 @@ function AdminInner() {
             label: s.label,
             icon: (s.icon ?? "star") as IconName,
             status: statusByKey.get(s.key) ?? "not-started",
+            description: s.description ?? "",
+            ctaLabel: s.ctaLabel ?? "",
+            meta: s.meta ?? "",
           }));
         setTrack(toDrafts(c.discipleshipTrack));
         setNext(toDrafts(c.nextSteps));
@@ -106,24 +164,54 @@ function AdminInner() {
       .catch(() => alert("Could not load that demo."));
   }, [editingSlug]);
 
-  const baseSlug = slugify(churchName) || "church";
-  // In edit mode the slug is locked to the loaded file (rename = new file).
-  const slug = editingSlug ?? `${baseSlug}-${suffix}`;
+  // The slug is just the church name. In edit mode it's locked to the loaded
+  // file (renaming a church would be a new file).
+  const slug = editingSlug ?? (slugify(churchName) || "church");
 
-  const palettes = listPalettes(template);
+  const lightSwatches = listPaletteSwatches(template, "light");
+  const darkSwatches = listPaletteSwatches(template, "dark");
+  const paletteDefault = paletteDefaults(template);
+  // The accent each chosen palette yields, shown when not overriding.
+  const accents = paletteAccents(template, paletteLight || undefined, paletteDark || undefined);
 
   const config = useMemo<ChurchConfig>(
     () =>
       buildConfig({
-        slug, churchName, tagline, accent, template, paletteLight, paletteDark,
-        logoUrl, welcomeLine,
-        member: { firstName, lastName, email, campus, memberSince },
+        slug, churchName, tagline,
+        accentLight: accentOverride ? accentLight : undefined,
+        accentDark: accentOverride ? accentDark : undefined,
+        template, paletteLight, paletteDark, logoUrl, welcomeLine,
         track, next,
       }),
-    [slug, churchName, tagline, accent, template, paletteLight, paletteDark, logoUrl, welcomeLine, firstName, lastName, email, campus, memberSince, track, next],
+    [slug, churchName, tagline, accentOverride, accentLight, accentDark, template, paletteLight, paletteDark, logoUrl, welcomeLine, track, next],
   );
 
-  const { component: Template, selfChrome } = getTemplateEntry(config.template);
+  // Picking a template resets the palette choices to that template's defaults.
+  // Shared by the form picker and the preview's in-bar switcher so they stay in sync.
+  function selectTemplate(key: string) {
+    setTemplate(key);
+    setPaletteLight("");
+    setPaletteDark("");
+  }
+
+  async function uploadLogo(file: File) {
+    setUploadingLogo(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || "Upload failed");
+        return;
+      }
+      setLogoUrl(data.url);
+    } catch {
+      alert("Upload failed");
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -158,50 +246,131 @@ function AdminInner() {
 
         <Group title="Identity">
           <Field label="Church name" value={churchName} onChange={setChurchName} />
-          {!editingSlug && (
-            <div className="flex items-end gap-2">
-              <Field label="Slug suffix" value={suffix} onChange={setSuffix} />
-              <button
-                type="button"
-                onClick={() => setSuffix(randomSuffix())}
-                className="mb-0.5 rounded-lg border border-line px-3 py-2 text-sm hover:bg-surface-raised"
-              >
-                Randomize
-              </button>
-            </div>
-          )}
           <Field label="Tagline" value={tagline} onChange={setTagline} />
+          <Field label="Welcome line" value={welcomeLine} onChange={setWelcomeLine} />
+
+          <div>
+            <span className="mb-1 block text-xs text-fg-muted">Logo (optional)</span>
+            <div className="flex items-center gap-3">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt="Logo preview"
+                  className="h-11 w-11 flex-none rounded-lg border border-line bg-surface-raised object-contain p-0.5"
+                />
+              ) : (
+                <div className="flex h-11 w-11 flex-none items-center justify-center rounded-lg border border-dashed border-line text-fg-muted">
+                  —
+                </div>
+              )}
+              <label className="cursor-pointer rounded-lg border border-line px-3 py-2 text-sm hover:bg-surface-raised">
+                {uploadingLogo ? "Uploading…" : logoUrl ? "Replace" : "Upload image"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                  className="hidden"
+                  disabled={uploadingLogo}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f) uploadLogo(f);
+                  }}
+                />
+              </label>
+              {logoUrl && !uploadingLogo && (
+                <button
+                  type="button"
+                  onClick={() => setLogoUrl("")}
+                  className="text-sm text-fg-muted hover:text-error"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
         </Group>
 
         <Group title="Branding">
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={accent}
-              onChange={(e) => setAccent(e.target.value)}
-              className="h-9 w-12 rounded border border-line bg-transparent"
-            />
-            <Field label="Accent" value={accent} onChange={setAccent} />
+          {/* Template — pick a layout */}
+          <div>
+            <span className="mb-1.5 block text-xs text-fg-muted">Template</span>
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(TEMPLATES).map(([key, entry]) => {
+                const isSel = template === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => selectTemplate(key)}
+                    className={`relative overflow-hidden rounded-lg border bg-surface text-left transition ${
+                      isSel ? "border-fg ring-1 ring-fg" : "border-line hover:border-line-hover"
+                    }`}
+                  >
+                    <TemplateThumb templateKey={key} />
+                    <div className="border-t border-line px-2 py-1 text-[11px] font-medium text-fg-secondary">
+                      {entry.label}
+                    </div>
+                    {isSel && <SelectedBadge />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <Select
-            label="Template"
-            value={template}
-            onChange={(v) => {
-              setTemplate(v);
-              setPaletteLight("");
-              setPaletteDark("");
-            }}
-            options={Object.keys(TEMPLATES)}
-          />
-          <div className="flex gap-2">
-            <Select label="Light palette" value={paletteLight} onChange={setPaletteLight} options={["", ...palettes.light]} defaultLabel="Default" />
-            <Select label="Dark palette" value={paletteDark} onChange={setPaletteDark} options={["", ...palettes.dark]} defaultLabel="Default" />
-          </div>
-          <Field label="Logo URL (optional)" value={logoUrl} onChange={setLogoUrl} />
-        </Group>
 
-        <Group title="Greeting">
-          <Field label="Welcome line" value={welcomeLine} onChange={setWelcomeLine} />
+          {/* Palettes — pick a light + dark preset */}
+          <PaletteRow
+            label="Light palette"
+            swatches={lightSwatches}
+            selected={paletteLight || paletteDefault.light}
+            onSelect={setPaletteLight}
+          />
+          <PaletteRow
+            label="Dark palette"
+            swatches={darkSwatches}
+            selected={paletteDark || paletteDefault.dark}
+            onSelect={setPaletteDark}
+          />
+
+          {/* Accent — comes from the palette by default; override is opt-in. */}
+          <div className="space-y-2">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-fg-secondary">
+              <input
+                type="checkbox"
+                checked={accentOverride}
+                onChange={(e) => setAccentOverride(e.target.checked)}
+              />
+              Override accent
+            </label>
+            {accentOverride ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={accentLight}
+                    onChange={(e) => setAccentLight(e.target.value)}
+                    className="h-9 w-12 rounded border border-line bg-transparent"
+                  />
+                  <Field label="Light accent" value={accentLight} onChange={setAccentLight} />
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={accentDark}
+                    onChange={(e) => setAccentDark(e.target.value)}
+                    className="h-9 w-12 rounded border border-line bg-transparent"
+                  />
+                  <Field label="Dark accent" value={accentDark} onChange={setAccentDark} />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 text-xs text-fg-muted">
+                <Swatch color={accents.light} label="Light" />
+                <Swatch color={accents.dark} label="Dark" />
+                <span>Matched to the palette</span>
+              </div>
+            )}
+          </div>
         </Group>
 
         <Group title="Discipleship Track">
@@ -209,20 +378,8 @@ function AdminInner() {
         </Group>
         <Group title="Next Steps">
           <StepEditor steps={next} onChange={setNext} />
-        </Group>
-
-        <Group title="Demo member">
-          <div className="flex gap-2">
-            <Field label="First" value={firstName} onChange={setFirstName} />
-            <Field label="Last" value={lastName} onChange={setLastName} />
-          </div>
-          <Field label="Email" value={email} onChange={setEmail} />
-          <div className="flex gap-2">
-            <Field label="Campus" value={campus} onChange={setCampus} />
-            <Field label="Member since" value={memberSince} onChange={setMemberSince} />
-          </div>
           <p className="mt-1 text-xs text-fg-muted">
-            Tip: click a step&apos;s status above to set their progress.
+            Tip: click a step&apos;s status to set the demo member&apos;s progress.
           </p>
         </Group>
 
@@ -250,14 +407,13 @@ function AdminInner() {
             Signed in
           </label>
         </div>
-        <DemoChrome
+        <DemoExperience
           key={String(previewSignedIn)}
           config={config}
           startSignedIn={previewSignedIn}
-          showMemberArea={!selfChrome}
-        >
-          <Template config={config} />
-        </DemoChrome>
+          embedded
+          onTemplateChange={selectTemplate}
+        />
       </div>
     </div>
   );
@@ -277,20 +433,29 @@ function buildConfig(input: {
   slug: string;
   churchName: string;
   tagline: string;
-  accent: string;
+  /** Per-mode accent overrides, or undefined to inherit the palette's accent. */
+  accentLight: string | undefined;
+  accentDark: string | undefined;
   template: string;
   paletteLight: string;
   paletteDark: string;
   logoUrl: string;
   welcomeLine: string;
-  member: { firstName: string; lastName: string; email: string; campus: string; memberSince: string };
   track: StepDraft[];
   next: StepDraft[];
 }): ChurchConfig {
   const keyOf = (d: StepDraft, i: number, prefix: string) => d.key || slugify(d.label) || `${prefix}-${i}`;
 
   const toSteps = (drafts: StepDraft[], startOrder: number, prefix: string): PathwayStep[] =>
-    drafts.map((d, i) => ({ key: keyOf(d, i, prefix), label: d.label, icon: d.icon, order: startOrder + i * 10 }));
+    drafts.map((d, i) => ({
+      key: keyOf(d, i, prefix),
+      label: d.label,
+      description: d.description?.trim() || undefined,
+      ctaLabel: d.ctaLabel?.trim() || undefined,
+      meta: d.meta?.trim() || undefined,
+      icon: d.icon,
+      order: startOrder + i * 10,
+    }));
 
   const trackSteps = toSteps(input.track, 10, "track");
   const nextSteps = toSteps(input.next, 10 + input.track.length * 10, "next");
@@ -309,20 +474,16 @@ function buildConfig(input: {
     churchName: input.churchName,
     tagline: input.tagline || undefined,
     logoUrl: input.logoUrl || undefined,
-    brand: { accent: input.accent },
+    brand:
+      input.accentLight || input.accentDark
+        ? { accentLight: input.accentLight, accentDark: input.accentDark }
+        : undefined,
     template: input.template,
     palette,
     welcomeLine: input.welcomeLine || undefined,
     discipleshipTrack: trackSteps,
     nextSteps,
-    demoMember: {
-      firstName: input.member.firstName,
-      lastName: input.member.lastName,
-      email: input.member.email,
-      campus: input.member.campus || undefined,
-      memberSince: input.member.memberSince || undefined,
-      steps: memberSteps,
-    },
+    demoMember: { ...DEMO_MEMBER, steps: memberSteps },
   };
 }
 
@@ -352,6 +513,17 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
+function Swatch({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="h-5 w-5 rounded-full border border-line" style={{ backgroundColor: color }} aria-hidden />
+      <span>
+        {label} <span className="text-fg-secondary">{color}</span>
+      </span>
+    </span>
+  );
+}
+
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="block flex-1">
@@ -365,34 +537,105 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
   );
 }
 
-function Select({
+/** A small wireframe preview of a template's general layout, for the picker. */
+function TemplateThumb({ templateKey }: { templateKey: string }) {
+  if (templateKey === "warm-bento") {
+    return (
+      <div className="flex h-[64px] flex-col gap-1 p-1.5">
+        <div className="h-1.5 w-full rounded-sm bg-fg/15" />
+        <div className="grid flex-1 grid-cols-3 grid-rows-2 gap-1">
+          <div className="col-span-2 rounded-sm bg-fg/15" />
+          <div className="rounded-sm bg-fg/30" />
+          <div className="rounded-sm bg-fg/30" />
+          <div className="col-span-2 rounded-sm bg-fg/15" />
+        </div>
+      </div>
+    );
+  }
+  if (templateKey === "warm-guide") {
+    return (
+      <div className="flex h-[64px] flex-col gap-1 p-1.5">
+        <div className="mx-auto h-1.5 w-1/2 rounded-sm bg-fg/15" />
+        <div className="flex flex-1 gap-1">
+          <div className="flex w-1/3 flex-col justify-center gap-1">
+            <div className="h-1 w-full rounded-sm bg-fg/15" />
+            <div className="h-1 w-full rounded-sm bg-fg/15" />
+            <div className="h-1 w-full rounded-sm bg-fg/15" />
+          </div>
+          <div className="flex-1 rounded-sm bg-fg/30" />
+        </div>
+      </div>
+    );
+  }
+  // editorial (default): pathway list on the left, focal card on the right.
+  return (
+    <div className="flex h-[64px] flex-col gap-1 p-1.5">
+      <div className="h-1.5 w-full rounded-sm bg-fg/15" />
+      <div className="flex flex-1 gap-1">
+        <div className="flex flex-1 flex-col justify-center gap-1">
+          <div className="h-1 w-full rounded-sm bg-fg/15" />
+          <div className="h-1 w-4/5 rounded-sm bg-fg/15" />
+          <div className="h-1 w-5/6 rounded-sm bg-fg/15" />
+        </div>
+        <div className="w-2/5 rounded-sm bg-fg/30" />
+      </div>
+    </div>
+  );
+}
+
+/** The checkmark badge shown on a selected template/palette tile. */
+function SelectedBadge() {
+  return (
+    <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-fg text-[10px] font-bold leading-none text-fg-inverted shadow">
+      ✓
+    </span>
+  );
+}
+
+/** A row of palette preview swatches for one mode — click to select. */
+function PaletteRow({
   label,
-  value,
-  onChange,
-  options,
-  defaultLabel,
+  swatches,
+  selected,
+  onSelect,
 }: {
   label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  defaultLabel?: string;
+  swatches: PaletteSwatch[];
+  selected: string;
+  onSelect: (name: string) => void;
 }) {
   return (
-    <label className="block flex-1">
-      <span className="mb-1 block text-xs text-fg-muted">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-line bg-surface-raised px-3 py-2 text-sm text-fg outline-none focus:border-line-hover"
-      >
-        {options.map((o) => (
-          <option key={o} value={o} className="bg-surface text-fg">
-            {o === "" ? (defaultLabel ?? "—") : o}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div>
+      <span className="mb-1.5 block text-xs text-fg-muted">{label}</span>
+      <div className="grid grid-cols-5 gap-1.5">
+        {swatches.map((s) => {
+          const isSel = s.name === selected;
+          return (
+            <button
+              key={s.name}
+              type="button"
+              onClick={() => onSelect(s.name)}
+              title={s.name}
+              className={`relative rounded-md border p-1 transition ${
+                isSel ? "border-fg ring-1 ring-fg" : "border-line hover:border-line-hover"
+              }`}
+            >
+              <div className="h-7 w-full overflow-hidden rounded" style={{ backgroundColor: s.bg }}>
+                <div className="flex h-full items-center gap-1 px-1">
+                  <span
+                    className="h-3.5 w-3.5 rounded-[3px] border border-black/10"
+                    style={{ backgroundColor: s.card }}
+                  />
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.accent }} />
+                </div>
+              </div>
+              <div className="mt-0.5 truncate text-center text-[9.5px] capitalize text-fg-muted">{s.name}</div>
+              {isSel && <SelectedBadge />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -414,11 +657,33 @@ function StepEditor({ steps, onChange }: { steps: StepDraft[]; onChange: (s: Ste
             <input
               value={s.label}
               onChange={(e) => update(i, { label: e.target.value })}
+              placeholder="Step label"
               className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-1 text-sm outline-none"
             />
             <button type="button" onClick={() => remove(i)} className="rounded px-2 py-1 text-xs text-fg-muted hover:text-error">
               ✕
             </button>
+          </div>
+          <textarea
+            value={s.description ?? ""}
+            onChange={(e) => update(i, { description: e.target.value })}
+            placeholder="Description — the paragraph shown in this step's card"
+            rows={2}
+            className="mt-1.5 w-full resize-y rounded border border-line bg-surface px-2 py-1 text-xs leading-snug outline-none"
+          />
+          <div className="mt-1.5 flex gap-2">
+            <input
+              value={s.ctaLabel ?? ""}
+              onChange={(e) => update(i, { ctaLabel: e.target.value })}
+              placeholder="Button label"
+              className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-1 text-xs outline-none"
+            />
+            <input
+              value={s.meta ?? ""}
+              onChange={(e) => update(i, { meta: e.target.value })}
+              placeholder="Meta line"
+              className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-1 text-xs outline-none"
+            />
           </div>
           <div className="mt-1.5 flex items-center gap-2">
             <select

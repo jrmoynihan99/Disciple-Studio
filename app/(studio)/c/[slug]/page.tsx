@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { getChurch } from "@/churches";
-import { getTemplateEntry } from "@/components/templates";
-import DemoChrome from "@/components/DemoChrome";
+import DemoExperience from "@/components/DemoExperience";
 
 /**
  * A single church demo at /c/<slug>.
@@ -23,11 +22,5 @@ export default async function ChurchDemoPage({
   const config = await getChurch(slug);
   if (!config) notFound();
 
-  const { component: Template, selfChrome } = getTemplateEntry(config.template);
-
-  return (
-    <DemoChrome config={config} showMemberArea={!selfChrome}>
-      <Template config={config} />
-    </DemoChrome>
-  );
+  return <DemoExperience config={config} />;
 }

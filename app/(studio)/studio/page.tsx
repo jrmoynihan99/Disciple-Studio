@@ -99,9 +99,6 @@ export default function Home() {
                   <span className="truncate font-medium text-fg">
                     {c.churchName}
                   </span>
-                  <span className="shrink-0 rounded bg-surface-raised px-1.5 py-0.5 text-[11px] text-fg-muted">
-                    {c.template}
-                  </span>
                 </div>
                 <div className="mt-0.5 truncate text-sm text-fg-muted">
                   /c/{c.slug}
@@ -112,15 +109,17 @@ export default function Home() {
                 <button
                   onClick={() => copyLink(c.slug)}
                   title="Copy the shareable demo link"
-                  className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-fg-secondary hover:bg-surface-raised"
+                  className="inline-flex h-10 w-10 items-center justify-center gap-1 rounded-lg text-sm text-fg-secondary hover:bg-surface-raised sm:h-auto sm:w-auto sm:px-2.5 sm:py-1.5"
                 >
                   {copied === c.slug ? (
                     <>
-                      <Check className="h-4 w-4 text-success" /> Copied
+                      <Check className="h-4 w-4 text-success" />
+                      <span className="hidden sm:inline">Copied</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="h-4 w-4" /> Copy link
+                      <Copy className="h-4 w-4" />
+                      <span className="hidden sm:inline">Copy link</span>
                     </>
                   )}
                 </button>
@@ -129,24 +128,27 @@ export default function Home() {
                   target="_blank"
                   rel="noreferrer"
                   title="Preview"
-                  className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-fg-secondary hover:bg-surface-raised"
+                  className="inline-flex h-10 w-10 items-center justify-center gap-1 rounded-lg text-sm text-fg-secondary hover:bg-surface-raised sm:h-auto sm:w-auto sm:px-2.5 sm:py-1.5"
                 >
-                  <ExternalLink className="h-4 w-4" /> Preview
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="hidden sm:inline">Preview</span>
                 </a>
                 <Link
                   href={`/admin?slug=${c.slug}`}
                   title="Edit"
-                  className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-fg-secondary hover:bg-surface-raised"
+                  className="inline-flex h-10 w-10 items-center justify-center gap-1 rounded-lg text-sm text-fg-secondary hover:bg-surface-raised sm:h-auto sm:w-auto sm:px-2.5 sm:py-1.5"
                 >
-                  <Pencil className="h-4 w-4" /> Edit
+                  <Pencil className="h-4 w-4" />
+                  <span className="hidden sm:inline">Edit</span>
                 </Link>
                 <button
                   onClick={() => del(c.slug, c.churchName)}
                   disabled={busy === c.slug}
                   title="Delete"
-                  className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-fg-secondary hover:bg-surface-raised hover:text-error disabled:opacity-50"
+                  className="inline-flex h-10 w-10 items-center justify-center gap-1 rounded-lg text-sm text-fg-secondary hover:bg-surface-raised hover:text-error disabled:opacity-50 sm:h-auto sm:w-auto sm:px-2.5 sm:py-1.5"
                 >
-                  <Trash2 className="h-4 w-4" /> Delete
+                  <Trash2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Delete</span>
                 </button>
               </div>
             </li>
