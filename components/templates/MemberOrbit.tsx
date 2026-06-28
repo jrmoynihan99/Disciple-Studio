@@ -111,7 +111,7 @@ export default function MemberOrbit({ config }: { config: ChurchConfig }) {
   const active = steps[sel];
 
   return (
-    <div className="relative min-h-screen overflow-clip bg-[radial-gradient(1100px_700px_at_50%_-10%,_rgb(var(--brand)_/_0.16),_transparent_62%),var(--paper)] text-ink">
+    <div className="relative min-h-screen overflow-x-clip bg-[radial-gradient(1100px_700px_at_50%_-10%,_rgb(var(--brand)_/_0.16),_transparent_62%),var(--paper)] text-ink">
       {/* Ambient drifting glow */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute left-1/2 top-[34%] h-[70vw] w-[70vw] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_0.10),_transparent_64%)] blur-[40px] animate-[edDrift1_34s_ease-in-out_infinite]" />

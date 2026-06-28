@@ -195,6 +195,7 @@ export default function MemberConsole({ config }: { config: ChurchConfig }) {
           <MemberMenu
             config={config}
             align="left"
+            placement="up"
             triggerClassName="flex w-full cursor-pointer items-center gap-3 rounded-[12px] border border-edge bg-card px-3 py-2.5 text-left"
           />
         </div>

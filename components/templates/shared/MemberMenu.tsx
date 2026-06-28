@@ -27,12 +27,16 @@ export default function MemberMenu({
   config,
   triggerClassName,
   align = "right",
+  placement = "down",
 }: {
   config: ChurchConfig;
   /** Override the trigger button's classes to match the host template. */
   triggerClassName?: string;
   /** Which edge the dropdown anchors to. */
   align?: "left" | "right";
+  /** Open below the trigger ("down") or above it ("up", e.g. a bottom-pinned
+   *  control in a sidebar). */
+  placement?: "up" | "down";
 }) {
   const openCTA = useDemoCTA();
   const firstName = config.demoMember.firstName;
@@ -44,6 +48,11 @@ export default function MemberMenu({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useClickOutside(ref, open, () => setOpen(false));
+
+  const up = placement === "up";
+  const verticalClass = up ? "bottom-[calc(100%+10px)]" : "top-[calc(100%+10px)]";
+  const originClass = `${up ? "origin-bottom" : "origin-top"}-${align === "right" ? "right" : "left"}`;
+  const offY = up ? 6 : -6;
 
   return (
     <div ref={ref} className="relative shrink-0">
@@ -66,13 +75,13 @@ export default function MemberMenu({
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            initial={{ opacity: 0, y: offY, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            exit={{ opacity: 0, y: offY, scale: 0.97 }}
             transition={{ duration: 0.2, ease: EASE }}
-            className={`absolute top-[calc(100%+10px)] z-50 w-[320px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[18px] border border-edge bg-card shadow-[0_30px_64px_-26px_rgba(20,12,6,0.4)] ${
-              align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left"
-            }`}
+            className={`absolute z-50 w-[320px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[18px] border border-edge bg-card shadow-[0_30px_64px_-26px_rgba(20,12,6,0.4)] ${verticalClass} ${
+              align === "right" ? "right-0" : "left-0"
+            } ${originClass}`}
           >
             <div className="bg-card-2 px-5 pb-[15px] pt-[18px]">
               <div className="text-[9.5px] font-extrabold tracking-[2.2px] text-brand">YOUR NEXT STEP</div>
