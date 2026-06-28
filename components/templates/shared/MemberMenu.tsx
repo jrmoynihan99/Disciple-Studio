@@ -49,9 +49,17 @@ export default function MemberMenu({
   const ref = useRef<HTMLDivElement>(null);
   useClickOutside(ref, open, () => setOpen(false));
 
+  // Full literal class names (Tailwind can't see runtime-concatenated ones).
   const up = placement === "up";
   const verticalClass = up ? "bottom-[calc(100%+10px)]" : "top-[calc(100%+10px)]";
-  const originClass = `${up ? "origin-bottom" : "origin-top"}-${align === "right" ? "right" : "left"}`;
+  const alignClass = align === "right" ? "right-0" : "left-0";
+  const originClass = up
+    ? align === "right"
+      ? "origin-bottom-right"
+      : "origin-bottom-left"
+    : align === "right"
+      ? "origin-top-right"
+      : "origin-top-left";
   const offY = up ? 6 : -6;
 
   return (
@@ -79,9 +87,7 @@ export default function MemberMenu({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: offY, scale: 0.97 }}
             transition={{ duration: 0.2, ease: EASE }}
-            className={`absolute z-50 w-[320px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[18px] border border-edge bg-card shadow-[0_30px_64px_-26px_rgba(20,12,6,0.4)] ${verticalClass} ${
-              align === "right" ? "right-0" : "left-0"
-            } ${originClass}`}
+            className={`absolute z-50 w-[320px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[18px] border border-edge bg-card shadow-[0_30px_64px_-26px_rgba(20,12,6,0.4)] ${verticalClass} ${alignClass} ${originClass}`}
           >
             <div className="bg-card-2 px-5 pb-[15px] pt-[18px]">
               <div className="text-[9.5px] font-extrabold tracking-[2.2px] text-brand">YOUR NEXT STEP</div>
