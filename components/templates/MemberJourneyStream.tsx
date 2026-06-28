@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, useScroll, useSpring } from "framer-motion";
+import { motion } from "framer-motion";
+import { ImageIcon } from "lucide-react";
 import type { ChurchConfig } from "@/lib/types";
 import { getMemberProgress, type StepItem } from "@/lib/steps";
 import { EASE, SPRING_SOFT } from "@/lib/motion";
@@ -80,42 +81,9 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
     setGreeting(`${word} · ${date}`);
   }, []);
 
-  // ── Sticky rail: a fill line driven by scroll through the chapters column,
-  // plus an active node tracked by whichever chapter is most in view.
-  const streamRef = useRef<HTMLDivElement>(null);
+  // A ref per chapter so the hero's "scroll to continue" can glide to the first
+  // unfinished one.
   const chapterRefs = useRef<(HTMLElement | null)[]>([]);
-  const [activeIdx, setActiveIdx] = useState(0);
-
-  const { scrollYProgress } = useScroll({
-    target: streamRef,
-    offset: ["start start", "end end"],
-  });
-  const fill = useSpring(scrollYProgress, { stiffness: 120, damping: 28, mass: 0.6 });
-
-  useEffect(() => {
-    const els = chapterRefs.current.slice(0, chapters.length).filter(Boolean) as HTMLElement[];
-    if (!els.length) return;
-    const ratios = new Map<Element, number>();
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => ratios.set(e.target, e.isIntersecting ? e.intersectionRatio : 0));
-        let best = 0;
-        let bestR = -1;
-        els.forEach((el, i) => {
-          const r = ratios.get(el) ?? 0;
-          if (r > bestR) {
-            bestR = r;
-            best = i;
-          }
-        });
-        setActiveIdx(best);
-      },
-      { threshold: [0.15, 0.35, 0.55, 0.75], rootMargin: "-18% 0px -38% 0px" },
-    );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, [chapters.length]);
-
   const scrollToChapter = (i: number) =>
     chapterRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "center" });
 
@@ -220,126 +188,124 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
 
       {/* ── STORY: rail + chapters ── */}
       <div className="relative z-[2] mx-auto max-w-[1180px] px-5 sm:px-8">
-        <div className="lg:grid lg:grid-cols-[56px_1fr] lg:gap-10">
-          {/* Sticky rail (desktop) */}
-          <div className="hidden lg:block">
-            <div className="sticky top-0 flex h-screen flex-col justify-center py-20">
-              <div className="relative mx-auto h-full max-h-[560px] w-[2px] bg-upcoming">
-                <motion.div
-                  style={{ scaleY: fill }}
-                  className="absolute inset-x-0 top-0 h-full origin-top bg-brand"
-                />
-                <div className="absolute inset-0 flex flex-col justify-between">
-                  {chapters.map((c, i) => {
-                    const isActive = i === activeIdx;
-                    return (
-                      <button
-                        key={c.key}
-                        onClick={() => scrollToChapter(i)}
-                        aria-label={`Go to ${c.label}`}
-                        className="group relative -ml-[11px] flex cursor-pointer items-center"
-                      >
-                        <motion.span
-                          animate={{ scale: isActive ? 1 : 0.7 }}
-                          transition={SPRING_SOFT}
-                          className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors ${
-                            c.completed
-                              ? "border-brand bg-brand"
-                              : isActive
-                                ? "border-brand bg-card"
-                                : "border-upcoming bg-card"
-                          }`}
-                        >
-                          {c.completed ? (
-                            <span className="text-[10px] leading-none text-on-accent">✓</span>
-                          ) : (
-                            <span className={`h-2 w-2 rounded-full ${isActive ? "bg-brand" : "bg-upcoming"}`} />
-                          )}
-                        </motion.span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
+        {chapters.map((c, i) => {
+          const showDivider = i > 0 && c.group === "next" && chapters[i - 1].group === "track";
+          const contentLeft = i % 2 === 0;
+          const lineColor = c.completed ? "bg-brand" : "bg-upcoming";
 
-          {/* Chapters */}
-          <div ref={streamRef}>
-            {chapters.map((c, i) => {
-              const showDivider = i > 0 && c.group === "next" && chapters[i - 1].group === "track";
-              const right = i % 2 === 1;
-              return (
-                <div key={c.key}>
-                  {showDivider && (
-                    <Reveal className="py-10">
-                      <div className="flex items-center gap-4">
-                        <div className="h-px flex-1 bg-hairline-soft" />
-                        <div className="text-[11px] font-bold uppercase tracking-[3px] text-faint">
-                          And next, a few invitations
-                        </div>
-                        <div className="h-px flex-1 bg-hairline-soft" />
-                      </div>
-                    </Reveal>
-                  )}
-                  <section
-                    ref={(el) => {
-                      chapterRefs.current[i] = el;
-                    }}
-                    className={`relative border-t border-hairline-soft py-16 lg:py-[88px] ${
-                      c.inProgress ? "before:absolute before:inset-x-[-100vw] before:inset-y-0 before:-z-10 before:bg-[rgb(var(--brand)/0.045)]" : ""
+          const content = (
+            <div className={contentLeft ? "lg:text-right" : ""}>
+              <Reveal>
+                <div className={`flex items-baseline gap-4 ${contentLeft ? "lg:justify-end" : ""}`}>
+                  <span className="font-serif text-[clamp(44px,7vw,84px)] font-medium leading-none text-brand/15">
+                    {String(c.n).padStart(2, "0")}
+                  </span>
+                  <span
+                    className={`text-[11px] font-bold tracking-[2.4px] ${
+                      c.completed || c.inProgress ? "text-brand" : "text-faint"
                     }`}
                   >
-                    <div className={right ? "lg:ml-auto lg:max-w-[600px] lg:text-right" : "lg:max-w-[600px]"}>
-                      <Reveal>
-                        <div className={`flex items-baseline gap-4 ${right ? "lg:justify-end" : ""}`}>
-                          <span className="font-serif text-[clamp(56px,9vw,96px)] font-medium leading-none text-brand/15">
-                            {String(c.n).padStart(2, "0")}
-                          </span>
-                          <span
-                            className={`text-[11px] font-bold tracking-[2.4px] ${
-                              c.completed ? "text-brand" : c.inProgress ? "text-brand" : "text-faint"
-                            }`}
-                          >
-                            {statusTag(c)}
-                          </span>
-                        </div>
-                      </Reveal>
-                      <HeadingReveal
-                        as="h2"
-                        className="mt-3 font-serif text-[clamp(30px,5vw,52px)] font-medium leading-[1.05] tracking-[-.5px]"
-                      >
-                        {c.label}
-                      </HeadingReveal>
-                      {c.description && (
-                        <ParagraphReveal
-                          delay={0.1}
-                          className={`mt-5 max-w-[520px] text-[17px] leading-[1.6] text-ink-soft ${
-                            right ? "lg:ml-auto" : ""
-                          }`}
-                        >
-                          {c.description}
-                        </ParagraphReveal>
-                      )}
-                      <Reveal delay={0.16}>
-                        <div className={`mt-7 flex flex-wrap items-center gap-4 ${right ? "lg:justify-end" : ""}`}>
-                          <motion.button
-                            onClick={() => openCTA(c.label)}
-                            whileHover={{ y: -2, boxShadow: "0 14px 30px -10px rgb(var(--brand) / 0.5)" }}
-                            whileTap={{ scale: 0.98 }}
-                            transition={SPRING_SOFT}
-                            className="cursor-pointer rounded-full bg-brand px-7 py-[14px] text-[14px] font-bold text-on-accent"
-                          >
-                            {(c.ctaLabel ?? (c.completed ? "Revisit" : "Get started"))} →
-                          </motion.button>
-                          {c.meta && <span className="text-[13px] text-faint">{c.meta}</span>}
-                        </div>
-                      </Reveal>
-                    </div>
-                  </section>
+                    {statusTag(c)}
+                  </span>
                 </div>
-              );
-            })}
+              </Reveal>
+              <HeadingReveal
+                as="h2"
+                className="mt-3 font-serif text-[clamp(28px,3.4vw,44px)] font-medium leading-[1.06] tracking-[-.5px]"
+              >
+                {c.label}
+              </HeadingReveal>
+              {c.description && (
+                <ParagraphReveal
+                  delay={0.1}
+                  className={`mt-4 text-[16px] leading-[1.6] text-ink-soft lg:max-w-[440px] ${
+                    contentLeft ? "lg:ml-auto" : ""
+                  }`}
+                >
+                  {c.description}
+                </ParagraphReveal>
+              )}
+              <Reveal delay={0.16}>
+                <div className={`mt-6 flex flex-wrap items-center gap-4 ${contentLeft ? "lg:justify-end" : ""}`}>
+                  <motion.button
+                    onClick={() => openCTA(c.label)}
+                    whileHover={{ y: -2, boxShadow: "0 14px 30px -10px rgb(var(--brand) / 0.5)" }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={SPRING_SOFT}
+                    className="cursor-pointer rounded-full bg-brand px-7 py-[14px] text-[14px] font-bold text-on-accent"
+                  >
+                    {(c.ctaLabel ?? (c.completed ? "Revisit" : "Get started"))} →
+                  </motion.button>
+                  {c.meta && <span className="text-[13px] text-faint">{c.meta}</span>}
+                </div>
+              </Reveal>
+            </div>
+          );
+
+          // Placeholder for a church photo on the side opposite the content.
+          const image = (
+            <Reveal delay={0.08}>
+              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[24px] border border-edge bg-[linear-gradient(150deg,_var(--card),_var(--card-2))]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,_rgb(var(--brand)/0.14),_transparent_60%)]" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-faint">
+                  <ImageIcon className="h-9 w-9" strokeWidth={1.5} />
+                  <span className="text-[11px] font-semibold uppercase tracking-[2.5px]">Photo</span>
+                </div>
+              </div>
+            </Reveal>
+          );
+
+          return (
+            <div key={c.key}>
+              {showDivider && (
+                <Reveal className="py-8 lg:py-10">
+                  <div className="flex items-center gap-4">
+                    <div className="h-px flex-1 bg-hairline-soft" />
+                    <div className="text-[11px] font-bold uppercase tracking-[3px] text-faint">
+                      And next, a few invitations
+                    </div>
+                    <div className="h-px flex-1 bg-hairline-soft" />
+                  </div>
+                </Reveal>
+              )}
+              <section
+                ref={(el) => {
+                  chapterRefs.current[i] = el;
+                }}
+                className={`relative border-t border-hairline-soft ${
+                  c.inProgress
+                    ? "before:absolute before:inset-x-[-100vw] before:inset-y-0 before:-z-10 before:bg-[rgb(var(--brand)/0.045)]"
+                    : ""
+                }`}
+              >
+                {/* Desktop: content one side, photo the other, a progress spine between.
+                    Mobile: the spine drops out and the two cells simply stack. */}
+                <div className="grid items-center gap-7 py-12 lg:grid-cols-[1fr_64px_1fr] lg:gap-10 lg:py-20">
+                  <div>{contentLeft ? content : image}</div>
+                  <div className="relative hidden self-stretch lg:block">
+                    <div className={`absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 ${lineColor}`} />
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                      {c.completed ? (
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand shadow-[0_2px_10px_rgb(var(--brand)/0.4)]">
+                          <span className="text-[14px] leading-none text-on-accent">✓</span>
+                        </div>
+                      ) : c.inProgress ? (
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full border-[2.5px] border-brand bg-card animate-[bnPulse_2.6s_ease-in-out_infinite]">
+                          <div className="h-2.5 w-2.5 rounded-full bg-brand" />
+                        </div>
+                      ) : (
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-upcoming bg-card">
+                          <span className="text-[12px] font-bold text-faint">{c.n}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>{contentLeft ? image : content}</div>
+                </div>
+              </section>
+            </div>
+          );
+        })}
 
             {/* ── Chapter: Sunday's sermon note (editorial pull-quote) ── */}
             <section className="border-t border-hairline-soft py-16 lg:py-[88px]">
@@ -495,8 +461,6 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
                 </motion.button>
               </Reveal>
             </section>
-          </div>
-        </div>
       </div>
     </div>
   );

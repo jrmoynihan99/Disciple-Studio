@@ -174,31 +174,34 @@ export default function MemberOrbit({ config }: { config: ChurchConfig }) {
                 <circle cx="50" cy="50" r={R_NODE} fill="none" className="stroke-brand/15" strokeWidth="0.4" strokeDasharray="1 3" />
               </svg>
 
-              {/* Progress ring around the core */}
-              <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full -rotate-90">
-                <circle cx="50" cy="50" r={R_RING} fill="none" className="stroke-upcoming" strokeWidth="1.4" />
-                <motion.circle
-                  cx="50"
-                  cy="50"
-                  r={R_RING}
-                  fill="none"
-                  className="stroke-brand"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                  strokeDasharray={RING_C.toFixed(2)}
-                  initial={{ strokeDashoffset: RING_C }}
-                  animate={{ strokeDashoffset: RING_C * (1 - pct / 100) }}
-                  transition={{ duration: 1.2, ease: EASE, delay: 0.4 }}
-                />
-              </svg>
-
-              {/* Rotating constellation (connectors + nodes) */}
+              {/* Rotating constellation (progress ring + connectors + nodes).
+                  The progress ring lives INSIDE the rotating group so its filled
+                  arc turns with the stars and always covers the completed ones. */}
               <motion.div
                 className="absolute inset-0"
                 style={{ transformOrigin: "50% 50%" }}
                 animate={{ rotate: rotation }}
                 transition={SPRING}
               >
+                {/* Progress ring around the core — fill = % complete, starting at
+                    the top star and sweeping clockwise through the finished ones. */}
+                <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full -rotate-90">
+                  <circle cx="50" cy="50" r={R_RING} fill="none" className="stroke-upcoming" strokeWidth="1.4" />
+                  <motion.circle
+                    cx="50"
+                    cy="50"
+                    r={R_RING}
+                    fill="none"
+                    className="stroke-brand"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeDasharray={RING_C.toFixed(2)}
+                    initial={{ strokeDashoffset: RING_C }}
+                    animate={{ strokeDashoffset: RING_C * (1 - pct / 100) }}
+                    transition={{ duration: 1.2, ease: EASE, delay: 0.4 }}
+                  />
+                </svg>
+
                 {/* Connectors from core to each node */}
                 <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full">
                   {nodes.map(({ x, y, i }) => (
