@@ -304,7 +304,7 @@ export default function MemberOrbit({ config }: { config: ChurchConfig }) {
                     )}
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
                       <motion.button
-                        onClick={openCTA}
+                        onClick={() => openCTA(active?.label)}
                         whileHover={{ y: -2, boxShadow: "0 16px 32px -10px rgb(var(--brand) / 0.55)" }}
                         whileTap={{ scale: 0.98 }}
                         transition={SPRING_SOFT}
@@ -380,7 +380,7 @@ export default function MemberOrbit({ config }: { config: ChurchConfig }) {
                   </div>
                 </div>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Group Details")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}
@@ -404,7 +404,7 @@ export default function MemberOrbit({ config }: { config: ChurchConfig }) {
                   </div>
                 </div>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Giving")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}
@@ -431,7 +431,7 @@ export default function MemberOrbit({ config }: { config: ChurchConfig }) {
                   <span className="text-brand">”</span>
                 </p>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Sermon Notes")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}
@@ -465,7 +465,7 @@ export default function MemberOrbit({ config }: { config: ChurchConfig }) {
                   ))}
                 </div>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Prayer Requests")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}

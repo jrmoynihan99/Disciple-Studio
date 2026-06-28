@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { LayoutDashboard, Footprints, ListChecks, BookOpen, HandHeart, Users, Gift } from "lucide-react";
 import type { ChurchConfig } from "@/lib/types";
@@ -88,6 +88,14 @@ export default function MemberConsole({ config }: { config: ChurchConfig }) {
 
   const [section, setSection] = useState<SectionKey>("overview");
   const [openStep, setOpenStep] = useState<string | null>(current?.key ?? null);
+
+  // Mobile: keep the active nav chip in view as sections change (the strip
+  // scrolls horizontally and the active item can sit off-screen).
+  const mobileNavRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = mobileNavRef.current?.querySelector('[data-active="true"]');
+    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [section]);
 
   const [greeting, setGreeting] = useState<string | null>(null);
   useEffect(() => {
@@ -220,12 +228,13 @@ export default function MemberConsole({ config }: { config: ChurchConfig }) {
             <MemberMenu config={config} />
           </div>
           <LayoutGroup>
-            <div className="flex gap-1 overflow-x-auto px-3 pb-2.5 [scrollbar-width:none]">
+            <div ref={mobileNavRef} className="flex gap-1 overflow-x-auto px-3 pb-2.5 [scrollbar-width:none]">
               {nav.map((n) => {
                 const isActive = n.key === section;
                 return (
                   <button
                     key={n.key}
+                    data-active={isActive}
                     onClick={() => setSection(n.key)}
                     className={`relative shrink-0 cursor-pointer rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
                       isActive ? "text-on-accent" : "text-ink-soft"
@@ -272,7 +281,7 @@ export default function MemberConsole({ config }: { config: ChurchConfig }) {
                     pct={pct}
                     done={done}
                     total={total}
-                    onCTA={openCTA}
+                    onCTA={() => openCTA(current?.label)}
                     onGoto={setSection}
                     hasNext={hasNext}
                   />
@@ -295,10 +304,10 @@ export default function MemberConsole({ config }: { config: ChurchConfig }) {
                     onCTA={openCTA}
                   />
                 )}
-                {section === "sermon" && <SermonPanel onCTA={openCTA} />}
-                {section === "prayer" && <PrayerPanel onCTA={openCTA} />}
-                {section === "group" && <GroupPanel onCTA={openCTA} />}
-                {section === "giving" && <GivingPanel onCTA={openCTA} />}
+                {section === "sermon" && <SermonPanel onCTA={() => openCTA("Sermon Notes")} />}
+                {section === "prayer" && <PrayerPanel onCTA={() => openCTA("Prayer Requests")} />}
+                {section === "group" && <GroupPanel onCTA={() => openCTA("Group Details")} />}
+                {section === "giving" && <GivingPanel onCTA={() => openCTA("Giving")} />}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -421,7 +430,7 @@ function StepList({
   steps: StepItem[];
   openStep: string | null;
   setOpenStep: (k: string | null) => void;
-  onCTA: () => void;
+  onCTA: (feature?: string) => void;
 }) {
   const done = steps.filter((s) => s.completed).length;
   return (
@@ -492,7 +501,7 @@ function StepList({
                       {s.description && <p className="text-[14px] leading-[1.55] text-ink-soft">{s.description}</p>}
                       <div className="mt-3.5 flex flex-wrap items-center gap-3">
                         <motion.button
-                          onClick={onCTA}
+                          onClick={() => onCTA(s.label)}
                           whileHover={{ y: -2 }}
                           whileTap={{ scale: 0.98 }}
                           transition={SPRING_SOFT}

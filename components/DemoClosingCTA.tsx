@@ -14,9 +14,13 @@ const DEMO_INTRO = "This is a demo of the member portal only — ";
 export function DemoCTAContent({
   bookHref,
   demo = false,
+  feature,
 }: {
   bookHref: string;
   demo?: boolean;
+  /** When set (in-demo button clicks), the headline names the clicked feature:
+   *  "{feature} Available in Full Build". The footer omits it for the generic ask. */
+  feature?: string;
 }) {
   return (
     <>
@@ -24,7 +28,7 @@ export function DemoCTAContent({
         Work with us
       </span>
       <h2 className="mt-3 font-serif text-[clamp(26px,4.5vw,40px)] leading-[1.1]">
-        Want this for your church?
+        {feature ? `${feature} Available in Full Build` : "Want this for your church?"}
       </h2>
       <p className="mx-auto mt-4 max-w-[34em] text-[16px] leading-[1.6] text-ink-soft">
         {/* Popup leads with the demo framing (lowercased to flow after the dash);

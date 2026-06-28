@@ -61,9 +61,15 @@ export default function DemoExperience({
   const dismissIntro = useCallback(() => setShowIntro(false), []);
 
   // Every placeholder button in a template opens this "it's a demo → let's talk"
-  // popup instead of doing nothing.
+  // popup instead of doing nothing. The optional feature names what was clicked
+  // so the popup can headline it ("Baptism Available in Full Build"). Kept
+  // across close so the title doesn't flash to the fallback during the exit anim.
   const [ctaOpen, setCtaOpen] = useState(false);
-  const openCTA = useCallback(() => setCtaOpen(true), []);
+  const [ctaFeature, setCtaFeature] = useState<string | undefined>(undefined);
+  const openCTA = useCallback((feature?: string) => {
+    setCtaFeature(feature);
+    setCtaOpen(true);
+  }, []);
   const closeCTA = useCallback(() => setCtaOpen(false), []);
 
   // Switching template just overrides which layout renders; the shared palettes
@@ -95,7 +101,7 @@ export default function DemoExperience({
         {/* Clears the fixed mobile bottom bar so it never covers the CTA's tail. */}
         {!embedded && <div aria-hidden className="h-32 sm:hidden" />}
 
-        <DemoCTAModal open={ctaOpen} onClose={closeCTA} bookHref={bookHref} />
+        <DemoCTAModal open={ctaOpen} onClose={closeCTA} bookHref={bookHref} feature={ctaFeature} />
 
         <AnimatePresence>
           {showIntro && (

@@ -15,10 +15,14 @@ export default function DemoCTAModal({
   open,
   onClose,
   bookHref,
+  feature,
 }: {
   open: boolean;
   onClose: () => void;
   bookHref: string;
+  /** Names the clicked feature so the headline reads "{feature} Available in
+   *  Full Build"; omitted ⇒ the generic "Want this for your church?" ask. */
+  feature?: string;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -56,7 +60,7 @@ export default function DemoCTAModal({
             >
               <X className="h-4 w-4" />
             </button>
-            <DemoCTAContent bookHref={bookHref} demo />
+            <DemoCTAContent bookHref={bookHref} demo feature={feature} />
           </motion.div>
         </motion.div>
       )}

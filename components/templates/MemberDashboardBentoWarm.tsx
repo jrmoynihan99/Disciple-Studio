@@ -193,10 +193,7 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                         <div className="h-px bg-hairline-soft" />
                         <div className="px-[15px] py-3">
                           <motion.button
-                            onClick={() => {
-                              setMenuOpen(false);
-                              openCTA();
-                            }}
+                            onClick={() => setMenuOpen(false)}
                             whileHover={{ y: -1 }}
                             whileTap={{ scale: 0.98 }}
                             transition={SPRING_SOFT}
@@ -414,7 +411,7 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                         <p className="mt-[11px] text-[14px] leading-[1.5] text-on-accent/80">{selected.description}</p>
                       )}
                       <motion.button
-                        onClick={openCTA}
+                        onClick={() => openCTA(selected?.label)}
                         whileHover={{ y: -2, boxShadow: "0 12px 22px -8px rgba(0,0,0,0.4)" }}
                         whileTap={{ scale: 0.98 }}
                         transition={SPRING_SOFT}
@@ -448,7 +445,7 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                     <div className="mt-0.5 text-[14px] font-bold">{GROUP.nextMeeting}</div>
                   </div>
                   <button
-                    onClick={openCTA}
+                    onClick={() => openCTA("Group Details")}
                     className="cursor-pointer text-[12.5px] font-bold text-brand transition-transform hover:translate-x-0.5"
                   >
                     Details →
@@ -481,7 +478,7 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                 </div>
                 <div className="flex flex-none gap-2.5">
                   <motion.button
-                    onClick={openCTA}
+                    onClick={() => openCTA("Giving")}
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     transition={SPRING_SOFT}
@@ -490,7 +487,7 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                     Give again
                   </motion.button>
                   <motion.button
-                    onClick={openCTA}
+                    onClick={() => openCTA("Giving")}
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     transition={SPRING_SOFT}
@@ -515,7 +512,7 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                   <p className="mt-1.5 font-serif text-[14px] italic leading-[1.45] text-ink-soft">{SERMON.latestNote}</p>
                 </div>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Sermon Notes")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}

@@ -263,10 +263,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                         <div className="h-px bg-hairline-soft" />
                         <div className="px-[18px] py-[14px]">
                           <motion.button
-                            onClick={() => {
-                              setMenuOpen(false);
-                              openCTA();
-                            }}
+                            onClick={() => setMenuOpen(false)}
                             whileHover={{ y: -1 }}
                             whileTap={{ scale: 0.98 }}
                             transition={SPRING_SOFT}
@@ -462,7 +459,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              openCTA();
+                                              openCTA(s.label);
                                             }}
                                             className="mt-3.5 w-full cursor-pointer rounded-[12px] bg-brand py-3 text-[14px] font-bold text-on-accent"
                                           >
@@ -526,7 +523,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                           <p className="mt-4 text-[15px] leading-[1.55] text-on-accent/80">{sel.description}</p>
                         )}
                         <motion.button
-                          onClick={openCTA}
+                          onClick={() => openCTA(sel?.label)}
                           whileHover={{ y: -2, boxShadow: "0 14px 28px -8px rgba(0,0,0,0.4)" }}
                           whileTap={{ scale: 0.98 }}
                           transition={SPRING_SOFT}
@@ -573,7 +570,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                     <div className="mt-0.5 text-[14.5px] font-semibold">{GROUP.nextMeeting}</div>
                   </div>
                   <button
-                    onClick={openCTA}
+                    onClick={() => openCTA("Group Details")}
                     className="cursor-pointer text-[13px] font-semibold text-brand transition-transform hover:translate-x-0.5"
                   >
                     Details →
@@ -601,7 +598,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                 <p className="mt-5 font-serif text-[14.5px] italic leading-[1.5] text-ink-soft">{GIVING.gratitude}</p>
                 <div className="mt-[18px] flex gap-2.5">
                   <motion.button
-                    onClick={openCTA}
+                    onClick={() => openCTA("Giving")}
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     transition={SPRING_SOFT}
@@ -610,7 +607,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                     Give again
                   </motion.button>
                   <motion.button
-                    onClick={openCTA}
+                    onClick={() => openCTA("Giving")}
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     transition={SPRING_SOFT}
@@ -640,7 +637,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                   <p className="mt-2 font-serif text-[15px] italic leading-[1.5] text-ink-soft">{SERMON.latestNote}</p>
                 </div>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Sermon Notes")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}
@@ -676,7 +673,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                   ))}
                 </div>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Prayer Requests")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}

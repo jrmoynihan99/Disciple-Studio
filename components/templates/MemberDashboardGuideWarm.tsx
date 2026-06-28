@@ -232,10 +232,7 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                         <div className="h-px bg-hairline-soft" />
                         <div className="px-[15px] py-3">
                           <motion.button
-                            onClick={() => {
-                              setMenuOpen(false);
-                              openCTA();
-                            }}
+                            onClick={() => setMenuOpen(false)}
                             whileHover={{ y: -1 }}
                             whileTap={{ scale: 0.98 }}
                             transition={SPRING_SOFT}
@@ -438,7 +435,7 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                         )}
                         <div className="mt-[26px] flex flex-wrap items-center gap-4">
                           <motion.button
-                            onClick={openCTA}
+                            onClick={() => openCTA(card?.label)}
                             whileHover={{ y: -2, boxShadow: "0 14px 26px -8px rgba(0,0,0,0.4)" }}
                             whileTap={{ scale: 0.98 }}
                             transition={SPRING_SOFT}
@@ -517,7 +514,7 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                   </div>
                 </div>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Group Details")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}
@@ -545,7 +542,7 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                   <div className="mt-1.5 max-w-[240px] font-serif text-[12px] italic text-ink-muted">{GIVING.gratitude}</div>
                 </div>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Giving")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}
@@ -583,7 +580,7 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                   ))}
                 </div>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Prayer Requests")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}
@@ -607,7 +604,7 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                   <p className="mt-2 font-serif text-[15px] italic leading-[1.5] text-ink-soft">{SERMON.latestNote}</p>
                 </div>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA("Sermon Notes")}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}

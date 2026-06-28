@@ -6,7 +6,6 @@ import type { ChurchConfig } from "@/lib/types";
 import { getMemberProgress, type StepItem } from "@/lib/steps";
 import { useClickOutside } from "@/lib/useClickOutside";
 import { EASE, SPRING_SOFT } from "@/lib/motion";
-import { useDemoCTA } from "@/context/DemoCTAContext";
 
 /**
  * The self-chrome member control shared by the newer templates (Stream, Console,
@@ -38,7 +37,6 @@ export default function MemberMenu({
    *  control in a sidebar). */
   placement?: "up" | "down";
 }) {
-  const openCTA = useDemoCTA();
   const firstName = config.demoMember.firstName;
   const { discipleshipSteps, nextSteps } = getMemberProgress(config);
   const lists = [{ label: "Discipleship track", steps: discipleshipSteps }];
@@ -131,10 +129,7 @@ export default function MemberMenu({
             <div className="h-px bg-hairline-soft" />
             <div className="px-[15px] py-3">
               <motion.button
-                onClick={() => {
-                  setOpen(false);
-                  openCTA();
-                }}
+                onClick={() => setOpen(false)}
                 whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 transition={SPRING_SOFT}

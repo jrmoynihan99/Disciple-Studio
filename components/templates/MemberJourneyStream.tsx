@@ -324,7 +324,7 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
                       <Reveal delay={0.16}>
                         <div className={`mt-7 flex flex-wrap items-center gap-4 ${right ? "lg:justify-end" : ""}`}>
                           <motion.button
-                            onClick={openCTA}
+                            onClick={() => openCTA(c.label)}
                             whileHover={{ y: -2, boxShadow: "0 14px 30px -10px rgb(var(--brand) / 0.5)" }}
                             whileTap={{ scale: 0.98 }}
                             transition={SPRING_SOFT}
@@ -356,7 +356,7 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
                   <figcaption className="mt-7 flex flex-wrap items-center gap-5">
                     <span className="text-[12px] font-bold tracking-[1.8px] text-faint">YOUR LATEST SERMON NOTE</span>
                     <motion.button
-                      onClick={openCTA}
+                      onClick={() => openCTA("Sermon Notes")}
                       whileHover={{ y: -2, boxShadow: "0 14px 30px -10px rgb(var(--brand) / 0.5)" }}
                       whileTap={{ scale: 0.98 }}
                       transition={SPRING_SOFT}
@@ -390,7 +390,7 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
                 ))}
                 <Reveal delay={0.12}>
                   <motion.button
-                    onClick={openCTA}
+                    onClick={() => openCTA("Prayer Requests")}
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     transition={SPRING_SOFT}
@@ -426,7 +426,7 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
                         <div className="mt-0.5 text-[14px] font-bold">{GROUP.nextMeeting}</div>
                       </div>
                       <button
-                        onClick={openCTA}
+                        onClick={() => openCTA("Group Details")}
                         className="cursor-pointer text-[13px] font-bold text-brand transition-transform hover:translate-x-0.5"
                       >
                         Details →
@@ -452,7 +452,7 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
                     </div>
                     <div className="mt-6 flex gap-2.5">
                       <motion.button
-                        onClick={openCTA}
+                        onClick={() => openCTA("Giving")}
                         whileHover={{ y: -2 }}
                         whileTap={{ scale: 0.98 }}
                         transition={SPRING_SOFT}
@@ -461,7 +461,7 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
                         Give again
                       </motion.button>
                       <motion.button
-                        onClick={openCTA}
+                        onClick={() => openCTA("Giving")}
                         whileHover={{ y: -2 }}
                         whileTap={{ scale: 0.98 }}
                         transition={SPRING_SOFT}
@@ -485,7 +485,7 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
                   There{"’"}s always a next step — and people walking it with you.
                 </p>
                 <motion.button
-                  onClick={openCTA}
+                  onClick={() => openCTA(chapters.find((ch) => !ch.completed)?.label)}
                   whileHover={{ y: -2, boxShadow: "0 16px 34px -12px rgb(var(--brand) / 0.55)" }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}
