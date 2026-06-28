@@ -12,6 +12,7 @@ import ParagraphReveal from "@/components/reveal-animations/ParagraphReveal";
 import HeadingReveal from "@/components/reveal-animations/HeadingReveal";
 import SubheadingReveal from "@/components/reveal-animations/SubheadingReveal";
 import CountUpCurrency from "@/components/CountUpCurrency";
+import { useDemoCTA } from "@/context/DemoCTAContext";
 
 /**
  * Warm Bento member dashboard — React/Tailwind port of `dashboard-warm-bento`.
@@ -37,6 +38,9 @@ const GIVING = {
   gifts: 14,
   gratitude: "Thank you — every gift went into people far from God finding their way home.",
 };
+const SERMON = {
+  latestNote: "Grace didn't wait at the door — it ran down the road to meet him.",
+};
 
 const RING_R = 42;
 const RING_C = 2 * Math.PI * RING_R;
@@ -51,6 +55,7 @@ function currentOf(steps: StepItem[]): StepItem | undefined {
 export default function MemberDashboardBentoWarm({ config }: { config: ChurchConfig }) {
   const { demoMember } = config;
   const firstName = demoMember.firstName;
+  const openCTA = useDemoCTA();
 
   const { discipleshipSteps, nextSteps } = getMemberProgress(config);
   const lists = [{ label: "Discipleship track", steps: discipleshipSteps }];
@@ -72,9 +77,11 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
   const ai = Math.min(activeList, lists.length - 1);
   const active = lists[ai];
   const track = lists[0];
-  const tdone = track.steps.filter((s) => s.completed).length;
-  const ttotal = track.steps.length;
-  const pct = ttotal ? Math.round((tdone / ttotal) * 100) : 0;
+  // The ring + journey stat show overall progress across BOTH lists.
+  const allSteps = lists.flatMap((l) => l.steps);
+  const done = allSteps.filter((s) => s.completed).length;
+  const total = allSteps.length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
   const ringOffset = RING_C * (1 - pct / 100);
   // Any step is selectable; the colored tile previews it. A selection from
   // another list falls back to that list's current step on switch.
@@ -149,37 +156,47 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                           <div className="mt-[5px] font-serif text-[22px] leading-[1.12]">{trackCurrent?.label ?? ""}</div>
                         </div>
                         <div className="h-px bg-hairline-soft" />
-                        <div className="px-5 py-[14px]">
-                          <div className="text-[9.5px] font-bold tracking-[1.8px] text-faint">
-                            DISCIPLESHIP TRACK · {tdone}/{ttotal}
-                          </div>
-                          <div className="mt-2.5 flex flex-col gap-2">
-                            {track.steps.map((s) => (
-                              <div key={s.key} className="flex items-center gap-[9px]">
-                                {s.completed ? (
-                                  <div className="flex h-4 w-4 flex-none items-center justify-center rounded-full bg-brand">
-                                    <span className="text-[8px] leading-none text-on-accent">✓</span>
-                                  </div>
-                                ) : s.inProgress ? (
-                                  <div className="h-4 w-4 flex-none rounded-full border-2 border-brand bg-card" />
-                                ) : (
-                                  <div className="h-4 w-4 flex-none rounded-full border-2 border-upcoming bg-card" />
-                                )}
-                                <div
-                                  className={`text-[13px] ${s.inProgress ? "font-bold" : "font-medium"} ${
-                                    s.completed || s.inProgress ? "text-ink-soft" : "text-faint"
-                                  }`}
-                                >
-                                  {s.label}
+                        <div className="px-5 pb-1.5 pt-[14px]">
+                          {lists.map((list) => {
+                            const ld = list.steps.filter((s) => s.completed).length;
+                            return (
+                              <div key={list.label} className="mb-3">
+                                <div className="text-[9.5px] font-bold uppercase tracking-[1.8px] text-faint">
+                                  {list.label} · {ld}/{list.steps.length}
+                                </div>
+                                <div className="mt-2.5 flex flex-col gap-2">
+                                  {list.steps.map((s) => (
+                                    <div key={s.key} className="flex items-center gap-[9px]">
+                                      {s.completed ? (
+                                        <div className="flex h-4 w-4 flex-none items-center justify-center rounded-full bg-brand">
+                                          <span className="text-[8px] leading-none text-on-accent">✓</span>
+                                        </div>
+                                      ) : s.inProgress ? (
+                                        <div className="h-4 w-4 flex-none rounded-full border-2 border-brand bg-card" />
+                                      ) : (
+                                        <div className="h-4 w-4 flex-none rounded-full border-2 border-upcoming bg-card" />
+                                      )}
+                                      <div
+                                        className={`text-[13px] ${s.inProgress ? "font-bold" : "font-medium"} ${
+                                          s.completed || s.inProgress ? "text-ink-soft" : "text-faint"
+                                        }`}
+                                      >
+                                        {s.label}
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
                         <div className="h-px bg-hairline-soft" />
                         <div className="px-[15px] py-3">
                           <motion.button
-                            onClick={() => setMenuOpen(false)}
+                            onClick={() => {
+                              setMenuOpen(false);
+                              openCTA();
+                            }}
                             whileHover={{ y: -1 }}
                             whileTap={{ scale: 0.98 }}
                             transition={SPRING_SOFT}
@@ -254,9 +271,9 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                 <div>
                   <div className="text-[10.5px] font-bold tracking-[2px] text-faint">YOUR JOURNEY</div>
                   <div className="mt-1 font-serif text-[24px] leading-[1.1]">
-                    {tdone}/{ttotal} steps
+                    {done}/{total} steps
                   </div>
-                  <div className="mt-1 text-[13px] text-ink-soft">{ttotal - tdone} steps to go</div>
+                  <div className="mt-1 text-[13px] text-ink-soft">{total - done} steps to go</div>
                 </div>
               </div>
             </Reveal>
@@ -397,10 +414,11 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                         <p className="mt-[11px] text-[14px] leading-[1.5] text-on-accent/80">{selected.description}</p>
                       )}
                       <motion.button
+                        onClick={openCTA}
                         whileHover={{ y: -2, boxShadow: "0 12px 22px -8px rgba(0,0,0,0.4)" }}
                         whileTap={{ scale: 0.98 }}
                         transition={SPRING_SOFT}
-                        className="mt-[18px] cursor-pointer rounded-[11px] bg-card-2 px-[19px] py-[13px] text-[14px] font-bold text-brand-card"
+                        className="mt-[18px] cursor-pointer rounded-[11px] bg-accent-btn px-[19px] py-[13px] text-[14px] font-bold text-accent-btn-ink"
                       >
                         {(selected.ctaLabel ?? (selected.completed ? "Revisit" : "Get started"))} →
                       </motion.button>
@@ -429,15 +447,18 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                     <div className="text-[10px] font-bold tracking-[1.4px] text-faint">NEXT MEETING</div>
                     <div className="mt-0.5 text-[14px] font-bold">{GROUP.nextMeeting}</div>
                   </div>
-                  <div className="cursor-pointer text-[12.5px] font-bold text-brand transition-transform hover:translate-x-0.5">
+                  <button
+                    onClick={openCTA}
+                    className="cursor-pointer text-[12.5px] font-bold text-brand transition-transform hover:translate-x-0.5"
+                  >
                     Details →
-                  </div>
+                  </button>
                 </div>
               </motion.div>
             </Reveal>
 
-            {/* Giving tile (hardcoded, full width) */}
-            <Reveal delay={0.2} className="lg:col-start-1 lg:col-span-12 lg:row-start-4">
+            {/* Giving tile (hardcoded) — wide right of the row, mirroring the rows above */}
+            <Reveal delay={0.2} className="lg:col-start-6 lg:col-span-7 lg:row-start-4">
               <motion.div
                 whileHover={{ y: -3 }}
                 transition={SPRING_SOFT}
@@ -460,6 +481,7 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                 </div>
                 <div className="flex flex-none gap-2.5">
                   <motion.button
+                    onClick={openCTA}
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     transition={SPRING_SOFT}
@@ -468,6 +490,7 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                     Give again
                   </motion.button>
                   <motion.button
+                    onClick={openCTA}
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     transition={SPRING_SOFT}
@@ -476,6 +499,30 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
                     Statement
                   </motion.button>
                 </div>
+              </motion.div>
+            </Reveal>
+
+            {/* Sermon notes tile — narrow left of the row (mirrored split) */}
+            <Reveal delay={0.24} className="lg:col-start-1 lg:col-span-5 lg:row-start-4">
+              <motion.div
+                whileHover={{ y: -3 }}
+                transition={SPRING_SOFT}
+                className="flex h-full flex-col rounded-[22px] border border-edge bg-card px-[26px] py-[22px]"
+              >
+                <h3 className="font-serif text-[24px] leading-[1.1]">Sermon Notes</h3>
+                <div className="mt-3.5 rounded-[14px] bg-card-2 px-4 py-3.5">
+                  <div className="text-[10px] font-bold tracking-[1.6px] text-faint">YOUR LATEST NOTE</div>
+                  <p className="mt-1.5 font-serif text-[14px] italic leading-[1.45] text-ink-soft">{SERMON.latestNote}</p>
+                </div>
+                <motion.button
+                  onClick={openCTA}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={SPRING_SOFT}
+                  className="mt-auto w-full cursor-pointer rounded-[11px] bg-ink py-3 text-[13.5px] font-bold text-paper"
+                >
+                  View all notes
+                </motion.button>
               </motion.div>
             </Reveal>
           </div>

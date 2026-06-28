@@ -3,6 +3,9 @@ import type { ChurchConfig } from "@/lib/types";
 import MemberDashboardEditorial from "./MemberDashboardEditorial";
 import MemberDashboardBentoWarm from "./MemberDashboardBentoWarm";
 import MemberDashboardGuideWarm from "./MemberDashboardGuideWarm";
+import MemberJourneyStream from "./MemberJourneyStream";
+import MemberConsole from "./MemberConsole";
+import MemberOrbit from "./MemberOrbit";
 
 /**
  * Template registry.
@@ -26,8 +29,13 @@ export interface TemplateEntry {
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   editorial: { component: MemberDashboardEditorial, label: "Editorial", selfChrome: true },
-  "warm-bento": { component: MemberDashboardBentoWarm, label: "Warm Bento", selfChrome: true },
-  "warm-guide": { component: MemberDashboardGuideWarm, label: "Warm Guide", selfChrome: true },
+  // Keys stay as-is (saved demos reference them); only the display labels changed.
+  "warm-bento": { component: MemberDashboardBentoWarm, label: "Bento", selfChrome: true },
+  "warm-guide": { component: MemberDashboardGuideWarm, label: "Guide", selfChrome: true },
+  // Radically different layout directions (same shared palettes + reveals).
+  stream: { component: MemberJourneyStream, label: "Stream", selfChrome: true },
+  console: { component: MemberConsole, label: "Workspace", selfChrome: true },
+  orbit: { component: MemberOrbit, label: "Orbit", selfChrome: true },
 };
 
 export const DEFAULT_TEMPLATE = "editorial";

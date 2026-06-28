@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { getChurch } from "@/churches";
 import DemoExperience from "@/components/DemoExperience";
 
@@ -22,5 +23,9 @@ export default async function ChurchDemoPage({
   const config = await getChurch(slug);
   if (!config) notFound();
 
-  return <DemoExperience config={config} />;
+  // The pre-screen shows once per browser; the server reads the cookie so return
+  // visits never render it (no flash).
+  const introSeen = (await cookies()).has(`ds_intro_${slug}`);
+
+  return <DemoExperience config={config} introSeen={introSeen} />;
 }

@@ -13,6 +13,7 @@ import ParagraphReveal from "@/components/reveal-animations/ParagraphReveal";
 import HeadingReveal from "@/components/reveal-animations/HeadingReveal";
 import SubheadingReveal from "@/components/reveal-animations/SubheadingReveal";
 import CountUpCurrency from "@/components/CountUpCurrency";
+import { useDemoCTA } from "@/context/DemoCTAContext";
 
 /**
  * Editorial member dashboard — React/Tailwind port of `dashboard-editorial`.
@@ -28,7 +29,7 @@ import CountUpCurrency from "@/components/CountUpCurrency";
  * it adapts to light/dark automatically. Serif = the configured `font-serif`.
  */
 
-// Group + giving are sample content, hardcoded (not configurable).
+// Group, giving, sermon notes + prayer are sample content, hardcoded (not configurable).
 const GROUP = {
   name: "Eastside Tuesday Group",
   host: "Marcus & Renee Hill",
@@ -42,6 +43,13 @@ const GIVING = {
   gratitude:
     "Thank you — every gift this year went straight into people far from God finding their way home.",
 };
+const SERMON = {
+  latestNote: "Grace didn't wait at the door — it ran down the road to meet him.",
+};
+const PRAYERS = [
+  { text: "Healing for my dad's recovery", praying: 14 },
+  { text: "Wisdom about a big decision", praying: 6 },
+];
 
 function statusTag(s: StepItem): string {
   if (s.completed) return "COMPLETED";
@@ -55,14 +63,17 @@ const useIsoLayout = typeof window !== "undefined" ? useLayoutEffect : useEffect
 export default function MemberDashboardEditorial({ config }: { config: ChurchConfig }) {
   const { demoMember } = config;
   const firstName = demoMember.firstName;
+  const openCTA = useDemoCTA();
 
   const { discipleshipSteps, nextSteps } = getMemberProgress(config);
   const lists = [{ label: "Your discipleship pathway", steps: discipleshipSteps }];
   if (nextSteps.length) lists.push({ label: "Your next steps", steps: nextSteps });
 
   const pathway = lists[0];
-  const total = pathway.steps.length;
-  const doneCount = pathway.steps.filter((s) => s.completed).length;
+  // The journey stat spans BOTH lists, not just the discipleship pathway.
+  const allSteps = lists.flatMap((l) => l.steps);
+  const total = allSteps.length;
+  const doneCount = allSteps.filter((s) => s.completed).length;
 
   let defIdx = pathway.steps.findIndex((s) => s.inProgress);
   if (defIdx < 0) defIdx = pathway.steps.findIndex((s) => !s.completed);
@@ -188,7 +199,6 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                 >
                   <div className="text-right leading-[1.15]">
                     <div className="text-[13px] font-semibold text-ink">{firstName}</div>
-                    {demoMember.memberSince && <div className="text-[11px] text-faint">{demoMember.memberSince}</div>}
                   </div>
                   <div className="flex h-[38px] w-[38px] items-center justify-center rounded-full border border-edge bg-card-2 text-[14px] font-semibold text-ink-soft">
                     {firstName.charAt(0)}
@@ -253,7 +263,10 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                         <div className="h-px bg-hairline-soft" />
                         <div className="px-[18px] py-[14px]">
                           <motion.button
-                            onClick={() => setMenuOpen(false)}
+                            onClick={() => {
+                              setMenuOpen(false);
+                              openCTA();
+                            }}
                             whileHover={{ y: -1 }}
                             whileTap={{ scale: 0.98 }}
                             transition={SPRING_SOFT}
@@ -372,11 +385,19 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                             <div className="flex-1 pb-[20px]">
                               <div className="relative">
                                 {isSelected && (
-                                  <motion.div
-                                    layoutId="ed-step-highlight"
-                                    transition={SPRING}
-                                    className="absolute inset-0 rounded-[15px] border border-brand/25 bg-brand/10 shadow-[0_10px_26px_-16px_rgb(var(--brand)_/_0.5)]"
-                                  />
+                                  <>
+                                    {/* Desktop: shared highlight that slides between rows. The inline
+                                        expansion is lg:hidden, so here it only ever wraps the label —
+                                        a stable size, so no layout flicker. */}
+                                    <motion.div
+                                      layoutId="ed-step-highlight"
+                                      transition={SPRING}
+                                      className="absolute inset-0 hidden rounded-[15px] border border-brand/25 bg-brand/10 shadow-[0_10px_26px_-16px_rgb(var(--brand)_/_0.5)] lg:block"
+                                    />
+                                    {/* Mobile: a plain highlight that grows with the inline expansion
+                                        via CSS — no layout animation, so no grow-then-shrink flicker. */}
+                                    <div className="absolute inset-0 rounded-[15px] border border-brand/25 bg-brand/10 lg:hidden" />
+                                  </>
                                 )}
                                 <motion.div
                                   whileHover={isSelected ? undefined : { x: 3 }}
@@ -393,13 +414,22 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                                     >
                                       {statusTag(s)}
                                     </div>
-                                    <motion.div
-                                      animate={{ opacity: isSelected ? 1 : 0 }}
-                                      transition={CROSSFADE}
-                                      className="text-[10.5px] tracking-[.4px] text-brand/70"
-                                    >
-                                      shown →
-                                    </motion.div>
+                                    <div className="flex items-center gap-2">
+                                      <motion.div
+                                        animate={{ opacity: isSelected ? 1 : 0 }}
+                                        transition={CROSSFADE}
+                                        className="hidden text-[10.5px] tracking-[.4px] text-brand/70 lg:block"
+                                      >
+                                        shown →
+                                      </motion.div>
+                                      <motion.span
+                                        animate={{ rotate: isSelected ? 180 : 0 }}
+                                        transition={SPRING_SOFT}
+                                        className={`text-[12px] leading-none lg:hidden ${isSelected ? "text-brand" : "text-faint"}`}
+                                      >
+                                        ▾
+                                      </motion.span>
+                                    </div>
                                   </div>
                                   <div
                                     className={`mt-[5px] font-serif leading-[1.18] transition-all duration-300 ${
@@ -412,6 +442,39 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                                   >
                                     {s.label}
                                   </div>
+
+                                  {/* Mobile: the card content expands inside this item — the
+                                      highlight box grows to wrap it (no separate side card). */}
+                                  <AnimatePresence initial={false}>
+                                    {isSelected && (
+                                      <motion.div
+                                        key="expand"
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.3, ease: EASE }}
+                                        className="overflow-hidden lg:hidden"
+                                      >
+                                        <div className="pt-3">
+                                          {s.description && (
+                                            <p className="text-[14px] leading-[1.55] text-ink-soft">{s.description}</p>
+                                          )}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openCTA();
+                                            }}
+                                            className="mt-3.5 w-full cursor-pointer rounded-[12px] bg-brand py-3 text-[14px] font-bold text-on-accent"
+                                          >
+                                            {(s.ctaLabel ?? "Open")} →
+                                          </button>
+                                          {s.meta && (
+                                            <div className="mt-2.5 text-center text-[12px] text-ink-muted">{s.meta}</div>
+                                          )}
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
                                 </motion.div>
                               </div>
                             </div>
@@ -425,8 +488,8 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
               </LayoutGroup>
             </div>
 
-            {/* Focal card — on desktop it slides to center on the selected step */}
-            <div ref={cardColRef} className="lg:relative lg:self-stretch">
+            {/* Focal card — desktop only; on mobile the step content expands inline */}
+            <div ref={cardColRef} className="hidden lg:relative lg:block lg:self-stretch">
               {sel && (
                 <div
                   ref={cardRef}
@@ -463,10 +526,11 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                           <p className="mt-4 text-[15px] leading-[1.55] text-on-accent/80">{sel.description}</p>
                         )}
                         <motion.button
+                          onClick={openCTA}
                           whileHover={{ y: -2, boxShadow: "0 14px 28px -8px rgba(0,0,0,0.4)" }}
                           whileTap={{ scale: 0.98 }}
                           transition={SPRING_SOFT}
-                          className="mt-[26px] w-full cursor-pointer rounded-[13px] border-0 bg-card-2 py-4 text-[15px] font-bold tracking-[.1px] text-brand-card"
+                          className="mt-[26px] w-full cursor-pointer rounded-[13px] border-0 bg-accent-btn py-4 text-[15px] font-bold tracking-[.1px] text-accent-btn-ink"
                         >
                           {(sel.ctaLabel ?? "Open")} →
                         </motion.button>
@@ -508,9 +572,12 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                     <div className="text-[10.5px] font-semibold tracking-[1.6px] text-faint">NEXT MEETING</div>
                     <div className="mt-0.5 text-[14.5px] font-semibold">{GROUP.nextMeeting}</div>
                   </div>
-                  <div className="cursor-pointer text-[13px] font-semibold text-brand transition-transform hover:translate-x-0.5">
+                  <button
+                    onClick={openCTA}
+                    className="cursor-pointer text-[13px] font-semibold text-brand transition-transform hover:translate-x-0.5"
+                  >
                     Details →
-                  </div>
+                  </button>
                 </div>
               </motion.div>
             </Reveal>
@@ -534,6 +601,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                 <p className="mt-5 font-serif text-[14.5px] italic leading-[1.5] text-ink-soft">{GIVING.gratitude}</p>
                 <div className="mt-[18px] flex gap-2.5">
                   <motion.button
+                    onClick={openCTA}
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     transition={SPRING_SOFT}
@@ -542,6 +610,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                     Give again
                   </motion.button>
                   <motion.button
+                    onClick={openCTA}
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     transition={SPRING_SOFT}
@@ -550,6 +619,71 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                     Statement
                   </motion.button>
                 </div>
+              </motion.div>
+            </Reveal>
+          </section>
+        </SectionReveal>
+
+        {/* ── SERMON NOTES + PRAYER (hardcoded) — mirrored split: narrower left ── */}
+        <SectionReveal>
+          <section className="mt-6 grid grid-cols-1 items-stretch gap-6 md:grid-cols-[.95fr_1.05fr] lg:mt-10 lg:gap-10">
+            {/* Sermon notes */}
+            <Reveal className="h-full">
+              <motion.div
+                whileHover={{ y: -3 }}
+                transition={SPRING_SOFT}
+                className="flex h-full flex-col rounded-[20px] border border-edge bg-card px-7 py-[26px]"
+              >
+                <h3 className="font-serif text-[28px] font-semibold leading-[1.1]">Sermon Notes</h3>
+                <div className="mt-4 rounded-xl bg-card-2 px-[18px] py-4">
+                  <div className="text-[10.5px] font-bold tracking-[1.8px] text-faint">YOUR LATEST NOTE</div>
+                  <p className="mt-2 font-serif text-[15px] italic leading-[1.5] text-ink-soft">{SERMON.latestNote}</p>
+                </div>
+                <motion.button
+                  onClick={openCTA}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={SPRING_SOFT}
+                  className="mt-auto w-full cursor-pointer rounded-xl border-0 bg-ink py-[13px] text-[14px] font-semibold text-paper"
+                >
+                  View all notes
+                </motion.button>
+              </motion.div>
+            </Reveal>
+
+            {/* Prayer requests */}
+            <Reveal delay={0.08} className="h-full">
+              <motion.div
+                whileHover={{ y: -3 }}
+                transition={SPRING_SOFT}
+                className="flex h-full flex-col rounded-[20px] border border-edge bg-card px-7 py-[26px]"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] font-bold tracking-[2.2px] text-faint">YOUR PRAYER REQUESTS</div>
+                  <div className="text-[11.5px] font-semibold text-brand">{PRAYERS.length} active</div>
+                </div>
+                <div className="mt-4 flex flex-col">
+                  {PRAYERS.map((p) => (
+                    <div
+                      key={p.text}
+                      className="flex items-center justify-between gap-3 border-t border-hairline-soft py-3 first:border-t-0 first:pt-0"
+                    >
+                      <div className="text-[14.5px] leading-[1.3] text-ink">{p.text}</div>
+                      <div className="flex flex-none items-center gap-1.5 text-[12px] text-ink-muted">
+                        <span className="text-brand">♥</span> {p.praying} praying
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <motion.button
+                  onClick={openCTA}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={SPRING_SOFT}
+                  className="mt-auto cursor-pointer rounded-xl border border-edge bg-transparent py-[13px] text-[14px] font-semibold text-ink-soft"
+                >
+                  Share a request
+                </motion.button>
               </motion.div>
             </Reveal>
           </section>

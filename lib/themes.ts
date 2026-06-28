@@ -132,10 +132,38 @@ const WARM_GUIDE: TemplateTheme = {
   palettes: SHARED_PALETTES,
 };
 
+// ── New design directions (radically different layouts; same shared palettes) ──
+// Stream  — cinematic vertical scroll-story (editorial serif).
+// Console — app-like sidebar workspace (editorial serif).
+// Orbit   — bold radial constellation (Spectral for a dramatic display feel).
+const STREAM: TemplateTheme = {
+  fonts: { serif: "newsreader", sans: "hanken" },
+  defaultLight: "white",
+  defaultDark: "black",
+  palettes: SHARED_PALETTES,
+};
+
+const CONSOLE: TemplateTheme = {
+  fonts: { serif: "newsreader", sans: "hanken" },
+  defaultLight: "white",
+  defaultDark: "black",
+  palettes: SHARED_PALETTES,
+};
+
+const ORBIT: TemplateTheme = {
+  fonts: { serif: "spectral", sans: "hanken" },
+  defaultLight: "white",
+  defaultDark: "black",
+  palettes: SHARED_PALETTES,
+};
+
 const TEMPLATE_THEMES: Record<string, TemplateTheme> = {
   editorial: EDITORIAL,
   "warm-bento": WARM_BENTO,
   "warm-guide": WARM_GUIDE,
+  stream: STREAM,
+  console: CONSOLE,
+  orbit: ORBIT,
 };
 const DEFAULT_THEME = EDITORIAL;
 
@@ -245,6 +273,12 @@ export function themeToVars(cs: ColorSet, fonts: ThemeFonts, mode: "light" | "da
     "--hairline-soft": cs.divider,
     "--upcoming": cs.track,
     "--on-accent": cs.onAccent,
+    // Focal "next step" button that sits ON the accent card. Light: a soft inset
+    // surface with deep-accent text (as before). Dark: a warm white chip with
+    // warm near-black text, so it reads as a light button rather than vanishing
+    // into the near-black inset color.
+    "--accent-btn": mode === "dark" ? cs.onAccent : cs.cardAlt,
+    "--accent-btn-ink": mode === "dark" ? cs.bg : cs.accentDeep,
     "--brand": hexToTriple(cs.accent),
     "--brand-card": hexToTriple(cs.accentDeep),
     "--logo-filter": mode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",

@@ -42,7 +42,9 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-/** The demo member is the same for every demo — hardcoded, not configurable. */
+/** The demo member's fixed fields. The first name is editable per demo (see the
+ *  `memberName` form field); `firstName` here is just the default. The rest are
+ *  the same for every demo and never rendered by the templates. */
 const DEMO_MEMBER = {
   firstName: "Sarah",
   lastName: "Thompson",
@@ -115,7 +117,10 @@ function AdminInner() {
   const [accentOverride, setAccentOverride] = useState(false);
   const [accentLight, setAccentLight] = useState("#9e6450");
   const [accentDark, setAccentDark] = useState("#c98a6b");
+  // `template` is the one previewed (and shown first in the live demo); it must
+  // stay a member of `published`, the set of templates that go live.
   const [template, setTemplate] = useState("editorial");
+  const [published, setPublished] = useState<string[]>(Object.keys(TEMPLATES));
   const [paletteLight, setPaletteLight] = useState("");
   const [paletteDark, setPaletteDark] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -123,6 +128,7 @@ function AdminInner() {
   const [welcomeLine, setWelcomeLine] = useState(
     "We're so glad you're here — here are your next steps, your group, your giving, and more",
   );
+  const [memberName, setMemberName] = useState(DEMO_MEMBER.firstName);
   const [track, setTrack] = useState<StepDraft[]>(DEFAULT_TRACK);
   const [next, setNext] = useState<StepDraft[]>(DEFAULT_NEXT);
 
@@ -142,11 +148,19 @@ function AdminInner() {
         setAccentOverride(!!(c.brand?.accent || c.brand?.accentLight || c.brand?.accentDark));
         setAccentLight(c.brand?.accentLight ?? c.brand?.accent ?? "#9e6450");
         setAccentDark(c.brand?.accentDark ?? c.brand?.accent ?? "#c98a6b");
-        setTemplate(c.template);
+        // Published set: stored `templates` when present (older demos lack it →
+        // all published), normalized to registry order and valid keys.
+        const pub = c.templates?.filter((k) => k in TEMPLATES) ?? [];
+        const publishedList = pub.length
+          ? Object.keys(TEMPLATES).filter((k) => pub.includes(k))
+          : Object.keys(TEMPLATES);
+        setPublished(publishedList);
+        setTemplate(publishedList.includes(c.template) ? c.template : publishedList[0]);
         setPaletteLight(c.palette?.light ?? "");
         setPaletteDark(c.palette?.dark ?? "");
         setLogoUrl(c.logoUrl ?? "");
         setWelcomeLine(c.welcomeLine ?? "");
+        setMemberName(c.demoMember.firstName || DEMO_MEMBER.firstName);
         const statusByKey = new Map(c.demoMember.steps.map((s) => [s.key, s.status]));
         const toDrafts = (steps: PathwayStep[]): StepDraft[] =>
           steps.map((s) => ({
@@ -180,18 +194,34 @@ function AdminInner() {
         slug, churchName, tagline,
         accentLight: accentOverride ? accentLight : undefined,
         accentDark: accentOverride ? accentDark : undefined,
-        template, paletteLight, paletteDark, logoUrl, welcomeLine,
+        template, templates: published, memberName,
+        paletteLight, paletteDark, logoUrl, welcomeLine,
         track, next,
       }),
-    [slug, churchName, tagline, accentOverride, accentLight, accentDark, template, paletteLight, paletteDark, logoUrl, welcomeLine, track, next],
+    [slug, churchName, tagline, accentOverride, accentLight, accentDark, template, published, memberName, paletteLight, paletteDark, logoUrl, welcomeLine, track, next],
   );
 
-  // Picking a template resets the palette choices to that template's defaults.
-  // Shared by the form picker and the preview's in-bar switcher so they stay in sync.
+  // Set the first-shown template (`config.template`) — the one the demo opens
+  // on, and what the editor preview displays. Driven by both the "Shows first"
+  // picker and the preview's in-bar switcher. Palettes are shared across
+  // templates, so the chosen palette carries over untouched.
   function selectTemplate(key: string) {
     setTemplate(key);
-    setPaletteLight("");
-    setPaletteDark("");
+  }
+
+  // Toggle a template in/out of the published set (the form's template grid).
+  // Always keeps at least one published: adding a template also previews it;
+  // removing the previewed one falls back to another published template.
+  function togglePublished(key: string) {
+    if (published.includes(key)) {
+      if (published.length === 1) return; // at least one must stay live
+      const next = published.filter((k) => k !== key);
+      setPublished(next);
+      if (template === key) setTemplate(Object.keys(TEMPLATES).find((k) => next.includes(k))!);
+    } else {
+      setPublished([...published, key]);
+      setTemplate(key); // preview what was just added
+    }
   }
 
   async function uploadLogo(file: File) {
@@ -248,6 +278,12 @@ function AdminInner() {
           <Field label="Church name" value={churchName} onChange={setChurchName} />
           <Field label="Tagline" value={tagline} onChange={setTagline} />
           <Field label="Welcome line" value={welcomeLine} onChange={setWelcomeLine} />
+          <div>
+            <Field label="Member name" value={memberName} onChange={setMemberName} />
+            <p className="mt-1 text-xs text-fg-muted">
+              The signed-in demo member — shown in the greeting, the user menu, and the avatar initial.
+            </p>
+          </div>
 
           <div>
             <span className="mb-1 block text-xs text-fg-muted">Logo (optional)</span>
@@ -292,30 +328,71 @@ function AdminInner() {
         </Group>
 
         <Group title="Branding">
-          {/* Template — pick a layout */}
+          {/* Templates — multi-select which layouts go live */}
           <div>
-            <span className="mb-1.5 block text-xs text-fg-muted">Template</span>
+            <span className="mb-1.5 block text-xs text-fg-muted">Templates</span>
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(TEMPLATES).map(([key, entry]) => {
-                const isSel = template === key;
+                const isPublished = published.includes(key);
+                const isOnlyOne = isPublished && published.length === 1;
                 return (
                   <button
                     key={key}
                     type="button"
-                    onClick={() => selectTemplate(key)}
+                    onClick={() => togglePublished(key)}
+                    aria-pressed={isPublished}
+                    disabled={isOnlyOne}
+                    title={isOnlyOne ? "At least one template must stay selected" : undefined}
                     className={`relative overflow-hidden rounded-lg border bg-surface text-left transition ${
-                      isSel ? "border-fg ring-1 ring-fg" : "border-line hover:border-line-hover"
-                    }`}
+                      isPublished
+                        ? "border-fg ring-1 ring-fg"
+                        : "border-line opacity-50 hover:border-line-hover hover:opacity-100"
+                    } ${isOnlyOne ? "cursor-default" : ""}`}
                   >
                     <TemplateThumb templateKey={key} />
                     <div className="border-t border-line px-2 py-1 text-[11px] font-medium text-fg-secondary">
                       {entry.label}
                     </div>
-                    {isSel && <SelectedBadge />}
+                    {isPublished && <SelectedBadge />}
                   </button>
                 );
               })}
             </div>
+            <p className="mt-1.5 text-xs text-fg-muted">
+              Selected templates go live — viewers switch between them in the demo bar.
+            </p>
+
+            {/* Shows first — pick which published template the demo opens on */}
+            {published.length > 1 && (
+              <div className="mt-3.5">
+                <span className="mb-1.5 block text-xs text-fg-muted">Shows first</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.keys(TEMPLATES)
+                    .filter((k) => published.includes(k))
+                    .map((key) => {
+                      const isDefault = template === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => selectTemplate(key)}
+                          aria-pressed={isDefault}
+                          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                            isDefault
+                              ? "border-fg bg-surface-inverted text-fg-inverted"
+                              : "border-line text-fg-secondary hover:border-line-hover"
+                          }`}
+                        >
+                          {TEMPLATES[key].label}
+                        </button>
+                      );
+                    })}
+                </div>
+                <p className="mt-1.5 text-xs text-fg-muted">
+                  The template the demo opens on. Viewers can still switch between all selected templates.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Palettes — pick a light + dark preset */}
@@ -436,7 +513,12 @@ function buildConfig(input: {
   /** Per-mode accent overrides, or undefined to inherit the palette's accent. */
   accentLight: string | undefined;
   accentDark: string | undefined;
+  /** The previewed/primary template (shown first). */
   template: string;
+  /** The published set — which templates go live. */
+  templates: string[];
+  /** The signed-in demo member's first name. */
+  memberName: string;
   paletteLight: string;
   paletteDark: string;
   logoUrl: string;
@@ -469,6 +551,10 @@ function buildConfig(input: {
       ? { light: input.paletteLight || undefined, dark: input.paletteDark || undefined }
       : undefined;
 
+  // Published templates in registry order; the primary must be one of them.
+  const templates = Object.keys(TEMPLATES).filter((k) => input.templates.includes(k));
+  const primary = templates.includes(input.template) ? input.template : templates[0] ?? input.template;
+
   return {
     slug: input.slug,
     churchName: input.churchName,
@@ -478,12 +564,17 @@ function buildConfig(input: {
       input.accentLight || input.accentDark
         ? { accentLight: input.accentLight, accentDark: input.accentDark }
         : undefined,
-    template: input.template,
+    template: primary,
+    templates,
     palette,
     welcomeLine: input.welcomeLine || undefined,
     discipleshipTrack: trackSteps,
     nextSteps,
-    demoMember: { ...DEMO_MEMBER, steps: memberSteps },
+    demoMember: {
+      ...DEMO_MEMBER,
+      firstName: input.memberName.trim() || DEMO_MEMBER.firstName,
+      steps: memberSteps,
+    },
   };
 }
 
@@ -564,6 +655,49 @@ function TemplateThumb({ templateKey }: { templateKey: string }) {
           </div>
           <div className="flex-1 rounded-sm bg-fg/30" />
         </div>
+      </div>
+    );
+  }
+  if (templateKey === "stream") {
+    // Cinematic vertical story: a progress rail of dots beside stacked chapters.
+    return (
+      <div className="flex h-[64px] gap-2 p-1.5">
+        <div className="flex w-2 flex-col items-center justify-between py-1">
+          <div className="h-1.5 w-1.5 rounded-full bg-fg/30" />
+          <div className="h-1.5 w-1.5 rounded-full bg-fg/30" />
+          <div className="h-1.5 w-1.5 rounded-full bg-fg/15" />
+        </div>
+        <div className="flex flex-1 flex-col justify-center gap-1.5">
+          <div className="h-2 w-2/3 rounded-sm bg-fg/30" />
+          <div className="h-1 w-full rounded-sm bg-fg/15" />
+          <div className="h-1 w-5/6 rounded-sm bg-fg/15" />
+        </div>
+      </div>
+    );
+  }
+  if (templateKey === "console") {
+    // App workspace: a persistent sidebar of nav lines + a main canvas.
+    return (
+      <div className="flex h-[64px] gap-1 p-1.5">
+        <div className="flex w-1/3 flex-col gap-1 rounded-sm bg-fg/10 p-1">
+          <div className="h-1 w-full rounded-sm bg-fg/30" />
+          <div className="h-1 w-3/4 rounded-sm bg-fg/15" />
+          <div className="h-1 w-3/4 rounded-sm bg-fg/15" />
+          <div className="mt-auto h-1 w-full rounded-sm bg-fg/15" />
+        </div>
+        <div className="flex-1 rounded-sm bg-fg/20" />
+      </div>
+    );
+  }
+  if (templateKey === "orbit") {
+    // Radial constellation: a center core with nodes around it.
+    return (
+      <div className="relative flex h-[64px] items-center justify-center p-1.5">
+        <div className="h-7 w-7 rounded-full bg-fg/30" />
+        <div className="absolute left-1/2 top-2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-fg/25" />
+        <div className="absolute bottom-2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-fg/20" />
+        <div className="absolute left-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-fg/20" />
+        <div className="absolute right-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-fg/20" />
       </div>
     );
   }

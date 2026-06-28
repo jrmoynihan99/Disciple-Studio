@@ -74,6 +74,8 @@
   --hairline-soft: #eeebe6; /* subtle dividers */
   --upcoming: #e0ddd6; /* incomplete-step rings / connectors */
   --on-accent: #fbf6f1; /* text/icon on accent surfaces */
+  --accent-btn: #eeece8; /* focal button ON the accent card (light: inset surface) */
+  --accent-btn-ink: #7f4e3d; /* focal button text (light: deep accent) */
   --logo-filter: brightness(0); /* recolor uploaded logos to match the mode */
 }
 
@@ -149,6 +151,8 @@
   --color-hairline-soft: var(--hairline-soft);
   --color-upcoming: var(--upcoming);
   --color-on-accent: var(--on-accent);
+  --color-accent-btn: var(--accent-btn);
+  --color-accent-btn-ink: var(--accent-btn-ink);
 
   /* Fonts. font-serif follows the per-template/church choice injected by
      DemoChrome (--ds-serif); the base sans is set on the demo root. */
@@ -215,6 +219,12 @@ html::-webkit-scrollbar {
 @keyframes ggPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgb(var(--brand) / 0.3); }
   50% { box-shadow: 0 0 0 7px rgb(var(--brand) / 0); }
+}
+
+/* Orbit: slow ambient rotation of the dashed guide ring */
+@keyframes osSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* ── Dropdown animations (member menu) ── */

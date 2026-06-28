@@ -13,6 +13,7 @@ import ParagraphReveal from "@/components/reveal-animations/ParagraphReveal";
 import HeadingReveal from "@/components/reveal-animations/HeadingReveal";
 import SubheadingReveal from "@/components/reveal-animations/SubheadingReveal";
 import CountUpCurrency from "@/components/CountUpCurrency";
+import { useDemoCTA } from "@/context/DemoCTAContext";
 
 /**
  * Warm Guide member dashboard — React/Tailwind port of `dashboard-warm-guide`.
@@ -39,6 +40,13 @@ const GIVING = {
   gifts: 14,
   gratitude: "Thank you — every gift finds its way home.",
 };
+const SERMON = {
+  latestNote: "Grace didn't wait at the door — it ran down the road to meet him.",
+};
+const PRAYERS = [
+  { text: "Healing for my dad's recovery", praying: 14 },
+  { text: "Wisdom about a big decision", praying: 6 },
+];
 
 const RING_R = 43;
 const RING_C = 2 * Math.PI * RING_R;
@@ -52,26 +60,40 @@ function statusLabel(s: StepItem): string {
   return s.completed ? "Completed" : s.inProgress ? "You're here" : "Upcoming";
 }
 
+/** A list's default focus: the in-progress step, else the first incomplete one. */
+function defaultIdxFor(items: StepItem[]): number {
+  const ip = items.findIndex((s) => s.inProgress);
+  if (ip >= 0) return ip;
+  const fi = items.findIndex((s) => !s.completed);
+  return fi >= 0 ? fi : 0;
+}
+
 export default function MemberDashboardGuideWarm({ config }: { config: ChurchConfig }) {
   const { demoMember } = config;
   const firstName = demoMember.firstName;
+  const openCTA = useDemoCTA();
 
-  const { discipleshipSteps: steps } = getMemberProgress(config);
-  const total = steps.length;
-  const done = steps.filter((s) => s.completed).length;
+  const { discipleshipSteps, nextSteps } = getMemberProgress(config);
+  const lists = [{ label: "Discipleship track", steps: discipleshipSteps }];
+  if (nextSteps.length) lists.push({ label: "Next steps", steps: nextSteps });
+
+  const [activeList, setActiveList] = useState(0);
+  const ai = Math.min(activeList, lists.length - 1);
+  const active = lists[ai];
+  // Overall progress spans BOTH lists — the journey isn't done at the end of one.
+  const allSteps = lists.flatMap((l) => l.steps);
+  const total = allSteps.length;
+  const done = allSteps.filter((s) => s.completed).length;
   const pct = total ? Math.round((done / total) * 100) : 0;
   const ringOffset = RING_C * (1 - pct / 100);
-  const current = steps.find((s) => s.inProgress);
-  // The whole pathway is navigable in the card deck — completed steps included.
-  const deck = steps;
-  const defaultIdx = (() => {
-    const ip = steps.findIndex((s) => s.inProgress);
-    if (ip >= 0) return ip;
-    const fi = steps.findIndex((s) => !s.completed);
-    return fi >= 0 ? fi : 0;
-  })();
+  // The active list is navigable in the card deck — completed steps included.
+  const deck = active.steps;
 
-  const [deckIndex, setDeckIndex] = useState(defaultIdx);
+  // The member menu's headline next-step comes from the discipleship track (lists[0]).
+  const track = lists[0];
+  const trackCurrent = track.steps.find((s) => s.inProgress);
+
+  const [deckIndex, setDeckIndex] = useState(() => defaultIdxFor(discipleshipSteps));
   const [dir, setDir] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -107,6 +129,14 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
     const clamped = Math.max(0, Math.min(deck.length - 1, next));
     setDir(clamped >= di ? 1 : -1);
     setDeckIndex(clamped);
+  };
+
+  // Switching lists resets the ladder + deck to that list's current/first step.
+  const selectList = (i: number) => {
+    const clamped = Math.max(0, Math.min(lists.length - 1, i));
+    setActiveList(clamped);
+    setDir(1);
+    setDeckIndex(defaultIdxFor(lists[clamped].steps));
   };
 
   return (
@@ -162,40 +192,50 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                       >
                         <div className="bg-card-2 px-5 pb-[15px] pt-[18px]">
                           <div className="text-[9.5px] font-extrabold tracking-[2.2px] text-brand">YOUR NEXT STEP</div>
-                          <div className="mt-[5px] font-serif text-[22px] leading-[1.12]">{current?.label ?? ""}</div>
+                          <div className="mt-[5px] font-serif text-[22px] leading-[1.12]">{trackCurrent?.label ?? ""}</div>
                         </div>
                         <div className="h-px bg-hairline-soft" />
-                        <div className="px-5 py-[14px]">
-                          <div className="text-[9.5px] font-bold tracking-[1.8px] text-faint">
-                            DISCIPLESHIP TRACK · {done}/{total}
-                          </div>
-                          <div className="mt-2.5 flex flex-col gap-2">
-                            {steps.map((s) => (
-                              <div key={s.key} className="flex items-center gap-[9px]">
-                                {s.completed ? (
-                                  <div className="flex h-4 w-4 flex-none items-center justify-center rounded-full bg-brand">
-                                    <span className="text-[8px] leading-none text-on-accent">✓</span>
-                                  </div>
-                                ) : s.inProgress ? (
-                                  <div className="h-4 w-4 flex-none rounded-full border-2 border-brand bg-card" />
-                                ) : (
-                                  <div className="h-4 w-4 flex-none rounded-full border-2 border-upcoming bg-card" />
-                                )}
-                                <div
-                                  className={`text-[13px] ${s.inProgress ? "font-bold" : "font-medium"} ${
-                                    s.completed || s.inProgress ? "text-ink-soft" : "text-faint"
-                                  }`}
-                                >
-                                  {s.label}
+                        <div className="px-5 pb-1.5 pt-[14px]">
+                          {lists.map((list) => {
+                            const ld = list.steps.filter((s) => s.completed).length;
+                            return (
+                              <div key={list.label} className="mb-3">
+                                <div className="text-[9.5px] font-bold uppercase tracking-[1.8px] text-faint">
+                                  {list.label} · {ld}/{list.steps.length}
+                                </div>
+                                <div className="mt-2.5 flex flex-col gap-2">
+                                  {list.steps.map((s) => (
+                                    <div key={s.key} className="flex items-center gap-[9px]">
+                                      {s.completed ? (
+                                        <div className="flex h-4 w-4 flex-none items-center justify-center rounded-full bg-brand">
+                                          <span className="text-[8px] leading-none text-on-accent">✓</span>
+                                        </div>
+                                      ) : s.inProgress ? (
+                                        <div className="h-4 w-4 flex-none rounded-full border-2 border-brand bg-card" />
+                                      ) : (
+                                        <div className="h-4 w-4 flex-none rounded-full border-2 border-upcoming bg-card" />
+                                      )}
+                                      <div
+                                        className={`text-[13px] ${s.inProgress ? "font-bold" : "font-medium"} ${
+                                          s.completed || s.inProgress ? "text-ink-soft" : "text-faint"
+                                        }`}
+                                      >
+                                        {s.label}
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
                         <div className="h-px bg-hairline-soft" />
                         <div className="px-[15px] py-3">
                           <motion.button
-                            onClick={() => setMenuOpen(false)}
+                            onClick={() => {
+                              setMenuOpen(false);
+                              openCTA();
+                            }}
                             whileHover={{ y: -1 }}
                             whileTap={{ scale: 0.98 }}
                             transition={SPRING_SOFT}
@@ -269,7 +309,7 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold tracking-[2px] text-faint">DISCIPLESHIP TRACK</div>
+                    <div className="text-[10px] font-bold uppercase tracking-[2px] text-faint">YOUR JOURNEY</div>
                     <div className="mt-[3px] font-serif text-[21px] leading-[1.1]">
                       {done}/{total} steps
                     </div>
@@ -277,10 +317,35 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                   </div>
                 </div>
 
+                {lists.length > 1 && (
+                  <LayoutGroup>
+                    <div className="mt-5 flex gap-0.5 rounded-[11px] bg-card-2 p-[3px]">
+                      {lists.map((list, i) => (
+                        <button
+                          key={list.label}
+                          onClick={() => selectList(i)}
+                          className={`relative flex-1 cursor-pointer rounded-[9px] px-3 py-[7px] text-[12px] font-bold transition-colors ${
+                            i === ai ? "text-on-accent" : "text-ink-soft hover:text-ink"
+                          }`}
+                        >
+                          {i === ai && (
+                            <motion.span
+                              layoutId="guide-seg"
+                              transition={SPRING}
+                              className="absolute inset-0 rounded-[9px] bg-brand shadow-[0_2px_8px_-2px_rgb(var(--brand)_/_0.5)]"
+                            />
+                          )}
+                          <span className="relative z-10">{list.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </LayoutGroup>
+                )}
+
                 <LayoutGroup>
                   <div className="mt-[22px] flex flex-col">
-                    {steps.map((s, i) => {
-                      const notLast = i < total - 1;
+                    {active.steps.map((s, i) => {
+                      const notLast = i < active.steps.length - 1;
                       const isViewing = di === i;
                       return (
                         <Reveal key={s.key} delay={0.18 + i * 0.08}>
@@ -373,10 +438,11 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                         )}
                         <div className="mt-[26px] flex flex-wrap items-center gap-4">
                           <motion.button
+                            onClick={openCTA}
                             whileHover={{ y: -2, boxShadow: "0 14px 26px -8px rgba(0,0,0,0.4)" }}
                             whileTap={{ scale: 0.98 }}
                             transition={SPRING_SOFT}
-                            className="cursor-pointer rounded-[13px] bg-card-2 px-6 py-[15px] text-[15px] font-bold text-brand-card"
+                            className="cursor-pointer rounded-[13px] bg-accent-btn px-6 py-[15px] text-[15px] font-bold text-accent-btn-ink"
                           >
                             {(card.ctaLabel ?? (card.completed ? "Revisit" : "Get started"))} →
                           </motion.button>
@@ -451,6 +517,7 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                   </div>
                 </div>
                 <motion.button
+                  onClick={openCTA}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}
@@ -478,12 +545,75 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
                   <div className="mt-1.5 max-w-[240px] font-serif text-[12px] italic text-ink-muted">{GIVING.gratitude}</div>
                 </div>
                 <motion.button
+                  onClick={openCTA}
                   whileHover={{ y: -2 }}
                   whileTap={{ scale: 0.98 }}
                   transition={SPRING_SOFT}
                   className="flex-none cursor-pointer rounded-[11px] bg-brand px-[18px] py-[11px] text-[13.5px] font-bold text-on-accent"
                 >
                   Give again
+                </motion.button>
+              </motion.div>
+            </Reveal>
+          </section>
+        </SectionReveal>
+
+        {/* ── PRAYER + SERMON NOTES (hardcoded) — split mirrors the ladder/deck row ── */}
+        <SectionReveal>
+          <section className="mt-4 grid grid-cols-1 items-stretch gap-4 lg:mt-[18px] lg:grid-cols-[360px_1fr] lg:gap-[18px]">
+            {/* Prayer requests — narrow left, mirroring the ladder */}
+            <Reveal className="h-full">
+              <motion.div
+                whileHover={{ y: -3 }}
+                transition={SPRING_SOFT}
+                className="flex h-full flex-col rounded-[22px] border border-edge bg-card px-[26px] py-[22px]"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-bold tracking-[1.6px] text-faint">PRAYER REQUESTS</div>
+                  <div className="text-[11px] font-bold text-brand">{PRAYERS.length} active</div>
+                </div>
+                <div className="mt-3 flex flex-col gap-2">
+                  {PRAYERS.map((p) => (
+                    <div key={p.text} className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 text-[13.5px] leading-[1.3] text-ink">{p.text}</div>
+                      <div className="flex-none text-[11.5px] text-ink-muted">
+                        <span className="text-brand">♥</span> {p.praying}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <motion.button
+                  onClick={openCTA}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={SPRING_SOFT}
+                  className="mt-auto flex-none cursor-pointer self-start rounded-[11px] bg-ink px-[17px] py-[11px] text-[13.5px] font-bold text-paper"
+                >
+                  Share a request
+                </motion.button>
+              </motion.div>
+            </Reveal>
+
+            {/* Sermon notes — wide right */}
+            <Reveal delay={0.08} className="h-full">
+              <motion.div
+                whileHover={{ y: -3 }}
+                transition={SPRING_SOFT}
+                className="flex h-full flex-col rounded-[22px] border border-edge bg-card px-[26px] py-[22px]"
+              >
+                <h3 className="font-serif text-[24px] leading-[1.1]">Sermon Notes</h3>
+                <div className="mt-3.5 rounded-[14px] bg-card-2 px-4 py-4">
+                  <div className="text-[10px] font-bold tracking-[1.6px] text-faint">YOUR LATEST NOTE</div>
+                  <p className="mt-2 font-serif text-[15px] italic leading-[1.5] text-ink-soft">{SERMON.latestNote}</p>
+                </div>
+                <motion.button
+                  onClick={openCTA}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={SPRING_SOFT}
+                  className="mt-auto w-full cursor-pointer rounded-[11px] bg-ink py-3 text-[13.5px] font-bold text-paper"
+                >
+                  View all notes
                 </motion.button>
               </motion.div>
             </Reveal>

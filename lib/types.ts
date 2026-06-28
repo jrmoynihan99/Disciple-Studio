@@ -205,9 +205,15 @@ export interface ChurchConfig {
   theme?: "dark" | "light";
 
   // ── Template selection ─────────────────────────────────────────────────
-  /** Which template design renders this church. Key into the template registry
-   *  in `src/components/templates/index.ts`. Falls back to the default. */
+  /** Which template design renders FIRST in the demo. Key into the template
+   *  registry in `src/components/templates/index.ts`. Falls back to the default.
+   *  Should be a member of `templates`. */
   template: string;
+  /** Which template designs are published — the set the viewer can switch
+   *  between via the demo bar (only these go live). When omitted, every
+   *  registered template is published (preserves older demos saved before this
+   *  field existed). With a single entry the demo bar's switcher is hidden. */
+  templates?: string[];
 
   // ── Content ────────────────────────────────────────────────────────────
   hero?: HeroContent;
