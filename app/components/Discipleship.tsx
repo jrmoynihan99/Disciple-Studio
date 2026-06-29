@@ -387,11 +387,13 @@ export default function Discipleship() {
           </div>
         </div>
 
-        {/* the stage — web browser and app phone cross-fade in place */}
-        <div className="relative flex h-[clamp(470px,64vh,640px)] w-full items-center justify-center">
+        {/* the stage — web browser and app phone cross-fade in place.
+            grid-stacked (both in cell 1/1) so the container grows to the taller
+            mockup instead of clipping/overlapping siblings on mobile. */}
+        <div className="relative grid w-full grid-cols-1 place-items-center content-center min-h-[clamp(470px,64vh,640px)]">
           {/* WEB */}
           <div
-            className="absolute w-full max-w-[840px]"
+            className="relative w-full max-w-[840px] [grid-area:1/1]"
             style={{
               opacity: 1 - webOut,
               transform: `scale(${1 - 0.06 * webOut}) translateY(${-webOut * 24}px)`,
@@ -441,7 +443,7 @@ export default function Discipleship() {
 
           {/* APP */}
           <div
-            className="absolute flex flex-col items-center"
+            className="relative flex flex-col items-center [grid-area:1/1]"
             style={{
               opacity: appIn,
               transform: `translateY(${(1 - appIn) * 44}px) scale(${0.94 + 0.06 * appIn})`,
