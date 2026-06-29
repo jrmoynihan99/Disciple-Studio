@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, Info } from "lucide-react";
 import type { ChurchConfig } from "@/lib/types";
 import { getTemplateEntry, TEMPLATES } from "@/components/templates";
 import { DemoCTAContext } from "@/context/DemoCTAContext";
@@ -9,6 +10,7 @@ import DemoChrome from "@/components/DemoChrome";
 import DemoBar from "@/components/DemoBar";
 import DemoClosingCTA from "@/components/DemoClosingCTA";
 import DemoCTAModal from "@/components/DemoCTAModal";
+import DemoInfoModal from "@/components/DemoInfoModal";
 import DemoIntro from "@/components/DemoIntro";
 
 /**
@@ -72,6 +74,12 @@ export default function DemoExperience({
   }, []);
   const closeCTA = useCallback(() => setCtaOpen(false), []);
 
+  // The "how does this work?" explainer — opened from the toolbar's quiet "How
+  // it works" button (public demo only; the admin preview doesn't render it).
+  const [infoOpen, setInfoOpen] = useState(false);
+  const openInfo = useCallback(() => setInfoOpen(true), []);
+  const closeInfo = useCallback(() => setInfoOpen(false), []);
+
   // Switching template just overrides which layout renders; the shared palettes
   // mean the church's colors carry over untouched.
   const activeConfig = useMemo<ChurchConfig>(
@@ -95,6 +103,7 @@ export default function DemoExperience({
           templates={templateOptions}
           activeTemplate={templateKey}
           onTemplateChange={changeTemplate}
+          onHowItWorks={embedded ? undefined : openInfo}
         />
         <Template config={activeConfig} />
         <DemoClosingCTA bookHref={bookHref} />
@@ -102,6 +111,66 @@ export default function DemoExperience({
         {!embedded && <div aria-hidden className="h-32 sm:hidden" />}
 
         <DemoCTAModal open={ctaOpen} onClose={closeCTA} bookHref={bookHref} feature={ctaFeature} />
+
+        {/* Public demo only. MOBILE: the primary CTA floats bottom-right (prominent,
+            gentle glow) while "How this works" lives in the bar. DESKTOP: reverts to
+            the original — the CTA is inline in the bar, and "How does this work?" is a
+            quiet floating button bottom-left. Both live here (outside DemoBar's
+            backdrop-blur, so `fixed` anchors to the viewport) and open one modal. */}
+        {!embedded && (
+          <>
+            {/* Mobile floating CTA. Plain anchor (full page nav) so the studio's dark
+                CSS can't bleed onto /book during a client-side transition. */}
+            <motion.a
+              href={bookHref}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              className="fixed bottom-16 right-4 z-[70] inline-flex items-center gap-2 rounded-full bg-brand px-5 py-3.5 text-[14px] font-bold text-on-accent shadow-[0_16px_40px_-12px_rgb(var(--brand)_/_0.8)] sm:hidden"
+            >
+              <motion.span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 rounded-full bg-brand"
+                animate={{ opacity: [0, 0.4, 0], scale: [1, 1.22, 1.32] }}
+                transition={{ duration: 2.8, ease: "easeOut", repeat: Infinity, repeatDelay: 1.4 }}
+              />
+              <span className="relative">Let{"’"}s Chat</span>
+              <ArrowRight className="relative h-4 w-4" />
+            </motion.a>
+
+            {/* Desktop floating "how does this work?" — quiet, neutral, bottom-left. */}
+            <motion.button
+              type="button"
+              onClick={openInfo}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              aria-label="How this demo works"
+              className="fixed bottom-6 left-6 z-[70] hidden items-center gap-2 rounded-full border border-edge bg-card/95 py-2.5 pl-3 pr-4 text-[12.5px] font-semibold text-ink-soft shadow-[0_8px_24px_-12px_rgba(0,0,0,0.3)] backdrop-blur-md transition-colors hover:text-ink sm:flex"
+            >
+              <span className="relative flex h-[17px] w-[17px] items-center justify-center text-ink">
+                <Info className="h-[17px] w-[17px]" strokeWidth={2} />
+                <span className="absolute -right-1 -top-1 flex h-[7px] w-[7px]">
+                  <motion.span
+                    aria-hidden
+                    className="absolute inline-flex h-full w-full rounded-full bg-brand"
+                    initial={{ opacity: 0.5, scale: 1 }}
+                    animate={{ opacity: 0, scale: 2.4 }}
+                    transition={{ duration: 2.2, ease: "easeOut", repeat: Infinity }}
+                  />
+                  <span className="relative inline-flex h-[7px] w-[7px] rounded-full bg-brand" />
+                </span>
+              </span>
+              <span className="whitespace-nowrap">How does this work?</span>
+            </motion.button>
+
+            <DemoInfoModal open={infoOpen} onClose={closeInfo} />
+          </>
+        )}
 
         <AnimatePresence>
           {showIntro && (

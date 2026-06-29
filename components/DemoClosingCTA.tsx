@@ -1,4 +1,5 @@
 import { ArrowRight, Check } from "lucide-react";
+import { DATA } from "@/app/data";
 
 const PITCH =
   "We build full custom websites and apps focused on personalized discipleship. We’d love to build one for you.";
@@ -55,6 +56,16 @@ export function DemoCTAContent({
       </div>
 
       <div className="mt-6 flex flex-col items-center gap-2.5 text-[12.5px] text-ink-muted">
+        {/* Proof it's real, not a mockup: a live, real-data build for an actual
+            church. New tab so the demo stays put. */}
+        <a
+          href={DATA.demoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-brand underline underline-offset-2 transition-opacity hover:opacity-80"
+        >
+          See our latest build →
+        </a>
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- intentional full reload so the studio's dark CSS doesn't bleed onto the marketing home */}
         <a
           href="/"

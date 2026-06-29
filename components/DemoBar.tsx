@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, Info } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 
 /**
@@ -20,6 +20,7 @@ export default function DemoBar({
   templates,
   activeTemplate,
   onTemplateChange,
+  onHowItWorks,
 }: {
   bookHref: string;
   /** Sticky on the public demo; inline (non-sticky) inside the admin preview. */
@@ -28,6 +29,9 @@ export default function DemoBar({
   templates?: { key: string; label: string }[];
   activeTemplate?: string;
   onTemplateChange?: (key: string) => void;
+  /** When provided (public demo), render the toolbar's "How it works" button.
+   *  Omitted in the admin preview. */
+  onHowItWorks?: () => void;
 }) {
   const [hidden, setHidden] = useState(false);
   if (hidden) return null;
@@ -45,10 +49,24 @@ export default function DemoBar({
       className={`z-[60] border-edge bg-card/90 backdrop-blur-md ${position}`}
     >
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6">
-        {/* Controls — secondary. Own row on mobile, right side on desktop. */}
-        <div className="order-1 flex w-full items-center justify-center gap-2 sm:order-2 sm:w-auto sm:flex-none sm:justify-end">
+        {/* Toolbar. Mobile: "How this works" (leftmost) + a scrollable switcher +
+            theme, all one row. Desktop: just switcher + theme, right-aligned — there
+            the how-it-works is a floating button and the CTA returns to the bar's left. */}
+        <div className="order-1 flex w-full items-center gap-2 sm:order-2 sm:ml-auto sm:w-auto sm:flex-none sm:justify-end">
+          {/* How this works — mobile only, all the way left. */}
+          {onHowItWorks && (
+            <button
+              type="button"
+              onClick={onHowItWorks}
+              aria-label="How this demo works"
+              className="flex h-8 flex-none cursor-pointer items-center gap-1.5 rounded-full border border-edge bg-paper px-2.5 text-ink-soft transition-colors hover:text-ink sm:hidden"
+            >
+              <Info className="h-4 w-4" strokeWidth={2} />
+              <span className="whitespace-nowrap text-[12px] font-semibold">How this works</span>
+            </button>
+          )}
           {showSwitcher && (
-            <div className="flex items-center gap-1 rounded-full border border-edge bg-paper p-0.5">
+            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-full border border-edge bg-paper p-0.5 [scrollbar-width:none] sm:flex-none sm:overflow-visible [&::-webkit-scrollbar]:hidden">
               <span className="hidden px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint lg:inline">
                 Layout
               </span>
@@ -60,7 +78,7 @@ export default function DemoBar({
                     type="button"
                     onClick={() => onTemplateChange(t.key)}
                     aria-pressed={isActive}
-                    className={`whitespace-nowrap rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
+                    className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
                       isActive
                         ? "bg-brand text-on-accent"
                         : "text-ink-soft hover:text-ink"
@@ -75,8 +93,11 @@ export default function DemoBar({
           <ThemeToggle className="flex h-8 w-8 flex-none cursor-pointer items-center justify-center rounded-full border border-edge bg-paper text-ink-soft transition-colors hover:text-ink" />
         </div>
 
-        {/* CTA — primary. Bottom row on mobile, left side on desktop. */}
-        <div className="order-2 flex w-full items-center justify-between gap-2 sm:order-1 sm:w-auto sm:flex-1 sm:justify-start">
+        {/* CTA in the bar — admin preview (both sizes) and the public DESKTOP demo.
+            Hidden on the public mobile demo, where it floats instead (see DemoExperience). */}
+        <div
+          className={`order-2 ${sticky ? "hidden sm:flex" : "flex"} w-full items-center justify-between gap-2 sm:order-1 sm:w-auto sm:flex-1 sm:justify-start`}
+        >
           <span className="text-[13px] font-semibold leading-tight text-ink">
             Want this for your church?
           </span>
