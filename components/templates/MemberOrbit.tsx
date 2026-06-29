@@ -8,6 +8,7 @@ import { EASE, SPRING, SPRING_SOFT, swapUp } from "@/lib/motion";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
 import Reveal from "@/components/reveal-animations/Reveal";
 import ScaleReveal from "@/components/reveal-animations/ScaleReveal";
+import HeadingReveal from "@/components/reveal-animations/HeadingReveal";
 import SubheadingReveal from "@/components/reveal-animations/SubheadingReveal";
 import CountUpCurrency from "@/components/CountUpCurrency";
 import { StepIcon } from "@/lib/icons";
@@ -154,7 +155,12 @@ export default function MemberOrbit({ config }: { config: ChurchConfig }) {
               {greeting ?? " "}
             </SubheadingReveal>
             <h1 className="mt-4 font-serif text-[clamp(38px,7vw,68px)] font-medium leading-[1.0] tracking-[-1px]">
-              Your journey, <span className="italic text-brand">{firstName}</span>
+              <HeadingReveal as="span" className="inline">
+                Your journey,
+              </HeadingReveal>{" "}
+              <HeadingReveal as="span" delay={0.16} className="inline italic text-brand">
+                {firstName}
+              </HeadingReveal>
             </h1>
             <Reveal delay={0.5}>
               <p className="mx-auto mt-4 max-w-[460px] text-[16px] leading-[1.55] text-ink-soft">
