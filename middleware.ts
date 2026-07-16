@@ -49,5 +49,13 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/studio/:path*", "/api/churches/:path*"],
+  // /api/ccb/consent-link is an internal tool → gated. Its siblings are NOT:
+  // /api/ccb/refresh authenticates itself with a per-church broker key, and
+  // /oauth/ccb/callback must stay public (church admins land there from CCB).
+  matcher: [
+    "/admin/:path*",
+    "/studio/:path*",
+    "/api/churches/:path*",
+    "/api/ccb/consent-link",
+  ],
 };
