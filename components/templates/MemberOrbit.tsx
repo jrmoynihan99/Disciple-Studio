@@ -129,7 +129,7 @@ export default function MemberOrbit({ config }: { config: ChurchConfig }) {
                   <img
                     src={config.logoUrl}
                     alt=""
-                    className="h-[46px] w-auto max-w-[190px] flex-none object-contain [filter:var(--logo-filter)]"
+                    className="h-[46px] w-auto max-w-[190px] flex-none object-contain"
                   />
                 ) : (
                   <div className="flex h-[40px] w-[40px] flex-none items-center justify-center rounded-[12px] bg-brand font-serif text-[21px] font-semibold text-on-accent">

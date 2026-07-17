@@ -172,7 +172,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                   <img
                     src={config.logoUrl}
                     alt=""
-                    className="h-[50px] w-auto max-w-[200px] flex-none object-contain [filter:var(--logo-filter)]"
+                    className="h-[50px] w-auto max-w-[200px] flex-none object-contain"
                   />
                 ) : (
                   <div className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-[11px] bg-brand font-serif text-[21px] font-semibold text-on-accent">

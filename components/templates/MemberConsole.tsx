@@ -119,7 +119,7 @@ export default function MemberConsole({ config }: { config: ChurchConfig }) {
                 <img
                   src={config.logoUrl}
                   alt=""
-                  className="h-[42px] w-auto max-w-[170px] flex-none object-contain [filter:var(--logo-filter)]"
+                  className="h-[42px] w-auto max-w-[170px] flex-none object-contain"
                 />
               ) : (
                 <div className="flex h-[40px] w-[40px] flex-none items-center justify-center rounded-[12px] bg-brand font-serif text-[21px] font-semibold text-on-accent">
@@ -217,7 +217,7 @@ export default function MemberConsole({ config }: { config: ChurchConfig }) {
             <div className="flex min-w-0 items-center gap-2.5">
               {config.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={config.logoUrl} alt="" className="h-9 w-auto max-w-[140px] flex-none object-contain [filter:var(--logo-filter)]" />
+                <img src={config.logoUrl} alt="" className="h-9 w-auto max-w-[140px] flex-none object-contain" />
               ) : (
                 <div className="flex h-9 w-9 flex-none items-center justify-center rounded-[10px] bg-brand font-serif text-[17px] font-semibold text-on-accent">
                   {config.churchName.charAt(0)}

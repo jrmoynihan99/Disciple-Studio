@@ -52,7 +52,7 @@ export default function DemoIntro({
     <img
       src={logoUrl}
       alt={churchName}
-      className="mx-auto h-[84px] w-auto max-w-[280px] object-contain [filter:var(--logo-filter)] sm:h-[104px]"
+      className="mx-auto h-[84px] w-auto max-w-[280px] object-contain sm:h-[104px]"
     />
   ) : (
     <div className="mx-auto flex h-[88px] w-[88px] items-center justify-center rounded-[22px] bg-brand font-serif text-[44px] font-semibold text-on-accent sm:h-[104px] sm:w-[104px]">
