@@ -106,7 +106,7 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
                   <img
                     src={config.logoUrl}
                     alt=""
-                    className="h-[46px] w-auto max-w-[190px] flex-none object-contain"
+                    className="h-[46px] w-auto max-w-[190px] flex-none object-contain [filter:var(--logo-filter)]"
                   />
                 ) : (
                   <div className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-[11px] bg-brand font-serif text-[21px] font-semibold text-on-accent">
