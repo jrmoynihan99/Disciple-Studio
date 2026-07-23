@@ -26,7 +26,7 @@ function unauthorized() {
   });
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const expectedPassword = process.env.STUDIO_PASSWORD;
   if (!expectedPassword) return unauthorized();
 
@@ -49,13 +49,15 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // /api/ccb/consent-link is an internal tool → gated. Its siblings are NOT:
-  // /api/ccb/refresh authenticates itself with a per-church broker key, and
-  // /oauth/ccb/callback must stay public (church admins land there from CCB).
+  // The consent-link generators are internal tools → gated. Their siblings
+  // are NOT: /api/{ccb,pushpay}/refresh authenticate themselves with a
+  // per-church broker key, and /oauth/{ccb,pushpay}/callback must stay public
+  // (church admins land there from the provider's consent screen).
   matcher: [
     "/admin/:path*",
     "/studio/:path*",
     "/api/churches/:path*",
     "/api/ccb/consent-link",
+    "/api/pushpay/consent-link",
   ],
 };
