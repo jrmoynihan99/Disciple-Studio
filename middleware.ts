@@ -49,5 +49,11 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/studio/:path*", "/api/churches/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/studio/:path*",
+    "/api/churches/:path*",
+    "/api/import/:path*",
+    "/api/groups/:path*",
+  ],
 };

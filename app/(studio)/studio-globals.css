@@ -76,7 +76,7 @@
   --on-accent: #fbf6f1; /* text/icon on accent surfaces */
   --accent-btn: #eeece8; /* focal button ON the accent card (light: inset surface) */
   --accent-btn-ink: #7f4e3d; /* focal button text (light: deep accent) */
-  --logo-filter: brightness(0); /* recolor uploaded logos to match the mode */
+  --logo-filter: none; /* logos render in their true colors (no recolor) */
 }
 
 :root.light {

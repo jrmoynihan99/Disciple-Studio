@@ -2,13 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Pencil, Trash2, Plus, Copy, Check } from "lucide-react";
+import { ExternalLink, Pencil, Trash2, Plus, Copy, Check, FolderUp, Layers } from "lucide-react";
 
 type Row = {
   slug: string;
   churchName: string;
   template: string;
   accent: string | null;
+};
+
+type GroupSummary = {
+  id: string;
+  name: string;
+  count: number;
+  createdAt: string;
 };
 
 /**
@@ -18,6 +25,7 @@ type Row = {
  */
 export default function Home() {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -26,6 +34,10 @@ export default function Home() {
       .then((r) => r.json())
       .then(setRows)
       .catch(() => setRows([]));
+    fetch("/api/groups")
+      .then((r) => r.json())
+      .then((g) => setGroups(Array.isArray(g) ? g : []))
+      .catch(() => setGroups([]));
   }, []);
   useEffect(load, [load]);
 
@@ -63,13 +75,45 @@ export default function Home() {
         <h1 className="text-3xl font-bold tracking-tight text-fg">
           Church demos
         </h1>
-        <Link
-          href="/admin"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" /> New demo
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/studio/import"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-fg hover:bg-surface-raised"
+          >
+            <FolderUp className="h-4 w-4" /> Import folder
+          </Link>
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" /> New demo
+          </Link>
+        </div>
       </div>
+
+      {groups.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-fg-muted">
+            Import groups
+          </h2>
+          <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line">
+            {groups.map((g) => (
+              <li key={g.id}>
+                <Link
+                  href={`/studio/g/${g.id}`}
+                  className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-surface-raised"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Layers className="h-4 w-4 shrink-0 text-fg-muted" />
+                    <span className="truncate font-medium text-fg">{g.name}</span>
+                  </div>
+                  <span className="shrink-0 text-sm text-fg-muted">{g.count} demos</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {rows === null ? (
         <p className="mt-8 text-fg-muted">Loading…</p>
