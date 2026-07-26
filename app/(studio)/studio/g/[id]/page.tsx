@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { ArrowLeft, ExternalLink, Pencil, Download, Link2 } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, ExternalLink, Pencil, Download, Link2, Trash2, Loader2 } from "lucide-react";
 import type { Group } from "@/lib/groups";
 
 /** Quote a CSV field per RFC 4180 (wrap + double interior quotes when needed). */
@@ -12,8 +12,11 @@ function csvCell(v: string): string {
 }
 
 export default function GroupPage() {
+  const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [group, setGroup] = useState<Group | null | undefined>(undefined); // undefined = loading
+  const [busy, setBusy] = useState<string | null>(null); // slug being deleted
+  const [deletingGroup, setDeletingGroup] = useState(false);
 
   useEffect(() => {
     fetch(`/api/groups/${id}`)
@@ -21,6 +24,45 @@ export default function GroupPage() {
       .then(setGroup)
       .catch(() => setGroup(null));
   }, [id]);
+
+  async function delDemo(slug: string, name: string) {
+    if (!confirm(`Delete the demo for "${name}"? This permanently removes it and its row from this group.`))
+      return;
+    setBusy(slug);
+    try {
+      const res = await fetch(`/api/groups/${id}/demos/${slug}`, { method: "DELETE" });
+      if (!res.ok) {
+        alert("Delete failed. Please try again.");
+        return;
+      }
+      setGroup((g) => (g ? { ...g, rows: g.rows.filter((r) => r.slug !== slug) } : g));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function delGroup() {
+    if (!group) return;
+    if (
+      !confirm(
+        `Delete the group "${group.name}" and all ${group.rows.length} of its demos? This can't be undone.`,
+      )
+    )
+      return;
+    setDeletingGroup(true);
+    try {
+      const res = await fetch(`/api/groups/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        alert("Delete failed. Please try again.");
+        setDeletingGroup(false);
+        return;
+      }
+      router.push("/studio");
+    } catch {
+      alert("Delete failed. Please try again.");
+      setDeletingGroup(false);
+    }
+  }
 
   function downloadCsv() {
     if (!group) return;
@@ -61,12 +103,23 @@ export default function GroupPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-fg-muted">Import group</p>
               <h1 className="mt-1 text-3xl font-bold tracking-tight text-fg">{group.name}</h1>
             </div>
-            <button
-              onClick={downloadCsv}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90"
-            >
-              <Download className="h-4 w-4" /> Download spreadsheet
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={downloadCsv}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90"
+              >
+                <Download className="h-4 w-4" /> Download spreadsheet
+              </button>
+              <button
+                onClick={delGroup}
+                disabled={deletingGroup}
+                title="Delete this group and all its demos"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-fg-secondary hover:border-error hover:text-error disabled:opacity-50"
+              >
+                {deletingGroup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Delete group
+              </button>
+            </div>
           </div>
 
           {group.genericLink && (
@@ -107,6 +160,15 @@ export default function GroupPage() {
                     <Pencil className="h-4 w-4" />
                     <span className="hidden sm:inline">Edit</span>
                   </Link>
+                  <button
+                    onClick={() => delDemo(r.slug, r.churchName)}
+                    disabled={busy === r.slug}
+                    title="Delete"
+                    className="inline-flex h-10 w-10 items-center justify-center gap-1 rounded-lg text-sm text-fg-secondary hover:bg-surface-raised hover:text-error disabled:opacity-50 sm:h-auto sm:w-auto sm:px-2.5 sm:py-1.5"
+                  >
+                    {busy === r.slug ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    <span className="hidden sm:inline">Delete</span>
+                  </button>
                 </div>
               </li>
             ))}

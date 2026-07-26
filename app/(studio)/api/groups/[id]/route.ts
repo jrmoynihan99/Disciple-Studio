@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getGroup, deleteGroup } from "@/lib/groups";
+import { deleteChurch } from "@/churches";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +12,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json(group);
 }
 
-/** DELETE /api/groups/[id] — remove the group (the demos it created are left). */
+/** DELETE /api/groups/[id] — remove the group AND every demo it created. */
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const group = await getGroup(id);
+  if (group) {
+    // Delete the demos this import produced, then the group record itself.
+    await Promise.all(group.rows.map((r) => deleteChurch(r.slug).catch(() => {})));
+  }
   try {
     await deleteGroup(id);
   } catch {
