@@ -39,7 +39,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${newsreader.variable} ${hanken.variable} ${jetbrains.variable} scroll-smooth`}
+      // Page-transition variant (globals.css): fade | rise | blur | zoom | veil
+      // No scroll-smooth here — it fights Lenis and would animate the instant
+      // scroll restoration inside the view-transition update window.
+      data-page-transition="fade"
+      className={`${newsreader.variable} ${hanken.variable} ${jetbrains.variable}`}
     >
       <body className="overflow-x-hidden bg-paper font-sans leading-normal text-ink antialiased [text-rendering:optimizeLegibility] selection:bg-accent selection:text-white">
         {children}

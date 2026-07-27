@@ -14,6 +14,16 @@ const nextConfig: NextConfig = {
     // church's existing site or a CDN. Allow https remote images by default.
     remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
+  async redirects() {
+    return [
+      // v2 and v3 were where this site was built before it became the site
+      // itself. Both were shared around while in progress, so keep every link
+      // that went out pointing at the real page: /v3/cms is now just /cms.
+      { source: "/v2", destination: "/", permanent: false },
+      { source: "/v3", destination: "/", permanent: false },
+      { source: "/v3/:path*", destination: "/:path*", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

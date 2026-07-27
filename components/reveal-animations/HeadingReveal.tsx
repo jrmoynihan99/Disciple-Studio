@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, Fragment } from "react";
+import { Fragment } from "react";
 import { motion } from "framer-motion";
 import { useRevealDelay } from "@/lib/transition-timing";
 import { useSectionReveal } from "@/context/SectionRevealContext";
@@ -25,6 +25,17 @@ const wordTransition = {
   ease: [0.08, 0.82, 0.17, 1] as const,
 };
 
+const MOTION_TAGS = {
+  h1: motion.h1,
+  h2: motion.h2,
+  h3: motion.h3,
+  h4: motion.h4,
+  h5: motion.h5,
+  h6: motion.h6,
+  p: motion.p,
+  span: motion.span,
+} as const;
+
 export default function HeadingReveal({
   children,
   as: Tag = "h2",
@@ -35,7 +46,7 @@ export default function HeadingReveal({
 }: HeadingRevealProps) {
   const totalDelay = delay + useRevealDelay();
   const section = useSectionReveal();
-  const MotionTag = useMemo(() => motion.create(Tag), [Tag]);
+  const MotionTag = MOTION_TAGS[Tag];
 
   // Split by line breaks first, then by words
   // Replace literal \n string with actual newline, then split
