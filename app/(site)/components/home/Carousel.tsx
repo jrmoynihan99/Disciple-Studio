@@ -368,9 +368,12 @@ function AppPeekCard() {
   );
 }
 
+/* The trailing gap belongs to the deck, not to the track: it makes one
+   deck's box exactly one loop period wide, so `marq`'s -50% and the mobile
+   wrap both land on a seam instead of 22px short of one. */
 function Cards() {
   return (
-    <div className="flex gap-[22px]">
+    <div className="flex gap-[22px] pr-[22px]">
       <PhotoSlot src="/worship.jpg" alt="Worship at a church service" width="w-[260px]" />
       <NextStepCard />
       <LockScreenCard />
@@ -388,8 +391,12 @@ export default function Carousel() {
     <>
       <style>{TG_KEYFRAMES}</style>
       <CarouselTrack
-        className="relative mt-[76px] overflow-x-hidden overflow-y-hidden pb-[88px] [-webkit-mask-image:linear-gradient(90deg,transparent,#000_6%,#000_94%,transparent)] [mask-image:linear-gradient(90deg,transparent,#000_6%,#000_94%,transparent)] max-[920px]:mt-12 max-[920px]:overflow-x-auto max-[920px]:overscroll-x-contain max-[920px]:pb-14 max-[920px]:[-webkit-mask-image:none] max-[920px]:[mask-image:none] max-[920px]:[scrollbar-width:none] max-[920px]:[&::-webkit-scrollbar]:hidden"
-        trackClassName="flex w-max animate-[marq_60s_linear_infinite] gap-[22px] hover:[animation-play-state:paused] max-[920px]:animate-none max-[920px]:[zoom:0.84]"
+        /* The zoom sits on the scroller, not the track: it shrinks the deck
+           so more of it fits, and it keeps scrollLeft, clientWidth and
+           scrollWidth in one coordinate space, which is what the drift
+           measures itself against. */
+        className="relative mt-[76px] overflow-x-hidden overflow-y-hidden pb-[88px] [-webkit-mask-image:linear-gradient(90deg,transparent,#000_6%,#000_94%,transparent)] [mask-image:linear-gradient(90deg,transparent,#000_6%,#000_94%,transparent)] max-[920px]:mt-12 max-[920px]:overflow-x-auto max-[920px]:overscroll-x-contain max-[920px]:pb-14 max-[920px]:[-webkit-mask-image:none] max-[920px]:[mask-image:none] max-[920px]:[scrollbar-width:none] max-[920px]:[zoom:0.84] max-[920px]:[&::-webkit-scrollbar]:hidden"
+        trackClassName="flex w-max animate-[marq_60s_linear_infinite] hover:[animation-play-state:paused] max-[920px]:animate-none"
       >
         <Cards />
         <Cards />

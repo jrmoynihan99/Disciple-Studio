@@ -49,6 +49,11 @@ export default function CarouselTrack({
     let settle = 0;
     let frame = 0;
     let held = false;
+    /* Off on desktop, where the marquee is the CSS transform and the box is
+       clipped rather than scrolled. Nothing below may touch scrollLeft
+       there — the element is still programmatically scrollable, so a stray
+       wheel event would shunt the track off its own animation. */
+    let live = false;
     /* Our own position, so sub-pixel drift accumulates even where the
        browser hands scrollLeft back rounded. */
     let pos = 0;
@@ -108,16 +113,19 @@ export default function CarouselTrack({
     };
 
     const onGrab = () => {
+      if (!live) return;
       held = true;
       window.clearTimeout(settle);
       stop();
     };
     const onRelease = () => {
+      if (!live) return;
       held = false;
       watch();
     };
     /* Trackpads and mice reach this too on a narrow window. */
     const onWheel = () => {
+      if (!live) return;
       stop();
       watch();
     };
@@ -126,7 +134,8 @@ export default function CarouselTrack({
       stop();
       window.clearTimeout(settle);
       held = false;
-      if (!mobile.matches) {
+      live = mobile.matches;
+      if (!live) {
         el.scrollLeft = 0;
         return;
       }

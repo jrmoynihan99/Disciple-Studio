@@ -21,6 +21,19 @@ export function Kicker({
   );
 }
 
+/* Label for the member-demo button. Two whole labels rather than one
+   hidden word: Btn is a flex row, so a span around a mid-sentence word
+   would become its own flex item and take a gap on both sides. The short
+   one keeps the button on a single line on a phone. */
+export function DemoLabel() {
+  return (
+    <>
+      <span className="max-[920px]:hidden">{"▶"} Try the member demo</span>
+      <span className="hidden max-[920px]:inline">{"▶"} Try the demo</span>
+    </>
+  );
+}
+
 /* Unbracketed mono feature label: FEATURE — SERMONS */
 export function Tag({
   children,

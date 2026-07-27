@@ -1,5 +1,5 @@
 import { Btn, Arrow } from "@/components/ui";
-import { Glow, Kicker } from "@/app/(site)/components/ui";
+import { DemoLabel, Glow, Kicker } from "@/app/(site)/components/ui";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
 import Reveal from "@/components/reveal-animations/Reveal";
 import HeadingReveal from "@/components/reveal-animations/HeadingReveal";
@@ -48,7 +48,7 @@ export default function Hero() {
               target="_blank"
               rel="noreferrer"
             >
-              {"▶"} Try the member demo
+              <DemoLabel />
             </Btn>
           </Reveal>
         </div>

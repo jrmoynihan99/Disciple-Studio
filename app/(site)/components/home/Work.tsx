@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { Btn, TrafficLights } from "@/components/ui";
-import { Glow, SectionHead } from "@/app/(site)/components/ui";
+import { DemoLabel, Glow, SectionHead } from "@/app/(site)/components/ui";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
 import Reveal from "@/components/reveal-animations/Reveal";
 import GlowReveal from "@/components/reveal-animations/GlowReveal";
@@ -35,7 +35,7 @@ export default function Work() {
               target="_blank"
               rel="noreferrer"
             >
-              {"▶"} Try the member demo
+              <DemoLabel />
             </Btn>
           </Reveal>
         </SectionReveal>
