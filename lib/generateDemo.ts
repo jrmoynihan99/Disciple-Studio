@@ -62,6 +62,9 @@ export interface RawChurch {
   slogan?: string;
   logo_local?: string;
   logo_url?: string;
+  /** Suits the logo's own coloring: "light" | "dark" | "either". Drives the
+   *  demo's opening mode (see `initialMode` below). */
+  logo_theme?: string;
   city_region?: string;
   platform?: string;
   service_times?: string;
@@ -218,10 +221,16 @@ export function generateDemo(church: RawChurch, opts: GenerateOptions = {}): Chu
 
   const tagline = (church.slogan ?? "").trim() || undefined;
 
+  // Open in light mode only for light-themed logos; dark for "dark", "either",
+  // missing, or anything else (the default look).
+  const initialMode: "light" | "dark" =
+    (church.logo_theme ?? "").trim().toLowerCase() === "light" ? "light" : "dark";
+
   return {
     slug,
     churchName: church.church_title,
     tagline,
+    initialMode,
     logoUrl: opts.logoUrl || church.logo_url || undefined,
     template: "editorial",
     templates: Object.keys(TEMPLATES),

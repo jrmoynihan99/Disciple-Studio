@@ -203,6 +203,10 @@ export interface ChurchConfig {
   themeOverrides?: ThemeOverrides;
   /** @deprecated Light/dark is now automatic (system pref + toggle). Ignored. */
   theme?: "dark" | "light";
+  /** Opening light/dark mode for the demo. Set by the importer from the church's
+   *  `logo_theme`; undefined ⇒ follow the viewer's OS preference. The viewer can
+   *  still toggle after load. */
+  initialMode?: "light" | "dark";
 
   // ── Template selection ─────────────────────────────────────────────────
   /** Which template design renders FIRST in the demo. Key into the template

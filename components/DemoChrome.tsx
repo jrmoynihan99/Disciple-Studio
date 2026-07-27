@@ -71,7 +71,10 @@ export default function DemoChrome({
   }, []);
 
   const theme = useMemo(() => resolveTheme(config), [config]);
-  const activeMode: Mode = forceMode ?? override ?? systemMode;
+  // Precedence: admin pin → user toggle → the demo's assigned opening mode
+  // (`config.initialMode`, e.g. a light-logo demo opens light) → OS preference.
+  // initialMode is a prop, so the first SSR/client paint is already correct.
+  const activeMode: Mode = forceMode ?? override ?? config.initialMode ?? systemMode;
   const vars = useMemo(
     () => themeToVars(activeMode === "dark" ? theme.dark : theme.light, theme.fonts, activeMode),
     [theme, activeMode],
