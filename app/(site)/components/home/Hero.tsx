@@ -24,7 +24,7 @@ export default function Hero() {
             <em className="text-accent-soft">
               <MarkerReveal>
                 <HeadingReveal as="span" delay={0.15} className="block">
-                  built to disciple.
+                  built to make disciples.
                 </HeadingReveal>
               </MarkerReveal>
             </em>
@@ -35,10 +35,14 @@ export default function Hero() {
                 Know every member. Move every one.
               </strong>{" "}
               A complete discipleship engine that knows each person in your
-              church, makes their next step clear, and helps them take it.
+              church, makes their next step toward Jesus clear, and helps them
+              take it.
             </p>
           </Reveal>
-          <Reveal delay={0.65} className="mt-[38px] flex flex-wrap justify-center gap-3.5">
+          <Reveal
+            delay={0.65}
+            className="mt-[38px] flex flex-wrap justify-center gap-3.5"
+          >
             <Btn href="/book">
               Let{"’"}s Chat <Arrow />
             </Btn>
