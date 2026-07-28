@@ -71,10 +71,9 @@ export async function POST(req: Request) {
     ok: true,
     row: {
       churchName: config.churchName,
-      contactName: (church.contact_name ?? "").trim(),
-      contactEmail: (church.contact_email ?? "").trim(),
       slug,
       demoPath: `/c/${slug}`,
+      contacts: church.contacts ?? null,
     },
   });
 }

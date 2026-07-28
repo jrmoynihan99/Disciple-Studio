@@ -67,7 +67,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
   const openCTA = useDemoCTA();
 
   const { discipleshipSteps, nextSteps } = getMemberProgress(config);
-  const lists = [{ label: "Your discipleship pathway", steps: discipleshipSteps }];
+  const lists = [{ label: config.trackLabel ?? "Your discipleship pathway", steps: discipleshipSteps }];
   if (nextSteps.length) lists.push({ label: "Your next steps", steps: nextSteps });
 
   const pathway = lists[0];

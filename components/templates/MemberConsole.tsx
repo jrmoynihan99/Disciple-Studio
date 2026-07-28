@@ -288,7 +288,7 @@ export default function MemberConsole({ config }: { config: ChurchConfig }) {
                 )}
                 {section === "track" && (
                   <StepList
-                    label="Discipleship track"
+                    label={config.trackLabel ?? "Discipleship track"}
                     steps={discipleshipSteps}
                     openStep={openStep}
                     setOpenStep={setOpenStep}

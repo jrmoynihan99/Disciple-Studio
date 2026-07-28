@@ -14,14 +14,15 @@ const ACCESS = "private" as const;
 const PREFIX = "groups/";
 const pathnameFor = (id: string) => `${PREFIX}${id}.json`;
 
-/** One row of a group's output spreadsheet — one generated demo. */
+/** One entry in a group's export — one generated demo, with the church's full
+ *  contacts object (people, church emails, phone, …) carried through verbatim. */
 export interface GroupRow {
   churchName: string;
-  contactName: string;
-  contactEmail: string;
   slug: string;
   /** In-app path to the demo, e.g. "/c/grace-community-church". */
   demoPath: string;
+  /** The church's `contacts` object from the source data (shape not enforced). */
+  contacts?: unknown;
 }
 
 export interface Group {

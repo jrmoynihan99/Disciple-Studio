@@ -221,6 +221,10 @@ export interface ChurchConfig {
 
   // ── Content ────────────────────────────────────────────────────────────
   hero?: HeroContent;
+  /** Header for the primary (focal) step list — e.g. "Your Growth Track" or
+   *  "Your next steps". Set by the importer per the church's pathway data;
+   *  undefined ⇒ each template's default ("Your discipleship pathway" etc.). */
+  trackLabel?: string;
   /** A personal welcome line under the greeting (dashboard templates). */
   welcomeLine?: string;
   /** The formal discipleship track (baptism → membership → etc.). */

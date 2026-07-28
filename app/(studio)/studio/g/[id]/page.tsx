@@ -6,9 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ExternalLink, Pencil, Download, Link2, Trash2, Loader2 } from "lucide-react";
 import type { Group } from "@/lib/groups";
 
-/** Quote a CSV field per RFC 4180 (wrap + double interior quotes when needed). */
-function csvCell(v: string): string {
-  return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+/** First contact email from a church's contacts object, if any (display only). */
+function firstEmail(contacts: unknown): string {
+  const c = contacts as { people?: Array<{ email?: string }> } | null | undefined;
+  return c?.people?.find((p) => p?.email)?.email ?? "";
 }
 
 export default function GroupPage() {
@@ -64,24 +65,21 @@ export default function GroupPage() {
     }
   }
 
-  function downloadCsv() {
+  function downloadJson() {
     if (!group) return;
     const origin = window.location.origin;
-    const header = ["church_name", "contact_name", "contact_email", "generic_demo_link", "specific_demo_link"];
-    const lines = [header.join(",")];
-    for (const r of group.rows) {
-      lines.push(
-        [r.churchName, r.contactName, r.contactEmail, group.genericLink, origin + r.demoPath]
-          .map(csvCell)
-          .join(","),
-      );
-    }
-    // UTF-8 BOM so Excel reads accents correctly.
-    const blob = new Blob(["﻿" + lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" });
+    const data = group.rows.map((r) => ({
+      church_name: r.churchName,
+      slug: r.slug,
+      generic_demo_link: group.genericLink,
+      specific_demo_link: origin + r.demoPath,
+      contacts: r.contacts ?? null,
+    }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${group.id}.csv`;
+    a.download = `${group.id}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -105,10 +103,10 @@ export default function GroupPage() {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <button
-                onClick={downloadCsv}
+                onClick={downloadJson}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90"
               >
-                <Download className="h-4 w-4" /> Download spreadsheet
+                <Download className="h-4 w-4" /> Download JSON
               </button>
               <button
                 onClick={delGroup}
@@ -138,7 +136,7 @@ export default function GroupPage() {
                   <div className="truncate font-medium text-fg">{r.churchName}</div>
                   <div className="mt-0.5 truncate text-sm text-fg-muted">
                     /c/{r.slug}
-                    {r.contactEmail && <span> · {r.contactEmail}</span>}
+                    {firstEmail(r.contacts) && <span> · {firstEmail(r.contacts)}</span>}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
