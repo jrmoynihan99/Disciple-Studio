@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Glow, SectionHead } from "@/app/(site)/components/ui";
-import FeatureRail from "@/app/(site)/components/FeatureRail";
+import ScrollFeatureRail from "@/app/(site)/components/ScrollFeatureRail";
 import PhoneFrame from "@/app/(site)/components/PhoneFrame";
 import { Wrap } from "@/components/ui";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
@@ -112,7 +112,7 @@ export default function EngineRail() {
       aside={
         <div className="absolute right-0 top-[110px] z-[2] w-[218px] animate-[bob_7s_0.6s_ease-in-out_infinite] rounded-2xl border border-paper/[0.13] bg-[#1e1913] px-4 py-3.5 shadow-[0_40px_80px_-35px_rgba(0,0,0,0.95)] max-[980px]:hidden">
           <div className="font-mono text-[9px] tracking-[0.1em] text-paper/50">
-            FROM YOUR CMS
+            FROM YOUR BACKEND
           </div>
           <div className="mt-2.5 flex items-start gap-2 text-[11.5px] font-semibold leading-[1.35] text-accent-soft">
             <span className="mt-1 h-[7px] w-[7px] flex-none animate-pulse-dot rounded-full bg-accent" />
@@ -214,19 +214,18 @@ export default function EngineRail() {
           <SectionHead
             animate
             kicker="02 // The engine, in the app"
-            title={"It doesn’t wait\nto be opened."}
+            title={"It doesn't wait to be opened.\nNow you can reach them."}
           />
         </SectionReveal>
-        <FeatureRail
-          reveal
+        <ScrollFeatureRail
           items={[
             {
               title: "Next steps, pushed to them",
               desc: "The engine nudges each member when their next step is ready — perfectly timed, right on the lock screen.",
             },
             {
-              title: "Targeted messaging",
-              desc: "Send push notifications and home page banners to exactly the right people — an event, a next step, anything you want to direct them to.",
+              title: "Reach exactly the right people",
+              desc: "Send push notifications and home page banners to exactly the right segment of people — an event, a next step, anything you want to direct them to.",
             },
             {
               title: "Profiles that fill your backend",

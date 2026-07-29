@@ -29,7 +29,7 @@ export default function WebsitePage() {
         demoHref={MEMBER_DEMO_URL}
         links={[
           { label: "The App", href: "/app" },
-          { label: "The CMS", href: "/cms" },
+          { label: "The Backend", href: "/backend" },
         ]}
       />
     </>

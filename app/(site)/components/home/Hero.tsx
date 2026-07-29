@@ -11,7 +11,7 @@ import { MEMBER_DEMO_URL } from "./urls";
 export default function Hero() {
   return (
     <section className="relative pt-[174px] text-center max-[920px]:pt-[120px]">
-      <Glow className="left-1/2 top-[-180px] h-[620px] w-[980px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.2),rgba(187,74,35,0.05)_55%,transparent_75%)]" />
+      <Glow className="left-1/2 top-[20px] h-[800px] w-[1200px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.32),rgba(187,74,35,0.1)_55%,transparent_82%)] max-[920px]:top-[-60px]" />
       <SectionReveal>
         <div className="relative px-6">
           <SubheadingReveal delay={0.4}>

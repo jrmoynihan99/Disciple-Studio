@@ -10,7 +10,7 @@ import { MEMBER_DEMO_URL } from "./components/urls";
 export const metadata: Metadata = {
   title: "Disciple Studio — The CMS",
   description:
-    "A CMS built from scratch for your staff — exactly what you need, nothing you don’t. Update once, and your website and app both pull from it.",
+    "A streamlined CMS that publishes to your website and app at once, sends targeted messages, and shows where every member is in their journey. All synced with your ChMS, so most of it never has to be entered at all.",
 };
 
 export default function CmsPage() {

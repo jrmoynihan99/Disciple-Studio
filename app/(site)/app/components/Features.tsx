@@ -90,47 +90,47 @@ function SermonsVisual() {
     <div className="relative h-[620px] max-[980px]:flex max-[980px]:h-auto max-[980px]:justify-center max-[980px]:py-6">
       <Glow className="left-1/2 top-1/2 h-[680px] w-[720px] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.15),transparent_75%)]" />
       <div className="absolute left-[150px] top-2.5 w-[266px] animate-[bobr_7s_ease-in-out_infinite] max-[980px]:static">
-      <PhoneFrame size="sm" screenClassName="h-[540px]">
-        <div className="grid h-[190px] place-items-center bg-[linear-gradient(165deg,#241c14,#15120e)]">
-          <span className="grid h-[46px] w-[46px] place-items-center rounded-full bg-accent/90 text-sm text-white shadow-[0_16px_40px_-10px_rgba(187,74,35,0.7)]">
-            {"▶"}
-          </span>
-        </div>
-        <div className="px-4 py-3.5">
-          <div className="font-mono text-[8px] tracking-[0.12em] text-accent-soft">
-            NOW PLAYING
-          </div>
-          <b className="mt-[5px] block font-serif text-base font-medium">
-            From Scarcity to Surrender
-          </b>
-          <span className="text-[10.5px] text-paper/50">
-            Pastor John · 42 min
-          </span>
-          <div className="mt-3 h-1 overflow-hidden rounded-full bg-paper/10">
-            <span className="block h-full animate-[playbar_12s_linear_infinite_both] rounded-full bg-accent" />
-          </div>
-          <div className="mt-1.5 flex justify-between font-mono text-[8px] text-paper/45">
-            <span>18:24</span>
-            <span>42:10</span>
-          </div>
-          <div className="mt-2.5 flex items-center justify-center gap-[18px] text-[15px] text-paper/80">
-            <span>{"⏮"}</span>
-            <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-paper/10">
-              {"⏸"}
+        <PhoneFrame size="sm" screenClassName="h-[540px]">
+          <div className="grid h-[190px] place-items-center bg-[linear-gradient(165deg,#241c14,#15120e)]">
+            <span className="grid h-[46px] w-[46px] place-items-center rounded-full bg-accent/90 text-sm text-white shadow-[0_16px_40px_-10px_rgba(187,74,35,0.7)]">
+              {"▶"}
             </span>
-            <span>{"⏭"}</span>
           </div>
-          <div className="mt-3.5 rounded-[11px] border border-paper/[0.09] bg-[#1e1913] px-3 py-2.5">
-            <div className="font-mono text-[8px] tracking-[0.1em] text-paper/50">
-              YOUR NOTES
+          <div className="px-4 py-3.5">
+            <div className="font-mono text-[8px] tracking-[0.12em] text-accent-soft">
+              NOW PLAYING
             </div>
-            <span className="mt-2 flex items-center">
-              <span className="h-1 w-[64%] rounded-[3px] bg-paper/[0.18]" />
-              <span className="ml-[3px] inline-block h-[11px] w-[2px] animate-blink bg-accent" />
+            <b className="mt-[5px] block font-serif text-base font-medium">
+              From Scarcity to Surrender
+            </b>
+            <span className="text-[10.5px] text-paper/50">
+              Pastor John · 42 min
             </span>
+            <div className="mt-3 h-1 overflow-hidden rounded-full bg-paper/10">
+              <span className="block h-full animate-[playbar_12s_linear_infinite_both] rounded-full bg-accent" />
+            </div>
+            <div className="mt-1.5 flex justify-between font-mono text-[8px] text-paper/45">
+              <span>18:24</span>
+              <span>42:10</span>
+            </div>
+            <div className="mt-2.5 flex items-center justify-center gap-[18px] text-[15px] text-paper/80">
+              <span>{"⏮"}</span>
+              <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-paper/10">
+                {"⏸"}
+              </span>
+              <span>{"⏭"}</span>
+            </div>
+            <div className="mt-3.5 rounded-[11px] border border-paper/[0.09] bg-[#1e1913] px-3 py-2.5">
+              <div className="font-mono text-[8px] tracking-[0.1em] text-paper/50">
+                YOUR NOTES
+              </div>
+              <span className="mt-2 flex items-center">
+                <span className="h-1 w-[64%] rounded-[3px] bg-paper/[0.18]" />
+                <span className="ml-[3px] inline-block h-[11px] w-[2px] animate-blink bg-accent" />
+              </span>
+            </div>
           </div>
-        </div>
-      </PhoneFrame>
+        </PhoneFrame>
       </div>
       <div className="absolute left-[390px] top-[120px] z-[2] w-[250px] animate-[bob_7s_0.7s_ease-in-out_infinite] rounded-2xl border border-paper/[0.13] bg-[#1e1913] px-[18px] py-4 shadow-[0_50px_100px_-40px_rgba(0,0,0,0.95)] max-[980px]:hidden">
         <div className="font-mono text-[9px] tracking-[0.1em] text-paper/50">
@@ -158,53 +158,53 @@ function GroupsVisual() {
     <div className="relative h-[620px] max-[980px]:flex max-[980px]:h-auto max-[980px]:justify-center max-[980px]:py-6">
       <Glow className="left-1/2 top-1/2 h-[680px] w-[720px] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.15),transparent_75%)]" />
       <div className="absolute left-[120px] top-2.5 w-[266px] animate-[bobr2_7s_ease-in-out_infinite] max-[980px]:static">
-      <PhoneFrame size="sm" screenClassName="h-[540px]">
-        <div className="relative h-[250px] bg-[#221c15]">
-          <span className="absolute left-[12%] top-[70%] h-[3px] w-[76%] -rotate-[24deg] bg-paper/[0.07]" />
-          <span className="absolute left-[6%] top-[36%] h-[3px] w-[88%] rotate-12 bg-paper/[0.07]" />
-          <span className="absolute left-[30%] top-[6%] h-[88%] w-[3px] rotate-[18deg] bg-paper/[0.07]" />
-          <span className="absolute left-[36%] top-[34%] h-[13px] w-[13px] animate-pulse-dot rounded-full border-[2.5px] border-paper bg-accent" />
-          <span className="absolute left-[60%] top-[56%] h-[13px] w-[13px] animate-[pulse-dot_2s_0.7s_infinite] rounded-full border-[2.5px] border-paper bg-accent" />
-          <div className="absolute left-2.5 top-11 flex gap-1.5">
-            <span className="rounded-full bg-accent px-2.5 py-[5px] text-[9.5px] font-semibold text-white">
-              Tuesdays
-            </span>
-            <span className="rounded-full bg-[rgba(10,10,8,0.7)] px-2.5 py-[5px] text-[9.5px] font-semibold text-paper">
-              Near me
-            </span>
-          </div>
-        </div>
-        <div className="px-3.5 py-[13px]">
-          <div className="animate-[cyc_8s_0.3s_infinite_both] rounded-[13px] border border-paper/10 bg-[#1e1913] px-[13px] py-3">
-            <div className="flex items-center justify-between">
-              <b className="text-[12.5px]">Young Adults</b>
-              <span className="text-[9.5px] font-semibold text-accent-soft">
-                3 seats
+        <PhoneFrame size="sm" screenClassName="h-[540px]">
+          <div className="relative h-[250px] bg-[#221c15]">
+            <span className="absolute left-[12%] top-[70%] h-[3px] w-[76%] -rotate-[24deg] bg-paper/[0.07]" />
+            <span className="absolute left-[6%] top-[36%] h-[3px] w-[88%] rotate-12 bg-paper/[0.07]" />
+            <span className="absolute left-[30%] top-[6%] h-[88%] w-[3px] rotate-[18deg] bg-paper/[0.07]" />
+            <span className="absolute left-[36%] top-[34%] h-[13px] w-[13px] animate-pulse-dot rounded-full border-[2.5px] border-paper bg-accent" />
+            <span className="absolute left-[60%] top-[56%] h-[13px] w-[13px] animate-[pulse-dot_2s_0.7s_infinite] rounded-full border-[2.5px] border-paper bg-accent" />
+            <div className="absolute left-2.5 top-11 flex gap-1.5">
+              <span className="rounded-full bg-accent px-2.5 py-[5px] text-[9.5px] font-semibold text-white">
+                Tuesdays
+              </span>
+              <span className="rounded-full bg-[rgba(10,10,8,0.7)] px-2.5 py-[5px] text-[9.5px] font-semibold text-paper">
+                Near me
               </span>
             </div>
-            <span className="text-[10.5px] text-paper/55">
-              Tue · 7 PM · The Hendersons{"’"}
-            </span>
-            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-accent-soft">
-              {"🚇"} 14 min from you · Directions {"→"}
-            </div>
           </div>
-          <div className="mt-[9px] animate-[cyc_8s_0.6s_infinite_both] rounded-[13px] border border-paper/10 bg-[#1e1913] px-[13px] py-3">
-            <div className="flex items-center justify-between">
-              <b className="text-[12.5px]">Grad Students</b>
-              <span className="text-[9.5px] font-semibold text-accent-soft">
-                5 seats
+          <div className="px-3.5 py-[13px]">
+            <div className="animate-[cyc_8s_0.3s_infinite_both] rounded-[13px] border border-paper/10 bg-[#1e1913] px-[13px] py-3">
+              <div className="flex items-center justify-between">
+                <b className="text-[12.5px]">Young Adults</b>
+                <span className="text-[9.5px] font-semibold text-accent-soft">
+                  3 seats
+                </span>
+              </div>
+              <span className="text-[10.5px] text-paper/55">
+                Tue · 7 PM · The Hendersons{"’"}
               </span>
+              <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-accent-soft">
+                {"🚇"} 14 min from you · Directions {"→"}
+              </div>
             </div>
-            <span className="text-[10.5px] text-paper/55">
-              Tue · 7:30 PM · Central Sq
-            </span>
-            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-accent-soft">
-              {"🚶"} 8 min walk · Directions {"→"}
+            <div className="mt-[9px] animate-[cyc_8s_0.6s_infinite_both] rounded-[13px] border border-paper/10 bg-[#1e1913] px-[13px] py-3">
+              <div className="flex items-center justify-between">
+                <b className="text-[12.5px]">Grad Students</b>
+                <span className="text-[9.5px] font-semibold text-accent-soft">
+                  5 seats
+                </span>
+              </div>
+              <span className="text-[10.5px] text-paper/55">
+                Tue · 7:30 PM · Central Sq
+              </span>
+              <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-accent-soft">
+                {"🚶"} 8 min walk · Directions {"→"}
+              </div>
             </div>
           </div>
-        </div>
-      </PhoneFrame>
+        </PhoneFrame>
       </div>
     </div>
   );
@@ -216,58 +216,58 @@ function GivingVisual() {
     <div className="relative h-[620px] max-[980px]:flex max-[980px]:h-auto max-[980px]:justify-center max-[980px]:py-6">
       <Glow className="left-1/2 top-1/2 h-[680px] w-[720px] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.15),transparent_75%)]" />
       <div className="absolute left-[220px] top-2.5 w-[266px] animate-[bobr_7s_0.4s_ease-in-out_infinite] max-[980px]:static">
-      <PhoneFrame size="sm" screenClassName="h-[540px]">
-        <div className="h-[50px]" />
-        <div className="px-4">
-          <div className="font-serif text-[21px]">Give</div>
-          <div className="mt-3">
-            <div className="font-mono text-[8px] tracking-[0.1em] text-paper/50">
-              FUND
+        <PhoneFrame size="sm" screenClassName="h-[540px]">
+          <div className="h-[50px]" />
+          <div className="px-4">
+            <div className="font-serif text-[21px]">Give</div>
+            <div className="mt-3">
+              <div className="font-mono text-[8px] tracking-[0.1em] text-paper/50">
+                FUND
+              </div>
+              <div className="mt-[5px] flex items-center justify-between rounded-[10px] border border-paper/[0.13] bg-[#231d16] px-3 py-2.5 text-xs font-semibold">
+                General · Cambridge{" "}
+                <span className="text-accent-soft">{"✓"}</span>
+              </div>
             </div>
-            <div className="mt-[5px] flex items-center justify-between rounded-[10px] border border-paper/[0.13] bg-[#231d16] px-3 py-2.5 text-xs font-semibold">
-              General · Cambridge{" "}
-              <span className="text-accent-soft">{"✓"}</span>
+            <div className="mt-2.5">
+              <div className="font-mono text-[8px] tracking-[0.1em] text-paper/50">
+                AMOUNT
+              </div>
+              <div className="mt-[5px] flex items-center justify-between rounded-[10px] border border-paper/[0.13] bg-[#231d16] px-3 py-2.5 text-xs font-semibold">
+                $100 <span className="text-accent-soft">{"✓"}</span>
+              </div>
+            </div>
+            <div className="mt-[11px] flex gap-1.5">
+              <span className="rounded-full bg-paper/10 px-[11px] py-1.5 text-[10px] font-semibold">
+                $50
+              </span>
+              <span className="rounded-full bg-accent px-[11px] py-1.5 text-[10px] font-semibold text-white">
+                $100
+              </span>
+              <span className="rounded-full bg-paper/10 px-[11px] py-1.5 text-[10px] font-semibold">
+                $250
+              </span>
+            </div>
+            <div className="relative mt-4">
+              <span className="grid animate-[clickfill_14s_infinite_both] place-items-center rounded-[11px] bg-accent p-3 text-[13px] font-semibold text-white">
+                Give $100
+              </span>
+              <span className="absolute left-[58%] top-[55%] z-[3] animate-[cur2_14s_infinite_both]">
+                <svg width="18" height="18" viewBox="0 0 24 24">
+                  <path
+                    d="M5 3l14 9-6 1.2-3.4 5.8L5 3z"
+                    fill="#f4f0e8"
+                    stroke="#161310"
+                    strokeWidth="1.4"
+                  />
+                </svg>
+              </span>
+            </div>
+            <div className="mt-[13px] flex items-center gap-1.5 font-mono text-[8.5px] text-paper/45">
+              {"→"} Hands off to your platform, prefilled
             </div>
           </div>
-          <div className="mt-2.5">
-            <div className="font-mono text-[8px] tracking-[0.1em] text-paper/50">
-              AMOUNT
-            </div>
-            <div className="mt-[5px] flex items-center justify-between rounded-[10px] border border-paper/[0.13] bg-[#231d16] px-3 py-2.5 text-xs font-semibold">
-              $100 <span className="text-accent-soft">{"✓"}</span>
-            </div>
-          </div>
-          <div className="mt-[11px] flex gap-1.5">
-            <span className="rounded-full bg-paper/10 px-[11px] py-1.5 text-[10px] font-semibold">
-              $50
-            </span>
-            <span className="rounded-full bg-accent px-[11px] py-1.5 text-[10px] font-semibold text-white">
-              $100
-            </span>
-            <span className="rounded-full bg-paper/10 px-[11px] py-1.5 text-[10px] font-semibold">
-              $250
-            </span>
-          </div>
-          <div className="relative mt-4">
-            <span className="grid animate-[clickfill_14s_infinite_both] place-items-center rounded-[11px] bg-accent p-3 text-[13px] font-semibold text-white">
-              Give $100
-            </span>
-            <span className="absolute left-[58%] top-[55%] z-[3] animate-[cur2_14s_infinite_both]">
-              <svg width="18" height="18" viewBox="0 0 24 24">
-                <path
-                  d="M5 3l14 9-6 1.2-3.4 5.8L5 3z"
-                  fill="#f4f0e8"
-                  stroke="#161310"
-                  strokeWidth="1.4"
-                />
-              </svg>
-            </span>
-          </div>
-          <div className="mt-[13px] flex items-center gap-1.5 font-mono text-[8.5px] text-paper/45">
-            {"→"} Hands off to your platform, prefilled
-          </div>
-        </div>
-      </PhoneFrame>
+        </PhoneFrame>
       </div>
     </div>
   );
@@ -346,8 +346,8 @@ export default function Features() {
           animate
           className="px-6"
           kicker="03 // The custom build"
-          title="Feels like it was"
-          titleEm="built by Apple."
+          title="An Apple like experience"
+          titleEm="built for your church"
           titleEmMarker
         />
       </SectionReveal>

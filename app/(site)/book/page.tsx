@@ -26,7 +26,7 @@ export default function BookPage() {
       <Nav active="/book" />
       <main>
         <section className="relative px-6 pb-24 pt-[180px] max-[920px]:pt-[120px]">
-          <Glow className="left-1/2 top-[-180px] h-[640px] w-[1050px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.2),rgba(187,74,35,0.05)_55%,transparent_75%)]" />
+          <Glow className="left-1/2 top-[20px] h-[760px] w-[1180px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.32),rgba(187,74,35,0.1)_55%,transparent_82%)] max-[920px]:top-[-60px]" />
           <Wrap className="relative">
             <SectionReveal className="grid grid-cols-[0.45fr_0.55fr] items-start gap-14 max-[860px]:grid-cols-1 max-[860px]:gap-10">
               <div className="max-w-[460px] max-[860px]:mx-auto max-[860px]:text-center">

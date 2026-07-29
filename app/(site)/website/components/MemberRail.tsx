@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Glow, SectionHead } from "@/app/(site)/components/ui";
-import FeatureRail from "@/app/(site)/components/FeatureRail";
+import ScrollFeatureRail from "@/app/(site)/components/ScrollFeatureRail";
 import { Wrap } from "@/components/ui";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
 
@@ -285,8 +285,7 @@ export default function MemberRail() {
             title={"One login.\nEverything is theirs."}
           />
         </SectionReveal>
-        <FeatureRail
-          reveal
+        <ScrollFeatureRail
           items={[
             {
               title: "Their exact next step",

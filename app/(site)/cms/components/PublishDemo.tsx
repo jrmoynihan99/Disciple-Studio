@@ -17,8 +17,8 @@ export default function PublishDemo() {
           <SectionHead
             animate
             kicker="01 // One edit"
-            title={"Your staff edits once.\nEverything updates."}
-            sub="No double entry, no bloated builder, no code. Effortless for non-technical staff to run and expand on their own."
+            title={"Publish once.\nLive everywhere."}
+            sub="Sermons, events, groups, series & more — all managed from one spot, live on your website and in the app."
             titleClassName="text-[clamp(36px,4.8vw,60px)]"
             subClassName="max-w-[31em]"
           />
@@ -105,11 +105,14 @@ export default function PublishDemo() {
               </div>
             </div>
           </div>
-          <div className="max-[980px]:mt-8 max-[980px]:flex max-[980px]:flex-wrap max-[980px]:items-start max-[980px]:justify-center max-[980px]:gap-6">
+          {/* Mobile: the pair rides up over the editor's faded bottom —
+             website left, app right and lapping over the website — the
+             same overlap language as the desktop composition. */}
+          <div className="max-[980px]:-mt-32 max-[980px]:flex max-[980px]:items-start max-[980px]:justify-center">
             {/* website — mini browser, fresh sermon at the top */}
             <Reveal
               delay={0.5}
-              className="absolute left-[450px] top-[64px] z-[2] w-[360px] max-[980px]:static max-[980px]:w-[min(380px,100%)]"
+              className="absolute left-[450px] top-[64px] z-[2] w-[360px] max-[980px]:static max-[980px]:w-[min(360px,64%)] max-[980px]:flex-none"
             >
               <div className="animate-[bob_7s_0.6s_ease-in-out_infinite]">
                 <div className="h-[290px] overflow-hidden [-webkit-mask-image:linear-gradient(to_bottom,#000_55%,transparent_97%)] [mask-image:linear-gradient(to_bottom,#000_55%,transparent_97%)]">
@@ -165,7 +168,7 @@ export default function PublishDemo() {
             {/* app — phone, same sermon live in the list */}
             <Reveal
               delay={0.65}
-              className="absolute right-0 top-[100px] z-[3] w-[212px] max-[980px]:static"
+              className="absolute right-0 top-[100px] z-[3] w-[212px] max-[980px]:static max-[980px]:mt-10 max-[980px]:w-[min(212px,46%)] max-[980px]:flex-none max-[980px]:-ml-12"
             >
               <div className="animate-[bob_7s_1.2s_ease-in-out_infinite]">
                 <div className="h-[320px] overflow-hidden [-webkit-mask-image:linear-gradient(to_bottom,#000_55%,transparent_97%)] [mask-image:linear-gradient(to_bottom,#000_55%,transparent_97%)]">

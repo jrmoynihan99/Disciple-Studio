@@ -14,7 +14,7 @@ export default function Story() {
 
   return (
     <section className="relative px-6 pb-[120px] pt-[180px] max-[920px]:pb-20 max-[920px]:pt-[120px]">
-      <Glow className="left-1/2 top-[-180px] h-[640px] w-[1050px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.2),rgba(187,74,35,0.05)_55%,transparent_75%)]" />
+      <Glow className="left-1/2 top-[20px] h-[760px] w-[1180px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.32),rgba(187,74,35,0.1)_55%,transparent_82%)] max-[920px]:top-[-60px]" />
       <Wrap className="relative">
         <SectionReveal className="mx-auto max-w-[820px] text-center">
           <SubheadingReveal delay={0.4}>

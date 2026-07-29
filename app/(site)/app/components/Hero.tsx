@@ -10,7 +10,7 @@ import { MEMBER_DEMO_URL } from "./urls";
 export default function Hero() {
   return (
     <section className="relative px-6 pt-[180px] text-center max-[920px]:pt-[120px]">
-      <Glow className="left-1/2 top-[-180px] h-[640px] w-[1050px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.2),rgba(187,74,35,0.05)_55%,transparent_75%)]" />
+      <Glow className="left-1/2 top-[20px] h-[760px] w-[1180px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.32),rgba(187,74,35,0.1)_55%,transparent_82%)] max-[920px]:top-[-60px]" />
       <SectionReveal className="relative">
         <SubheadingReveal delay={0.4}>
           <Kicker>Vehicle 02 — The app</Kicker>
@@ -32,7 +32,7 @@ export default function Hero() {
             A real native app for iOS &amp; Android — everything your website
             has, built for the phone,{" "}
             <strong className="font-semibold text-paper">
-              with push notifications for just the right thing.
+              with personalization taken to the next level.
             </strong>
           </p>
         </Reveal>

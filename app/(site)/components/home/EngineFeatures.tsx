@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Glow, SectionHead } from "@/app/(site)/components/ui";
-import FeatureRail from "@/app/(site)/components/FeatureRail";
+import ScrollFeatureRail from "@/app/(site)/components/ScrollFeatureRail";
+import TargetedMessagePanel from "@/app/(site)/components/TargetedMessagePanel";
 import { Wrap } from "@/components/ui";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
 
@@ -40,36 +41,6 @@ function Cursor({ className = "" }: { className?: string }) {
 /* Choreography keyframes for the animated panels (14s loops) */
 const KEYFRAMES = `
 @keyframes softpulse{0%,100%{opacity:1}50%{opacity:.4}}
-/* reach panel: cursor visits chip 1 -> chip 2 -> send */
-@keyframes rccur{
-  0%,6%{opacity:0;transform:translate(-464px,-101px)}
-  9%{opacity:1;transform:translate(-464px,-101px)}
-  14%{transform:translate(-464px,-101px) scale(1)}
-  15%{transform:translate(-464px,-101px) scale(.8)}
-  17%{transform:translate(-464px,-101px) scale(1)}
-  28%{transform:translate(-345px,-101px)}
-  31%{transform:translate(-345px,-101px) scale(.8)}
-  33%{transform:translate(-345px,-101px) scale(1)}
-  55%{transform:translate(0,0)}
-  60%{transform:translate(0,0) scale(.8)}
-  63%{transform:translate(0,0) scale(1)}
-  70%{opacity:1;transform:translate(0,0)}
-  76%,100%{opacity:0;transform:translate(0,0)}
-}
-@keyframes rcsel1{
-  0%,14%{background:rgba(244,240,232,0);color:rgba(244,240,232,0.55)}
-  16%,93%{background:rgba(244,240,232,0.14);color:#f4f0e8}
-  97%,100%{background:rgba(244,240,232,0);color:rgba(244,240,232,0.55)}
-}
-@keyframes rcsel2{
-  0%,30%{background:rgba(244,240,232,0);color:rgba(244,240,232,0.55)}
-  32%,93%{background:rgba(244,240,232,0.14);color:#f4f0e8}
-  97%,100%{background:rgba(244,240,232,0);color:rgba(244,240,232,0.55)}
-}
-@keyframes rcshow{0%,16%{opacity:0}18%,93%{opacity:1}97%,100%{opacity:0}}
-@keyframes rccnt1{0%,16%{opacity:0}18%,31%{opacity:1}33%,100%{opacity:0}}
-@keyframes rccnt2{0%,32%{opacity:0}34%,93%{opacity:1}97%,100%{opacity:0}}
-@keyframes rcsend{0%,59%{background:#bb4a23}61%{background:#8a3418}64%,100%{background:#bb4a23}}
 /* backend panel: email types, cursor confirms it, then picks "Yes" */
 @keyframes bkcur{
   0%,26%{opacity:0;transform:translate(52px,-152px)}
@@ -227,58 +198,7 @@ export default function EngineFeatures() {
 
     /* 03 — targeted reach: pick two segments, watch the match count, send */
     <Panel key="reach">
-      <div className="relative">
-        <div className="rounded-2xl bg-[#2a241d] px-4 py-3.5">
-          <div className="flex items-center gap-[9px]">
-            <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-accent text-xs text-white">
-              {"✝"}
-            </span>
-            <span className="text-[11.5px] font-semibold text-paper/80">
-              GRACE FELLOWSHIP
-            </span>
-            <span className="ml-auto text-[11px] text-paper/50">now</span>
-          </div>
-          <b className="mt-[9px] block text-[14.5px]">
-            Group Launch Night — Thursday
-          </b>
-          <span className="mt-0.5 block text-[13px] text-paper/65">
-            Find your group before they fill up.
-          </span>
-        </div>
-        <div className="mt-4 font-mono text-[10px] tracking-[0.12em] text-paper/50">
-          TO
-        </div>
-        <div className="mt-[9px] flex flex-wrap gap-2">
-          <span className="inline-flex items-center rounded-full px-[13px] py-[7px] text-[12.5px] font-semibold shadow-[inset_0_0_0_1px_rgba(244,240,232,0.22)] [animation:rcsel1_14s_infinite_both]">
-            Not in a group
-          </span>
-          <span className="inline-flex items-center rounded-full px-[13px] py-[7px] text-[12.5px] font-semibold shadow-[inset_0_0_0_1px_rgba(244,240,232,0.22)] [animation:rcsel2_14s_infinite_both]">
-            Joined this year
-          </span>
-          <span className="inline-flex items-center rounded-full px-[13px] py-[7px] text-[12.5px] font-semibold text-paper/40 shadow-[inset_0_0_0_1px_rgba(244,240,232,0.14)]">
-            Cambridge campus
-          </span>
-          <span className="inline-flex items-center rounded-full px-[13px] py-[7px] text-[12.5px] font-semibold text-paper/40 shadow-[inset_0_0_0_1px_rgba(244,240,232,0.14)]">
-            New believers
-          </span>
-        </div>
-        <div className="mt-3 grid text-[13.5px] font-semibold text-accent-soft [animation:rcshow_14s_infinite_both]">
-          <span className="col-start-1 row-start-1 flex items-center gap-[9px] [animation:rccnt1_14s_infinite_both]">
-            <span className="h-[7px] w-[7px] animate-pulse-dot rounded-full bg-accent" />
-            64 members match
-          </span>
-          <span className="col-start-1 row-start-1 flex items-center gap-[9px] [animation:rccnt2_14s_infinite_both]">
-            <span className="h-[7px] w-[7px] animate-pulse-dot rounded-full bg-accent" />
-            108 members match
-          </span>
-        </div>
-        <div className="relative mt-[18px] flex justify-end">
-          <span className="inline-flex rounded-full bg-accent px-[17px] py-2.5 text-[13px] font-semibold text-white [animation:rcsend_14s_infinite_both]">
-            Send to 108 {"→"}
-          </span>
-          <Cursor className="right-[46px] top-[16px] [animation:rccur_14s_infinite_both]" />
-        </div>
-      </div>
+      <TargetedMessagePanel />
     </Panel>,
 
     /* 04 — self-filling backend: email types in, then "Yes" gets picked */
@@ -371,8 +291,7 @@ export default function EngineFeatures() {
             title={"Four things your system\nhas never done for you."}
           />
         </SectionReveal>
-        <FeatureRail
-          reveal
+        <ScrollFeatureRail
           items={[
             {
               title: "A personal next step, for every member",
@@ -387,8 +306,8 @@ export default function EngineFeatures() {
               desc: "Segment your people, and tell just the right group about just the right thing, at just the right time.",
             },
             {
-              title: "Your backend fills itself in",
-              desc: "Members complete their own profiles — every field syncs to your ChMS.",
+              title: "Complete your backend data",
+              desc: "Upon sign in, members complete all relevant data, backfilling your ChMS with up to date information.",
             },
           ]}
           panels={panels}

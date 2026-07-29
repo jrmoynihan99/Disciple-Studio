@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Glow, SectionHead } from "@/app/(site)/components/ui";
-import FeatureRail from "@/app/(site)/components/FeatureRail";
+import ScrollFeatureRail from "@/app/(site)/components/ScrollFeatureRail";
+import TargetedMessagePanel from "@/app/(site)/components/TargetedMessagePanel";
 import { Wrap } from "@/components/ui";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
 
@@ -80,59 +81,76 @@ export default function EngineRoom() {
       </div>
     </Panel>,
 
-    /* 02 — segmented messaging */
+    /* 02 — targeted messaging (shared with the home engine rail) */
     <Panel key="message">
-      <div className="font-mono text-[10px] tracking-[0.12em] text-paper/50">
-        TO
-      </div>
-      <div className="mt-[9px] flex flex-wrap gap-2">
-        <span className="inline-flex items-center gap-[7px] rounded-full bg-paper/[0.14] px-[13px] py-[7px] text-[12.5px] font-semibold">
-          Not in a group <span className="opacity-55">{"✕"}</span>
+      <TargetedMessagePanel />
+    </Panel>,
+
+    /* 03 — next-step rules: staff sets them once, the engine fires them.
+       Deliberately a rule *list* rather than another push card, so it
+       doesn't read as a repeat of the messaging panel next to it. */
+    <Panel key="notify">
+      <div className="flex items-center justify-between gap-3">
+        <b className="font-serif text-lg">Next-step notifications</b>
+        <span className="inline-flex items-center gap-[7px] rounded-full bg-accent/[0.16] px-[11px] py-[5px] font-mono text-[9px] tracking-[0.08em] text-accent-soft">
+          <span className="h-[7px] w-[7px] animate-pulse-dot rounded-full bg-accent" />
+          AUTOMATIC
         </span>
-        <span className="inline-flex items-center gap-[7px] rounded-full bg-paper/[0.14] px-[13px] py-[7px] text-[12.5px] font-semibold">
-          Cambridge campus <span className="opacity-55">{"✕"}</span>
-        </span>
-        <span className="inline-flex items-center gap-[7px] rounded-full border border-dashed border-paper/25 px-[13px] py-[7px] text-[12.5px] font-semibold text-paper/55">
-          + Add filter
-        </span>
       </div>
-      <div className="mt-3 flex items-center gap-[9px] text-[13.5px] font-semibold text-accent-soft">
-        <span className="h-[7px] w-[7px] animate-pulse-dot rounded-full bg-accent" />
-        72 members match
-      </div>
-      <div className="mt-4 animate-[cyc_8s_0.5s_infinite_both] rounded-2xl border border-paper/[0.12] bg-[#2a241d] px-4 py-3.5">
-        <div className="flex items-center gap-[9px]">
-          <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-accent text-xs text-white">
-            {"✝"}
+      <div className="mt-[18px] rounded-[14px] border-[1.5px] border-accent/45 bg-accent/[0.06] px-4 py-[15px]">
+        <div className="grid grid-cols-[52px_1fr] items-center gap-x-3 gap-y-2.5 text-[13px]">
+          <span className="font-mono text-[9px] tracking-[0.1em] text-accent-soft">
+            WHEN
           </span>
-          <span className="text-[11.5px] font-semibold text-paper/80">
-            GRACE FELLOWSHIP
+          <span className="rounded-[9px] border border-paper/[0.13] bg-[#221c15] px-3 py-2 font-semibold">
+            A member finishes {"“"}Baptism{"”"}
           </span>
-          <span className="ml-auto text-[11px] text-paper/50">now</span>
+          <span className="font-mono text-[9px] tracking-[0.1em] text-accent-soft">
+            WAIT
+          </span>
+          <span className="rounded-[9px] border border-paper/[0.13] bg-[#221c15] px-3 py-2">
+            3 days
+          </span>
+          <span className="font-mono text-[9px] tracking-[0.1em] text-accent-soft">
+            SEND
+          </span>
+          <span className="flex min-w-0 items-center gap-2 rounded-[9px] border border-paper/[0.13] bg-[#221c15] px-3 py-2">
+            <span className="flex-none rounded-full bg-accent px-[9px] py-[3px] font-mono text-[9px] tracking-[0.08em] text-white">
+              PUSH
+            </span>
+            <span className="truncate">
+              {"“"}Your next step is ready — find a group.{"”"}
+            </span>
+          </span>
         </div>
-        <b className="mt-[9px] block text-[14.5px]">
-          Group Launch Night — Thursday
-        </b>
-        <span className="mt-0.5 block text-[13px] text-paper/65">
-          Find your group before they fill up.
-        </span>
       </div>
-      <div className="mt-4 flex items-center justify-between">
-        <span className="inline-flex gap-1.5">
-          <span className="rounded-full bg-accent/[0.16] px-[11px] py-[5px] font-mono text-[9px] tracking-[0.08em] text-accent-soft">
-            PUSH {"✓"}
+      <div className="mt-3 flex flex-col gap-2">
+        {[
+          ["Finishes “Membership”", "→ Invite to serve", "0.3s"],
+          ["In a group 30 days", "→ Ask about baptism", "0.55s"],
+        ].map(([when, then, d]) => (
+          <div
+            key={when}
+            className="flex animate-[cyc_8s_infinite_both] items-center gap-2.5 rounded-xl border border-paper/[0.09] bg-[#1e1913] px-3.5 py-2.5 text-[12.5px]"
+            style={{ animationDelay: d }}
+          >
+            <b className="text-paper/80">{when}</b>
+            <span className="min-w-0 truncate text-paper/55">{then}</span>
+            <span className="ml-auto whitespace-nowrap font-mono text-[9px] text-accent-soft">
+              ON {"✓"}
+            </span>
+          </div>
+        ))}
+        <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-paper/20 px-3.5 py-2.5 text-[12.5px] text-paper/55">
+          <span className="grid h-[22px] w-[22px] place-items-center rounded-[7px] border border-dashed border-paper/25 text-[13px] text-paper/50">
+            +
           </span>
-          <span className="rounded-full bg-accent/[0.16] px-[11px] py-[5px] font-mono text-[9px] tracking-[0.08em] text-accent-soft">
-            EMAIL {"✓"}
-          </span>
-        </span>
-        <span className="inline-flex rounded-full bg-accent px-[17px] py-2.5 text-[13px] font-semibold text-white">
-          Send to 72 {"→"}
-        </span>
+          Add a rule
+        </div>
       </div>
     </Panel>,
 
-    /* 03 — 2-way ChMS sync */
+    /* 04 — 2-way ChMS sync */
     <Panel key="sync">
       <div className="grid grid-cols-[1fr_56px_1fr] items-center max-[720px]:grid-cols-1 max-[720px]:gap-3">
         <div className="rounded-[14px] border border-paper/[0.12] px-4 py-[15px]">
@@ -148,9 +166,16 @@ export default function EngineRoom() {
             ))}
           </div>
         </div>
-        <div className="relative h-20 max-[720px]:h-10 max-[720px]:rotate-90">
-          <div className="absolute inset-x-[-6px] top-[26px] h-0.5 animate-[flow_0.9s_linear_infinite] bg-[repeating-linear-gradient(90deg,rgba(187,74,35,0.75)_0_9px,transparent_9px_16px)]" />
-          <div className="absolute inset-x-[-6px] bottom-[26px] h-0.5 animate-[flow_0.9s_linear_infinite_reverse] bg-[repeating-linear-gradient(90deg,rgba(187,74,35,0.75)_0_9px,transparent_9px_16px)]" />
+        {/* Two lanes between the panels — side by side once the grid
+            stacks. Drawn as their own vertical pair rather than a
+            rotate-90 of the horizontal ones: a rotated lane's length
+            follows the column width, so on a phone it shot far past
+            this slot and struck through both cards. */}
+        <div className="relative h-20 max-[720px]:h-10">
+          <div className="absolute inset-x-[-6px] top-[26px] h-0.5 animate-[flow_0.9s_linear_infinite] bg-[repeating-linear-gradient(90deg,rgba(187,74,35,0.75)_0_9px,transparent_9px_16px)] max-[720px]:hidden" />
+          <div className="absolute inset-x-[-6px] bottom-[26px] h-0.5 animate-[flow_0.9s_linear_infinite_reverse] bg-[repeating-linear-gradient(90deg,rgba(187,74,35,0.75)_0_9px,transparent_9px_16px)] max-[720px]:hidden" />
+          <div className="absolute inset-y-[-6px] left-1/2 hidden w-0.5 -translate-x-[9px] animate-[flowv_0.9s_linear_infinite] bg-[repeating-linear-gradient(180deg,rgba(187,74,35,0.75)_0_9px,transparent_9px_16px)] max-[720px]:block" />
+          <div className="absolute inset-y-[-6px] left-1/2 hidden w-0.5 translate-x-[7px] animate-[flowv_0.9s_linear_infinite_reverse] bg-[repeating-linear-gradient(180deg,rgba(187,74,35,0.75)_0_9px,transparent_9px_16px)] max-[720px]:block" />
         </div>
         <div className="rounded-[14px] border-[1.5px] border-accent/45 bg-accent/[0.06] px-4 py-[15px]">
           <div className="font-mono text-[9px] tracking-[0.1em] text-accent-soft">
@@ -181,30 +206,36 @@ export default function EngineRoom() {
   ];
 
   return (
-    <section id="sync" className="relative scroll-mt-[88px] pt-[130px] max-[920px]:pt-20">
+    <section
+      id="sync"
+      className="relative scroll-mt-[88px] pt-[130px] max-[920px]:pt-20"
+    >
       <Glow className="left-1/2 top-[-120px] h-[560px] w-[1000px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgba(187,74,35,0.2),rgba(187,74,35,0.05)_55%,transparent_78%)]" />
       <Wrap>
         <SectionReveal>
           <SectionHead
             animate
             kicker="02 // The engine room"
-            title={"Where your staff\nruns the engine."}
+            title={"Know your church\nlike never before."}
           />
         </SectionReveal>
-        <FeatureRail
-          reveal
+        <ScrollFeatureRail
           items={[
             {
               title: "See every member’s journey",
-              desc: "The whole congregation on one live dashboard — every step, every person.",
+              desc: "The whole congregation on one live dashboard — every step, every person, and who’s been stuck.",
             },
             {
-              title: "Message exactly the right people",
-              desc: "Pick a segment, write once, and send — push, email, or both.",
+              title: "Reach exactly the right people",
+              desc: "Segment your people, and tell just the right group about just the right thing, at just the right time.",
+            },
+            {
+              title: "Next-step notifications, on autopilot",
+              desc: "Set the rules once. After that the engine sends each member’s next step on its own — you never touch it again.",
             },
             {
               title: "2-way sync with your ChMS",
-              desc: "Events, groups, and people stay up to date — no manual entry, ever.",
+              desc: "People, groups, and events flow both ways. You never add anything twice.",
             },
           ]}
           panels={panels}

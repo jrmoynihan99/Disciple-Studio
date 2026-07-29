@@ -258,6 +258,13 @@
     background-position: -32px 0;
   }
 }
+/* flow, turned 90° — for lanes that run down the page instead of across.
+   Both shift exactly two 16px gradient periods, so either loops seamlessly. */
+@keyframes flowv {
+  to {
+    background-position: 0 -32px;
+  }
+}
 @keyframes chipgo {
   0% {
     left: 2%;

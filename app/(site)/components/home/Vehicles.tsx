@@ -510,7 +510,7 @@ export default function Vehicles() {
         title="In their pocket."
         desc="Custom native iOS & Android — takes the engine to the next level with personalization in their pocket."
         points={[
-          "A real native app — iOS & Android",
+          "100% custom — built from scratch",
           "Push notifications, timed by the engine",
           "Sermons, groups & giving built in",
         ]}
@@ -527,9 +527,9 @@ export default function Vehicles() {
         title="Publish once."
         desc="One edit updates the website and app together. Targeted messaging & every member’s journey at your fingertips."
         points={[
-          "One edit — live on website & app",
-          "No bloated builder, no code",
-          "A custom two-way sync with your ChMS",
+          "Targeted, segmented messaging",
+          "A discipleship journey dashboard for every member",
+          "Automatic two-way sync with your ChMS",
         ]}
         link={{ label: "Learn more", href: "/cms" }}
         visual={<CmsVisual />}
