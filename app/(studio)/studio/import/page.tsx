@@ -31,7 +31,6 @@ export default function ImportPage() {
 
   const [files, setFiles] = useState<File[]>([]);
   const [groupName, setGroupName] = useState("");
-  const [genericLink, setGenericLink] = useState(GENERIC_DEMO_URL);
   const [limit, setLimit] = useState<string>(""); // blank = all; set e.g. 3 to test
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState<string>("");
@@ -128,7 +127,7 @@ export default function ImportPage() {
       const res = await fetch("/api/groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: groupName.trim(), genericLink: genericLink.trim(), rows }),
+        body: JSON.stringify({ name: groupName.trim(), genericLink: GENERIC_DEMO_URL, rows }),
       });
       const data = await res.json();
       if (!res.ok || !data.id) throw new Error("save failed");
@@ -138,7 +137,7 @@ export default function ImportPage() {
       setPhase("error");
       setMessage("Demos were created, but saving the group failed. They still exist under Church demos.");
     }
-  }, [jsonFile, logoMap, groupName, genericLink, limit, router]);
+  }, [jsonFile, logoMap, groupName, limit, router]);
 
   const running = phase === "running";
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
@@ -185,17 +184,6 @@ export default function ImportPage() {
             placeholder="Pilot 100 — first pass"
             className="block w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand"
           />
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-fg">Generic demo link</label>
-          <input
-            value={genericLink}
-            onChange={(e) => setGenericLink(e.target.value)}
-            disabled={running}
-            className="block w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand"
-          />
-          <p className="mt-1 text-xs text-fg-muted">Included in every row of the output spreadsheet.</p>
         </div>
 
         <div>

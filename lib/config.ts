@@ -4,8 +4,8 @@
 
 /**
  * The generic, non-personalized demo link included in every import's output
- * spreadsheet and pre-filled into the import form's "Generic demo link" field.
- * Change this value to update the default everywhere; individual imports can
- * still override it in the form.
+ * spreadsheet (the `generic_demo_link` in each row's JSON). Hardcoded here — the
+ * import form no longer exposes it as an editable field. Change this value to
+ * update it everywhere.
  */
-export const GENERIC_DEMO_URL = "https://disciple.studio/demo";
+export const GENERIC_DEMO_URL = "https://aletheia-website-five.vercel.app/demo?k=a557d77fe749fddba7b92e37";

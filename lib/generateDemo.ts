@@ -215,24 +215,25 @@ function mapNextSteps(steps: RawNextStep[] | undefined, serviceTimes: string): D
 }
 
 /**
- * Apply the "You're here" progression IN PLACE: position (1-based) = ceil(N/2),
- * capped so at least one step stays "coming up". Steps before it → complete, that
- * one → in-progress, the rest → not-started.
+ * Apply the "You're here" progression IN PLACE: position (1-based) = floor(N/2)+1
+ * (N=4→3, N=9→5, N=10→6), capped so at least one step stays "coming up"
+ * (N=2→1). Steps before it → complete, that one → in-progress, rest → not-started.
  */
 function applyProgression(list: Draft[]): void {
   const n = list.length;
   if (n === 0) return;
-  const mid = n <= 1 ? 0 : Math.min(Math.ceil(n / 2) - 1, n - 2);
+  const mid = n <= 1 ? 0 : Math.min(Math.floor(n / 2), n - 2);
   list.forEach((d, i) => {
     d.status = i < mid ? "complete" : i === mid ? "in-progress" : "not-started";
   });
 }
 
-/** The primary list header. Uses the church's pathway name when its confidence
- *  passes, else the generic label. */
+/** The primary list header. Uses the church's pathway name VERBATIM when its
+ *  confidence passes (e.g. "The King's Park Discipleship Path"), else the generic
+ *  "Your discipleship pathway". */
 function discLabel(dp: RawDiscPathway | null | undefined): string {
   const name = (dp?.name ?? "").trim();
-  return name && pass(dp?.name_confidence) ? `Your ${name}` : "Your discipleship pathway";
+  return name && pass(dp?.name_confidence) ? name : "Your discipleship pathway";
 }
 
 /** Base slug for a church (no collision handling — the caller resolves those). */
@@ -240,10 +241,27 @@ export function baseSlugFor(church: RawChurch): string {
   return slugify(church.church_title) || `church-${church.org_id}`;
 }
 
-const TEMPLATE_KEYS = Object.keys(TEMPLATES);
-/** A random published template key — each import gets a fresh layout. */
-function randomTemplateKey(): string {
-  return TEMPLATE_KEYS[Math.floor(Math.random() * TEMPLATE_KEYS.length)] ?? "editorial";
+/** The template pool an imported demo draws from (registry order). Bento and
+ *  Workspace are intentionally excluded from imports; all 6 stay registered so
+ *  /admin and older saved demos still resolve. */
+const IMPORT_TEMPLATES = (["editorial", "warm-guide", "stream", "orbit"] as string[]).filter(
+  (k) => k in TEMPLATES,
+);
+
+/** Pick 2 distinct templates from the import pool and a page-load default among
+ *  them: returns `{ templates: [a, b], template }`. Each import gets its own two
+ *  options and lands on a random one. */
+function pickImportTemplates(): { templates: string[]; template: string } {
+  const pool = IMPORT_TEMPLATES.slice();
+  // Fisher–Yates the pool, take the first two (order-preserving display handled
+  // by DemoExperience, which re-sorts to registry order).
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const templates = pool.slice(0, 2);
+  const template = templates[Math.floor(Math.random() * templates.length)] ?? templates[0] ?? "editorial";
+  return { templates, template };
 }
 
 export interface GenerateOptions {
@@ -323,14 +341,16 @@ export function generateDemo(church: RawChurch, opts: GenerateOptions = {}): Chu
 
   const tagline = (church.slogan ?? "").trim() || undefined;
 
+  const { templates, template } = pickImportTemplates();
+
   return {
     slug,
     churchName: church.church_title,
     tagline,
     initialMode,
     logoUrl: opts.logoUrl || church.logo_url || undefined,
-    template: randomTemplateKey(),
-    templates: TEMPLATE_KEYS,
+    template,
+    templates,
     trackLabel,
     welcomeLine: DEFAULT_WELCOME_LINE,
     discipleshipTrack,
