@@ -146,9 +146,23 @@ export default function Nav({ active }: { active?: string }) {
     };
   }, [open]);
 
-  const productActive = PRODUCT_LINKS.some((l) => l.href === active);
   /* the items never slide away underneath an open menu */
   const away = hidden && !open;
+
+  /* Once the fade-out finishes, take the bar out of the layout entirely: a
+     fixed element left in the DOM — even at opacity 0 — keeps iOS 26 Safari
+     painting its liquid-glass status bar as a solid fill instead of letting
+     page content bleed up behind it. Coming back is immediate (adjusted
+     during render) so the fade-in has something to fade. */
+  const [gone, setGone] = useState(false);
+  if (gone && !away) setGone(false);
+  useEffect(() => {
+    if (!away) return;
+    const t = setTimeout(() => setGone(true), 320);
+    return () => clearTimeout(t);
+  }, [away]);
+
+  const productActive = PRODUCT_LINKS.some((l) => l.href === active);
   /* a faded-out floating item must also stop eating taps */
   const tap = away ? "pointer-events-none" : "pointer-events-auto";
 
@@ -157,7 +171,7 @@ export default function Nav({ active }: { active?: string }) {
       <header
         className={`fixed left-2 right-2 top-2 z-[100] pointer-events-none transition-[opacity,transform,background-color,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] min-[861px]:pointer-events-auto min-[861px]:left-0 min-[861px]:right-0 min-[861px]:top-0 min-[861px]:border-b ${
           away ? "-translate-y-2 opacity-0" : "translate-y-0 opacity-100"
-        } ${
+        } ${gone ? "max-[860px]:hidden" : ""} ${
           scrolled
             ? "min-[861px]:border-paper/10 min-[861px]:bg-night/85 min-[861px]:backdrop-blur-[14px]"
             : "min-[861px]:border-transparent"

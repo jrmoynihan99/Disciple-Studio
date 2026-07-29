@@ -839,6 +839,18 @@ html:has([data-surface="night"]) {
   /* dark UA scrollbars anywhere the rules below don't reach */
   color-scheme: dark;
 }
+
+/* The root element paints everything no box covers: the overscroll gutters
+   and — now that app/layout.tsx opts into viewport-fit=cover — the iOS safe
+   areas behind Safari 26's translucent status bar. <body> carries the light
+   bg-paper for the demo studio next door, so on a night page it has to be
+   repainted too; left alone it shows through as the off-white band that page
+   content appears to stop underneath instead of scrolling up into. Unlayered
+   on purpose — that's what outranks the bg-paper utility. */
+html:has([data-surface="night"]),
+html:has([data-surface="night"]) body {
+  background-color: var(--color-night);
+}
 html:has([data-surface="night"])::-webkit-scrollbar,
 html:has([data-surface="night"]) ::-webkit-scrollbar {
   width: 12px;

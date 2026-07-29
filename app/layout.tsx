@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Newsreader, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -29,6 +29,20 @@ export const metadata: Metadata = {
   openGraph: {
     images: ["/jason.jpg"],
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Opt the viewport in to drawing under the safe-area insets, so page
+  // content bleeds up into the status-bar region instead of stopping below
+  // it. Deliberately NO themeColor: iOS 26 Safari renders its top/bottom
+  // bars as translucent "liquid glass" that content scrolls behind — but
+  // ONLY when no <meta name="theme-color"> is present. Set one and Safari
+  // paints the status bar as a solid tint of that color instead. What the
+  // glass reads is whatever paints the root element, which globals.css
+  // switches to night on the dark marketing pages.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
