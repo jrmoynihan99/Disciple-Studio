@@ -140,7 +140,7 @@ export default function MemberDashboardGuideWarm({ config }: { config: ChurchCon
   };
 
   return (
-    <div className="relative min-h-screen bg-[radial-gradient(1000px_440px_at_20%_-8%,_rgb(var(--brand)_/_0.10),_transparent_60%),var(--paper)] px-4 pt-5 pb-16 text-ink sm:px-6 lg:px-10 lg:pt-7 lg:pb-[70px]">
+    <div className="relative min-h-screen bg-[radial-gradient(1000px_440px_at_20%_-8%,_rgb(var(--brand)_/_calc(0.10_*_var(--glow))),_transparent_60%),var(--paper)] px-4 pt-5 pb-16 text-ink sm:px-6 lg:px-10 lg:pt-7 lg:pb-[70px]">
       <div className="mx-auto max-w-[1100px]">
         {/* ── HEADER ── */}
         <SectionReveal className="relative z-50">

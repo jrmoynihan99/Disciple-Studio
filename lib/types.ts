@@ -193,6 +193,11 @@ export interface ChurchConfig {
   // ── Branding ───────────────────────────────────────────────────────────
   /** Logo URL (optional; falls back to the church name as text). */
   logoUrl?: string;
+  /** True per mode when that mode's `bg` IS the logo's opaque plate colour
+   *  (`logo_bg_source_* === "logo_plate"`). DemoChrome suppresses the ambient
+   *  brand glow (`--glow: 0`) for such modes so the opaque plate blends into a
+   *  flat surround instead of showing a faint tinted edge against the gradient. */
+  logoPlate?: { light?: boolean; dark?: boolean };
   /** Optional accent override. Omit to inherit the selected palette's accent. */
   brand?: BrandColors;
   /** Which predetermined palette to use per mode (each template ships 2 light +

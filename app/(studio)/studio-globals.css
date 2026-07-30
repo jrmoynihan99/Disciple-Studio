@@ -77,6 +77,8 @@
   --accent-btn: #eeece8; /* focal button ON the accent card (light: inset surface) */
   --accent-btn-ink: #7f4e3d; /* focal button text (light: deep accent) */
   --logo-filter: none; /* logos render in their true colors (no recolor) */
+  --glow: 1; /* ambient brand-glow strength; DemoChrome sets 0 when a mode's bg is
+                the logo's opaque plate, so a plate logo blends into a flat surround */
 }
 
 :root.light {

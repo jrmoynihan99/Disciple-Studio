@@ -164,8 +164,8 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
     <div className="relative min-h-screen bg-paper px-4 pt-6 pb-14 text-ink sm:px-6 lg:px-10 lg:pt-[34px] lg:pb-20">
       {/* Ambient glows (decorative) */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -left-[10%] -top-[14%] h-[46vw] w-[46vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_0.11),_transparent_67%)] blur-[40px] animate-[edDrift1_26s_ease-in-out_infinite]" />
-        <div className="absolute -bottom-[16%] -right-[12%] h-[52vw] w-[52vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_0.08),_transparent_70%)] blur-[48px] animate-[edDrift2_33s_ease-in-out_infinite]" />
+        <div className="absolute -left-[10%] -top-[14%] h-[46vw] w-[46vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_calc(0.11_*_var(--glow))),_transparent_67%)] blur-[40px] animate-[edDrift1_26s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-[16%] -right-[12%] h-[52vw] w-[52vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_calc(0.08_*_var(--glow))),_transparent_70%)] blur-[48px] animate-[edDrift2_33s_ease-in-out_infinite]" />
       </div>
 
       <div className="relative z-[1] mx-auto max-w-[1180px]">

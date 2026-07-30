@@ -100,6 +100,10 @@ export interface RawChurch {
    *  a fallback source for it). */
   logo_accent_light?: string;
   logo_accent_dark?: string;
+  /** Where each mode's bg came from: "logo_plate" means bg === the logo's opaque
+   *  plate colour (so the plate should blend into a flat, glow-free surround). */
+  logo_bg_source_light?: string;
+  logo_bg_source_dark?: string;
 }
 
 /** Icon per category. Every value is a member of the `IconName` union. */
@@ -310,6 +314,15 @@ function mapTheme(church: RawChurch): ThemeOverrides | undefined {
   return { ...(light && { light }), ...(dark && { dark }) };
 }
 
+/** Per-mode flag: true when that mode's bg IS the logo's opaque plate colour, so
+ *  the demo should drop the ambient brand glow and let the plate blend flat.
+ *  Undefined when neither mode is plate-sourced (nothing to suppress). */
+function mapLogoPlate(church: RawChurch): { light?: boolean; dark?: boolean } | undefined {
+  const light = church.logo_bg_source_light === "logo_plate";
+  const dark = church.logo_bg_source_dark === "logo_plate";
+  return light || dark ? { light, dark } : undefined;
+}
+
 /** Base slug for a church (no collision handling — the caller resolves those). */
 export function baseSlugFor(church: RawChurch): string {
   return slugify(church.church_title) || `church-${church.org_id}`;
@@ -423,6 +436,7 @@ export function generateDemo(church: RawChurch, opts: GenerateOptions = {}): Chu
     tagline,
     initialMode,
     logoUrl: opts.logoUrl || church.logo_url || undefined,
+    logoPlate: mapLogoPlate(church),
     template,
     templates,
     themeOverrides: mapTheme(church),
