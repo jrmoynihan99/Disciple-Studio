@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Btn, Arrow } from "@/components/ui";
 import { Glow, Kicker } from "@/app/(site)/components/ui";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
@@ -52,9 +53,15 @@ export default function Closing() {
         </Reveal>
         <div className="mt-[100px] flex items-center justify-between border-t border-paper/[0.08] pt-[22px] font-mono text-[11px] text-paper/45 max-[720px]:flex-col max-[720px]:gap-4">
           <span className="inline-flex items-center gap-2">
-            <span className="grid h-5 w-5 place-items-center rounded-md bg-accent text-[11px] text-white">
-              {"✝"}
-            </span>
+            {/* alt="" — the wordmark right beside it already carries the name.
+                rounded-md matches the tile the accent square used to be. */}
+            <Image
+              src="/logoFlipped.png"
+              alt=""
+              width={48}
+              height={48}
+              className="h-6 w-6 flex-none rounded-md"
+            />
             Disciple Studio
           </span>
           <span>© 2026 · For the local church</span>

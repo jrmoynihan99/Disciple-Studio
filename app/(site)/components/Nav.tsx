@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Btn } from "@/components/ui";
@@ -178,11 +179,27 @@ export default function Nav({ active }: { active?: string }) {
         }`}
       >
         <div className="flex h-14 items-center justify-between px-3 min-[861px]:h-[70px] min-[861px]:px-7 min-[1100px]:px-12">
+          {/* aria-label, not alt text: the wordmark below is display:none on
+              mobile, so an alt would be the only name there and a duplicate of
+              the wordmark on desktop. Naming the link once covers both. */}
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- plain anchors are the convention across this site: Providers intercepts every internal click and routes it through next-view-transitions, so Link would only duplicate that */}
-          <a className={`inline-flex items-center gap-2.5 ${tap}`} href="/">
-            <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-accent text-[19px] text-white shadow-[0_8px_22px_-10px_rgba(0,0,0,0.9)] min-[861px]:h-7 min-[861px]:w-7 min-[861px]:rounded-lg min-[861px]:text-[15px] min-[861px]:shadow-none">
-              {"✝"}
-            </span>
+          <a
+            className={`inline-flex items-center gap-2.5 ${tap}`}
+            href="/"
+            aria-label="Disciple Studio"
+          >
+            {/* The flipped mark carries its own coral backdrop, so it reads as
+                a tile — rounded to the same silhouette the accent square had.
+                Mobile keeps the lift shadow: there the mark floats over page
+                content with no bar behind it. */}
+            <Image
+              src="/logoFlipped.png"
+              alt=""
+              width={96}
+              height={96}
+              priority
+              className="h-10 w-10 flex-none rounded-xl shadow-[0_8px_22px_-10px_rgba(0,0,0,0.9)] min-[861px]:h-8 min-[861px]:w-8 min-[861px]:rounded-lg min-[861px]:shadow-none"
+            />
             {/* the mark carries the brand on mobile — no wordmark next to it */}
             <span className="hidden text-[17px] tracking-[-0.02em] [font-weight:680] min-[861px]:inline">
               Disciple Studio
