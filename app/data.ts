@@ -1,6 +1,6 @@
 const DEMO_URL =
-  "https://aletheia-website-seven.vercel.app/demo?k=a557d77fe749fddba7b92e37";
-const LIVE_URL = "https://aletheia-website-seven.vercel.app/";
+  "https://aletheia-website-five.vercel.app/demo?k=a557d77fe749fddba7b92e37";
+const LIVE_URL = "https://aletheia-website-five.vercel.app/";
 
 export const DATA = {
   brand: "Disciple Studio",
@@ -348,6 +348,7 @@ export const DATA = {
         "Then I realized the church already kept everything \u2014 members, groups, events, registrations \u2014 in their church management software, Church Community Builder. Staff entered it all there, then typed it again into the website. So I built a custom integration: their backend became the single source of truth, and the website stayed in sync automatically.",
         "The last realization was the biggest. I could give members a login that surfaced everything the church already knew about their journey \u2014 their group, their classes, their next step. A personalized discipleship engine every member could use.",
         "Then I took it one step further and built a native mobile app \u2014 an even more personalized experience that reached people right where they were, at just the right moment. It connected even more of them to the life of the church.",
+        "Before launching, I realized I could also build segmented targeting into the CMS. I already had the data! Now the chruch could send personalized messages to any segment of their church, pushed right to their phone! And a dashboard to view where every member is at, and where they need to go.",
         "That\u2019s when Arjun approached me and said we need to bring this to other churches. And here we are today!",
         "\u2014 Jason",
       ],
@@ -361,7 +362,7 @@ export const DATA = {
       values: [
         {
           label: "Discipleship first",
-          body: "A website should do more than inform \u2014 it should help people take their next step of faith. That\u2019s why every site we build includes a personalized member experience that surfaces where someone is on their journey and what comes next.",
+          body: "A church's online presence should do more than inform \u2014 it should help people take their next step of faith. We focus on taking the information you already have and make it accessible and actionable, moving members deeper into their faith.",
         },
         {
           label: "Built to last",
@@ -369,11 +370,11 @@ export const DATA = {
         },
         {
           label: "Serve, not sell",
-          body: "We\u2019re not a platform collecting rent. When churches partner with us monthly, it\u2019s for people, not software \u2014 direct access to the two who built their site. We love the local church and want to serve it well, and that shapes how we price, how we communicate, and how we build.",
+          body: "We love the local church and want to serve it well, and that shapes how we price, how we communicate, and how we build.",
         },
         {
           label: "Craft over speed",
-          body: "We take on a handful of churches at a time so we can give each one the attention it deserves. Every site is designed from scratch for your church, your brand, and your congregation.",
+          body: "We take on a handful of churches at a time so we can give each one the attention it deserves. Every site, app, CMS, and integration is designed from scratch for your church, your brand, and your congregation.",
         },
       ],
     },

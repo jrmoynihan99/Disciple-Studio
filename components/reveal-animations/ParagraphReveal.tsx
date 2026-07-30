@@ -14,6 +14,30 @@ type ParagraphRevealProps = {
   immediate?: boolean;
 };
 
+type Word = { text: string; bold: boolean };
+
+/* Copy can wrap a phrase in **markers** to bold it. The pair may span
+   several words, so the open/close state carries across the split — each
+   word still animates as its own span. */
+function splitWords(paragraph: string): Word[] {
+  let open = false;
+  return paragraph.split(" ").map((raw) => {
+    let bold = open;
+    let text = "";
+    for (let i = 0; i < raw.length; ) {
+      if (raw.startsWith("**", i)) {
+        open = !open;
+        bold = bold || open;
+        i += 2;
+      } else {
+        text += raw[i];
+        i += 1;
+      }
+    }
+    return { text, bold };
+  });
+}
+
 export default function ParagraphReveal({
   children,
   delay = 0,
@@ -43,7 +67,7 @@ export default function ParagraphReveal({
   );
 
   const wordsByParagraph = useMemo(
-    () => paragraphs.map((p) => p.split(" ")),
+    () => paragraphs.map(splitWords),
     [paragraphs],
   );
 
@@ -81,7 +105,7 @@ export default function ParagraphReveal({
   }, [totalWords]);
 
   const renderWord = (
-    word: string,
+    word: Word,
     flatIdx: number,
     isLastInParagraph: boolean,
   ) => (
@@ -104,7 +128,11 @@ export default function ParagraphReveal({
         willChange: "transform, opacity",
       }}
     >
-      {word}
+      {word.bold ? (
+        <strong className="font-semibold text-paper">{word.text}</strong>
+      ) : (
+        word.text
+      )}
       {isLastInParagraph ? "" : " "}
     </motion.span>
   );

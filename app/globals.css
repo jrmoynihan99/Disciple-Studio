@@ -177,15 +177,899 @@
   }
 }
 
+/* ============================================================
+   /v3 — V4 dark-canvas tokens (night surfaces · warm accent)
+   ============================================================ */
+
+@theme {
+  --color-night: #12100d;
+  --color-night-deep: #0d0b09;
+  --color-accent-soft: #e0764f;
+  --color-accent-glow: #f4a381;
+}
+
+/* /v3 demo-vignette keyframes. Durations and delays vary per instance,
+   so these are referenced with arbitrary utilities like
+   animate-[cyc_8s_0.3s_infinite_both]. marq / blink / pulse-dot already
+   exist as @theme animations above. */
+@keyframes barcyc {
+  0% {
+    transform: scaleX(0);
+  }
+  16% {
+    transform: scaleX(1);
+  }
+  90% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0);
+  }
+}
+@keyframes cyc {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  7% {
+    opacity: 1;
+    transform: none;
+  }
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+  97% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+@keyframes bobr {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(-3deg);
+  }
+}
+@keyframes bobr2 {
+  0%,
+  100% {
+    transform: translateY(0) rotate(4deg);
+  }
+  50% {
+    transform: translateY(-11px) rotate(4deg);
+  }
+}
+@keyframes flow {
+  to {
+    background-position: -32px 0;
+  }
+}
+/* flow, turned 90° — for lanes that run down the page instead of across.
+   Both shift exactly two 16px gradient periods, so either loops seamlessly. */
+@keyframes flowv {
+  to {
+    background-position: 0 -32px;
+  }
+}
+@keyframes chipgo {
+  0% {
+    left: 2%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  44% {
+    left: 68%;
+    opacity: 1;
+  }
+  52% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes chipback {
+  0% {
+    right: 2%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  44% {
+    right: 68%;
+    opacity: 1;
+  }
+  52% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes typeE {
+  0% {
+    width: 0;
+  }
+  6% {
+    width: 0;
+  }
+  26% {
+    width: 17ch;
+  }
+  100% {
+    width: 17ch;
+  }
+}
+@keyframes cur2 {
+  0%,
+  18% {
+    transform: translate(150px, 110px);
+    opacity: 0;
+  }
+  24% {
+    opacity: 1;
+  }
+  34% {
+    transform: translate(0, 0);
+  }
+  38% {
+    transform: translate(0, 0) scale(0.82);
+  }
+  42% {
+    transform: translate(0, 0) scale(1);
+  }
+  46% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes clickfill {
+  0%,
+  38% {
+    background: #bb4a23;
+  }
+  41% {
+    background: #8a3418;
+  }
+  46%,
+  100% {
+    background: #bb4a23;
+  }
+}
+@keyframes scrA {
+  0%,
+  44% {
+    opacity: 1;
+  }
+  50%,
+  93% {
+    opacity: 0;
+  }
+  99%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes scrB {
+  0%,
+  44% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  50% {
+    opacity: 1;
+    transform: none;
+  }
+  93% {
+    opacity: 1;
+    transform: none;
+  }
+  99%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes playbar {
+  0% {
+    width: 22%;
+  }
+  90% {
+    width: 78%;
+  }
+  100% {
+    width: 78%;
+  }
+}
+
+/* /v3 FuelBand — 2-way ChMS sync visuals (FuelVisuals.tsx = the glass
+   relay, FuelBridgesPro.tsx = the chasm). dashcreep is the direction-of-
+   travel shimmer inside the glass tubes: it shifts a dashed stroke 20px
+   per cycle, so any dash period that divides 20 (e.g. "5 15") creeps
+   forward seamlessly. lanego/laneback carry the chasm's labeled chips
+   across their lanes. */
+@keyframes dashcreep {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -20px;
+  }
+}
+@keyframes lanego {
+  0% {
+    left: -8%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    left: 108%;
+    opacity: 0;
+  }
+}
+@keyframes laneback {
+  0% {
+    right: -8%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    right: 108%;
+    opacity: 0;
+  }
+}
+
+/* ── The 7s beat — shared by the glass relay and the glass conduits ──
+   Identical animations offset by delay only:
+
+     emit        2–20%   the core pushes
+     out         4–26%   packet crosses (spokeout — conduits only)
+     absorb     26–54%   light enters the tile where it struck and floods
+     pop        38–54%   the tile flares once it's full
+     ring       40–60%   and throws a ring
+     back       52–76%   reply crosses (spokein — conduits only)
+     coreabsorb 76–97%   the core drinks the reply in the same way
+     corepop    86–99%
+     corering   88–99%
+
+   Percentages are relative, so retiming means editing these together —
+   the beats only read as cause-and-effect while they stay in this order. */
+@keyframes spokeout {
+  0%,
+  4% {
+    left: 2%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  26% {
+    left: 94%;
+    opacity: 1;
+  }
+  31%,
+  100% {
+    left: 94%;
+    opacity: 0;
+  }
+}
+@keyframes spokein {
+  0%,
+  52% {
+    left: 94%;
+    opacity: 0;
+  }
+  56% {
+    opacity: 1;
+  }
+  76% {
+    left: 2%;
+    opacity: 1;
+  }
+  81%,
+  100% {
+    left: 2%;
+    opacity: 0;
+  }
+}
+@keyframes coreemit {
+  0%,
+  2% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  7% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  20%,
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+/* The wash is a radial gradient parked at the strike point; scaling it up
+   from nearly nothing is what makes the light look like it soaked in from
+   that edge rather than simply fading on. */
+@keyframes absorb {
+  0%,
+  26% {
+    opacity: 0;
+    transform: scale(0.12);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(0.42);
+  }
+  42% {
+    opacity: 0.8;
+    transform: scale(1.8);
+  }
+  50%,
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+@keyframes nodepop {
+  0%,
+  38% {
+    opacity: 0;
+  }
+  43% {
+    opacity: 1;
+  }
+  54%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes nodering {
+  0%,
+  40% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  46% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+  60%,
+  100% {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+}
+@keyframes coreabsorb {
+  0%,
+  76% {
+    opacity: 0;
+    transform: scale(0.12);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(0.42);
+  }
+  90% {
+    opacity: 0.8;
+    transform: scale(1.8);
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+@keyframes corepop {
+  0%,
+  86% {
+    opacity: 0;
+  }
+  91% {
+    opacity: 1;
+  }
+  99%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes corering {
+  0%,
+  88% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  93% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+  99%,
+  100% {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+}
+/* Relay (SyncRelayGlass) — the same 7s beat, but the packet is handed on rather
+   than bounced back: core→CMS lands at 26%, CMS→website/app at 50%, and the
+   long way home at 76%. Those are exactly when absorb / absorb+1.68s delay /
+   coreabsorb fire, so the arrival effects above are reused as-is. The return
+   legs run several capsules at staggered delays, which shifts both the
+   capsule and its matching core absorb off the chain's beat — the surfaces
+   answer whenever, rather than in lockstep.
+
+   The slug is an HTML element put on the tube's own curve with offset-path,
+   so travel is a plain 0→100% of whatever that curve measures and the
+   geometry can move without anything here changing. Left on the default
+   ease — like spokeout above, the slug leans out of its port and settles
+   into the mouth instead of sliding at one flat speed. */
+@keyframes ride1 {
+  0%,
+  4% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  22% {
+    opacity: 1;
+  }
+  26%,
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+@keyframes ride2 {
+  0%,
+  32% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  47% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+@keyframes ride3 {
+  0%,
+  56% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  59% {
+    opacity: 1;
+  }
+  73% {
+    opacity: 1;
+  }
+  76%,
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+/* The glass relay's colour rotation — slugs, ports, washes, pops and rings.
+   Movement stays entirely on ride1/2/3 above; this touches only colour,
+   run as a second animation on the same element over three beats (21s). It
+   flips the four generic slot variables (--v1…--v4) through the per-beat
+   palettes that element provides inline (--a*, --b*, --c*), and runs with the
+   SAME delay as the element's own beat animation, so a flash always wears
+   the colour of the capsule it serves. The switches land at 33.33% and
+   66.66% — t = 7s and 14s — which every leg's visibility window excludes,
+   so a capsule never changes colour mid-flight; each beat simply departs as
+   the next record type. Custom properties flip discretely, and an element
+   needing fewer than four slots just leaves the rest unset. */
+@keyframes tonevars {
+  0%,
+  33.32% {
+    --v1: var(--a1);
+    --v2: var(--a2);
+    --v3: var(--a3);
+    --v4: var(--a4);
+  }
+  33.33%,
+  66.65% {
+    --v1: var(--b1);
+    --v2: var(--b2);
+    --v3: var(--b3);
+    --v4: var(--b4);
+  }
+  66.66%,
+  100% {
+    --v1: var(--c1);
+    --v2: var(--c2);
+    --v3: var(--c3);
+    --v4: var(--c4);
+  }
+}
+
+/* Ports at both ends of a tube. portsend charges the tail then drains as the
+   capsule launches out of it; portfill brightens the mouth as one lands then
+   drains as the tile drinks it. Both peak at 26% of their own cycle, so a
+   port is placed on the timeline purely by delay: (its leg's departure or
+   arrival − 26%) × 7s, plus whatever delay that capsule already carries. */
+@keyframes portsend {
+  0%,
+  10% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  26% {
+    opacity: 1;
+  }
+  34%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes portfill {
+  0%,
+  23% {
+    opacity: 0;
+  }
+  27%,
+  36% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── Atmosphere + dressing (BridgeChasm / SyncRelayGlass) ──
+   Fog banks drift, dust motes rise and die, the core's rings spin and its
+   halo breathes. Durations and delays vary per instance via animate-[...]
+   utilities. */
+@keyframes fogdrift {
+  0%,
+  100% {
+    transform: translateX(-4%) scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translateX(4%) scale(1.08);
+    opacity: 0.8;
+  }
+}
+@keyframes dustfloat {
+  0%,
+  100% {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  25%,
+  75% {
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+@keyframes slowspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Glass core breathing glow. */
+@keyframes reactorbreathe {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
   }
 }
 
+/* ============================================================
+   /v3 scrollbar — night gutter, thin accent pill.
+   Scoped to /v3 via the [data-surface="night"] wrapper in
+   app/v3/layout.tsx; the light v1/v2 pages keep the browser
+   default. The track is painted night rather than left
+   transparent because <body> carries the light bg-paper, which
+   is what otherwise shows through the gutter as a white bar.
+
+   Blink/WebKit ignore ::-webkit-scrollbar entirely once
+   scrollbar-width or scrollbar-color is set on the element, so
+   the standard properties are gated to engines without the
+   pseudo-elements (Firefox) and everyone else gets the
+   pseudo-element rules — which is what buys the rounded pill
+   and the hover state. The transparent border plus
+   background-clip is what insets the 6px pill inside its 12px
+   gutter.
+   ============================================================ */
+
+@supports not selector(::-webkit-scrollbar) {
+  html:has([data-surface="night"]) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-accent) var(--color-night);
+  }
+}
+
+html:has([data-surface="night"]) {
+  /* dark UA scrollbars anywhere the rules below don't reach */
+  color-scheme: dark;
+}
+
+/* The root element paints everything no box covers: the overscroll gutters
+   and — now that app/layout.tsx opts into viewport-fit=cover — the iOS safe
+   areas behind Safari 26's translucent status bar. <body> carries the light
+   bg-paper for the demo studio next door, so on a night page it has to be
+   repainted too; left alone it shows through as the off-white band that page
+   content appears to stop underneath instead of scrolling up into. Unlayered
+   on purpose — that's what outranks the bg-paper utility. */
+html:has([data-surface="night"]),
+html:has([data-surface="night"]) body {
+  background-color: var(--color-night);
+}
+html:has([data-surface="night"])::-webkit-scrollbar,
+html:has([data-surface="night"]) ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: var(--color-night);
+}
+html:has([data-surface="night"])::-webkit-scrollbar-corner,
+html:has([data-surface="night"]) ::-webkit-scrollbar-corner {
+  background: var(--color-night);
+}
+html:has([data-surface="night"])::-webkit-scrollbar-thumb,
+html:has([data-surface="night"]) ::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-color: var(--color-accent);
+  background-clip: padding-box;
+}
+html:has([data-surface="night"])::-webkit-scrollbar-thumb:hover,
+html:has([data-surface="night"]) ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-accent-soft);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   View Transitions — page navigation animations
+   The active variant is picked by `data-page-transition` on <html>
+   (set in app/layout.tsx). Variants: "fade" | "rise" | "blur" |
+   "zoom" | "veil". Only /v3 mounts the Providers that trigger
+   transitions; elsewhere these rules are inert.
+   TRANSITION_DURATION in components/layout/Providers.tsx (reveal
+   hold) is intentionally independent of these durations — tuned by
+   eye so reveals start before the transition fully settles.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Prevent Safari's single-frame scroll-to-top flash during view transitions.
+   Applied via JS right before the transition starts, removed once the
+   pseudo-elements are composited. */
+html.vt-transitioning {
+  overflow: clip;
+}
+
+/* Base rules shared by every variant */
+
+/* Backdrop behind the snapshots. Whenever both snapshots are semi-
+   transparent mid-animation, whatever sits behind the ::view-transition
+   overlay bleeds through — and that's the root body's paper (the light
+   v1 background), which reads as a white flash on the dark /v3 pages.
+   Paint the overlay itself night so every variant dips through the v3
+   background instead. */
+::view-transition {
+  background: var(--color-night);
+}
+
+::view-transition-image-pair(*) {
+  isolation: auto;
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+  mix-blend-mode: normal;
+}
+
+::view-transition-group(root) {
+  animation: none;
+}
+
+/* ── Variant 1: "fade" — plain crossfade (default) ──
+   True dissolve: the old page holds fully opaque underneath while the
+   new one fades in over it. Fading both at once dips through the
+   backdrop mid-fade; holding the old page keeps brightness constant
+   and nothing behind the snapshots ever shows. 0.4s. */
+html[data-page-transition="fade"]::view-transition-old(root) {
+  animation: none;
+}
+html[data-page-transition="fade"]::view-transition-new(root) {
+  animation: vt-fade-in 0.4s ease both;
+}
+
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── Variant 2: "rise" — crossfade with a gentle lift ──
+   New page fades in drifting up a few px, old drifts up and away —
+   the same language as the scroll reveals (fade-in from below). 0.5s. */
+html[data-page-transition="rise"]::view-transition-old(root) {
+  animation: vt-rise-out 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+html[data-page-transition="rise"]::view-transition-new(root) {
+  animation: vt-rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes vt-rise-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+@keyframes vt-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Variant 3: "blur" — focus pull ──
+   Fades through a gaussian blur, like content resolving into focus. 0.45s. */
+html[data-page-transition="blur"]::view-transition-old(root) {
+  animation: vt-blur-out 0.45s ease both;
+}
+html[data-page-transition="blur"]::view-transition-new(root) {
+  animation: vt-blur-in 0.45s ease both;
+}
+
+@keyframes vt-blur-out {
+  from {
+    opacity: 1;
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    filter: blur(10px);
+  }
+}
+@keyframes vt-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* ── Variant 4: "zoom" — depth fade ──
+   Old page recedes into the dark, new page settles forward. 0.5s. */
+html[data-page-transition="zoom"]::view-transition-old(root) {
+  animation: vt-zoom-out 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+html[data-page-transition="zoom"]::view-transition-new(root) {
+  animation: vt-zoom-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes vt-zoom-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+@keyframes vt-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Variant 5: "veil" — dip through the dark ──
+   Film-style dip: old page drops out fast, a beat of pure night,
+   new page eases in. The night beat comes from the base
+   ::view-transition backdrop above. ~0.55s total. */
+html[data-page-transition="veil"]::view-transition-old(root) {
+  animation: vt-veil-out 0.22s ease-in both;
+}
+html[data-page-transition="veil"]::view-transition-new(root) {
+  animation: vt-veil-in 0.3s ease-out 0.25s both;
+}
+
+@keyframes vt-veil-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-veil-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Reduced motion — disable all view transition animations.
+   (The global * rule above doesn't reach pseudo-elements.) */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }
