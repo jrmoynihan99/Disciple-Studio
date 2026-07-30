@@ -1,4 +1,5 @@
-import type { ChurchConfig, IconName, PathwayStep, StepStatus } from "@/lib/types";
+import type { ChurchConfig, ColorSet, IconName, PathwayStep, StepStatus, ThemeOverrides } from "@/lib/types";
+import { darken } from "@/lib/color";
 import { TEMPLATES } from "@/components/templates";
 
 /**
@@ -90,6 +91,15 @@ export interface RawChurch {
   contacts?: unknown;
   discipleship_pathway?: RawDiscPathway | null;
   next_steps?: RawNextStep[];
+  /** Pre-computed per-mode color ramps derived from the logo (pilot-palette
+   *  schema). Each is a partial ColorSet: the neutral ramp (bg/ink/card/…) is
+   *  always present; `accent`/`onAccent` only when a color was extractable. */
+  theme_light?: Partial<ColorSet>;
+  theme_dark?: Partial<ColorSet>;
+  /** Extracted logo accent per mode (redundant with theme_*.accent when present;
+   *  a fallback source for it). */
+  logo_accent_light?: string;
+  logo_accent_dark?: string;
 }
 
 /** Icon per category. Every value is a member of the `IconName` union. */
@@ -148,6 +158,35 @@ const DEMO_MEMBER = {
 
 const DEFAULT_WELCOME_LINE =
   "We're so glad you're here — here are your next steps, your group, your giving, and more";
+
+/** A church contact person (only the fields we read are typed). */
+interface RawContactPerson {
+  name?: string;
+  rank?: number;
+}
+
+/** First name for the demo member: the given name of the highest-ranked contact
+ *  (lowest `rank` number wins; ties keep source order; people with no name or no
+ *  numeric rank are skipped). Falls back to the default "Sarah" when the church
+ *  has no usable contact. */
+function demoFirstName(contacts: unknown): string {
+  const people = (contacts as { people?: RawContactPerson[] } | null | undefined)?.people;
+  if (!Array.isArray(people)) return DEMO_MEMBER.firstName;
+
+  let best: RawContactPerson | undefined;
+  let bestRank = Infinity;
+  for (const p of people) {
+    if (!(p?.name ?? "").trim()) continue;
+    const rank = typeof p?.rank === "number" ? p.rank : Infinity;
+    if (rank < bestRank) {
+      bestRank = rank;
+      best = p;
+    }
+  }
+
+  const first = (best?.name ?? "").trim().split(/\s+/)[0];
+  return first || DEMO_MEMBER.firstName;
+}
 
 /** A rating "passes" only when it's medium or high (blank/none/low all fail). */
 const pass = (v?: Rating): boolean => v === "medium" || v === "high";
@@ -234,6 +273,41 @@ function applyProgression(list: Draft[]): void {
 function discLabel(dp: RawDiscPathway | null | undefined): string {
   const name = (dp?.name ?? "").trim();
   return name && pass(dp?.name_confidence) ? name : "Your discipleship pathway";
+}
+
+/** Signature clay accents from the default white/black presets (lib/themes.ts) —
+ *  used only when the source data carries NO extracted logo accent (greyscale
+ *  logos), so the CTA still has a colored pop. */
+const FALLBACK_ACCENT = { light: "#9e6450", dark: "#c98a6b" };
+
+/**
+ * Turn a church's pre-computed `theme_light`/`theme_dark` ramps into per-mode
+ * `themeOverrides`. The provided neutral ramp (bg, ink, card, line, …) is used
+ * verbatim; the accent is `theme.accent` → `logo_accent_*` → the clay fallback,
+ * and `accentDeep` is derived exactly like the rest of the repo
+ * (`darken(accent, 0.12)`). Returns undefined when the church has no ramp (older
+ * data), so those demos keep using the default presets.
+ */
+function mapTheme(church: RawChurch): ThemeOverrides | undefined {
+  const buildMode = (
+    ramp: Partial<ColorSet> | undefined,
+    seedAccent: string | undefined,
+    fallbackAccent: string,
+  ): Partial<ColorSet> | undefined => {
+    if (!ramp || Object.keys(ramp).length === 0) return undefined;
+    const accent = (ramp.accent ?? seedAccent ?? fallbackAccent).trim();
+    return {
+      ...ramp,
+      accent,
+      accentDeep: darken(accent, 0.12),
+      onAccent: ramp.onAccent ?? "#ffffff",
+    };
+  };
+
+  const light = buildMode(church.theme_light, church.logo_accent_light, FALLBACK_ACCENT.light);
+  const dark = buildMode(church.theme_dark, church.logo_accent_dark, FALLBACK_ACCENT.dark);
+  if (!light && !dark) return undefined;
+  return { ...(light && { light }), ...(dark && { dark }) };
 }
 
 /** Base slug for a church (no collision handling — the caller resolves those). */
@@ -351,12 +425,14 @@ export function generateDemo(church: RawChurch, opts: GenerateOptions = {}): Chu
     logoUrl: opts.logoUrl || church.logo_url || undefined,
     template,
     templates,
+    themeOverrides: mapTheme(church),
     trackLabel,
     welcomeLine: DEFAULT_WELCOME_LINE,
     discipleshipTrack,
     nextSteps,
     demoMember: {
       ...DEMO_MEMBER,
+      firstName: demoFirstName(church.contacts),
       steps: memberSteps,
     },
     meta: {
