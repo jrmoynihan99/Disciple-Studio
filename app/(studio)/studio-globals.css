@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* Lead Console verdict palette. A plain CSS @import is inlined before Tailwind
+   processes this file, so this stays ONE Tailwind entry — a second
+   `@import "tailwindcss"` in a route-level file would mean a second full build
+   and a duplicate preflight. All its tokens are namespaced --lead-*. */
+@import "./leads/leads-theme.css";
 
 /* ══════════════════════════════════════════════════════════════════
    DESIGN TOKEN SYSTEM (church-demos)

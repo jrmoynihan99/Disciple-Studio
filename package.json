@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"lib/leads/**/*.test.mts\"",
+    "lint:leads": "eslint --no-error-on-unmatched-pattern lib/leads scripts proxy.ts \"app/(studio)/leads/**\" \"app/(studio)/api/leads/**\"",
+    "verify": "npm run lint:leads && tsc --noEmit && npm test",
+    "leads:gen": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/leads-gen-vocab.mts"
   },
   "dependencies": {
     "@number-flow/react": "^0.6.0",

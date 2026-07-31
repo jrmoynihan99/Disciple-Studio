@@ -1,0 +1,198 @@
+/* ══════════════════════════════════════════════════════════════════
+   LEAD CONSOLE TOKENS
+
+   Imported into studio-globals.css so there is ONE Tailwind entry and no
+   duplicate preflight. Every token is namespaced --lead-* and the console
+   reads no studio token, so the two systems cannot collide.
+
+   THE CONSOLE NEVER TOUCHES `.light`. studio-globals.css has a `:root.light`
+   block and `html.light { color-scheme: light }` that nothing currently
+   toggles — DemoChrome injects inline vars on a wrapper div instead. If the
+   console used that class it would persist across client-side navigation and
+   silently reskin /studio and /admin, which have no toggle to flip it back.
+   So the console stamps `data-lead-theme` on <html>: an attribute, not a
+   class, so the two systems cannot alias.
+
+   Dark is a DISTINCT TOKEN SET, not a filter over the light one.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-lead-theme="dark"] {
+  color-scheme: dark;
+
+  /* ── the seven states ──
+     good    Good fit          in your favor
+     good2   Likely good fit   somewhat in your favor
+     warn    Neutral           worth a look
+     bad2    Likely bad fit    leans not in your favor
+     bad     Bad fit           not in your favor
+     unk     Unknown           unmeasured                   <- olive
+     unver   Needs a check     unverified — manual check    <- slate + HATCH
+
+     `unk` and `unver` are DIFFERENT COLOURS and merging them is the cleanup to
+     refuse: it destroys the distinction between no data and untrusted data.
+     1,440 churches once sat at confident red on a name resemblance; the fix was
+     a distinct colour meaning "we have a signal we cannot stand behind". */
+  --lead-good: #54c07c;
+  --lead-good2: #89d6a4;
+  --lead-warn: #e0b23a;
+  --lead-bad2: #d08a8a;
+  --lead-bad: #e06a6a;
+  --lead-unk: #767970;
+  --lead-unver: #6b7688;
+
+  /* Chip fills. The answer chips are the only place a verdict hue carries 9px
+     text, and no single ink clears 4.5:1 across the whole palette. Dark's fills
+     are lighter, so red is fine here; slate and olive are the two that fail
+     (3.7 / 3.8) and are nudged just far enough to pass. */
+  --lead-bad-chip: var(--lead-bad);
+  --lead-unver-chip: #747e8f;
+  --lead-unk-chip: #7d8077;
+
+  /* Chrome */
+  --lead-bg: #14161a;
+  --lead-panel: #1c1f24;
+  --lead-panel2: #23272d;
+  --lead-ink: #e6e8e5;
+  --lead-ink2: #9298a0;
+  --lead-line: #2e333a;
+  --lead-brand: #54b3ad;
+  --lead-link: #7aa6d8;
+
+  /* The read-only "already downloaded" mark. Used NOWHERE else in the
+     interface, because it is the one mark a user cannot set and must not be
+     confusable with one they can. */
+  --lead-dl: #6aa5ff;
+
+  /* Logo backing. NEVER white: 32 of 80 churches in one review batch carry a
+     white cut-out logo, which on a white card is indistinguishable from
+     "no logo found". */
+  --lead-checker: #d9d0c0;
+  --lead-checker-dark: #2b2b30;
+}
+
+[data-lead-theme="light"] {
+  color-scheme: light;
+
+  --lead-good: #2f8f52;
+  --lead-good2: #71b98a;
+  --lead-warn: #c2921a;
+  --lead-bad2: #d08a8a;
+  --lead-bad: #b23b3b;
+  --lead-unk: #9a9d92;
+  --lead-unver: #7d8aa0;
+
+  /* #b23b3b gave dark ink 3.22:1; this gives 4.67:1 */
+  --lead-bad-chip: #c16262;
+  --lead-unver-chip: var(--lead-unver);
+  --lead-unk-chip: var(--lead-unk);
+
+  --lead-bg: #e9e7e1;
+  --lead-panel: #f4f2ec;
+  --lead-panel2: #e3e0d7;
+  --lead-ink: #20242a;
+  --lead-ink2: #5d636d;
+  --lead-line: #d1cdc2;
+  --lead-brand: #2f6f6b;
+  --lead-link: #3a6ea5;
+
+  --lead-dl: #2f6fd0;
+}
+
+@theme inline {
+  --color-lead-good: var(--lead-good);
+  --color-lead-good2: var(--lead-good2);
+  --color-lead-warn: var(--lead-warn);
+  --color-lead-bad2: var(--lead-bad2);
+  --color-lead-bad: var(--lead-bad);
+  --color-lead-unk: var(--lead-unk);
+  --color-lead-unver: var(--lead-unver);
+
+  --color-lead-bad-chip: var(--lead-bad-chip);
+  --color-lead-unver-chip: var(--lead-unver-chip);
+  --color-lead-unk-chip: var(--lead-unk-chip);
+
+  --color-lead-bg: var(--lead-bg);
+  --color-lead-panel: var(--lead-panel);
+  --color-lead-panel2: var(--lead-panel2);
+  --color-lead-ink: var(--lead-ink);
+  --color-lead-ink2: var(--lead-ink2);
+  --color-lead-line: var(--lead-line);
+  --color-lead-brand: var(--lead-brand);
+  --color-lead-link: var(--lead-link);
+  --color-lead-dl: var(--lead-dl);
+}
+
+/* ── the unver hatch ──
+   NOT decoration. Slate and olive are close for the ~8% of men with red-green
+   colour vision deficiency, and the hatch is what carries the difference for
+   them. Removing it makes "we cannot cite this" look like "we never measured
+   this" to a large minority of users. */
+@utility lead-hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    rgb(255 255 255 / 0.24) 3px,
+    rgb(255 255 255 / 0.24) 5px
+  );
+}
+
+/* ── the logo checkerboard ──
+   The beige reads both ink polarities and the checker makes transparency
+   visible. Someone will try to replace this with a plain white rounded tile.
+   That is why the rule lives in the honesty doc and not the styling one. */
+@utility lead-checkerboard {
+  background-color: var(--lead-checker);
+  background-image:
+    linear-gradient(45deg, rgb(0 0 0 / 0.13) 25%, transparent 25%, transparent 75%, rgb(0 0 0 / 0.13) 75%),
+    linear-gradient(45deg, rgb(0 0 0 / 0.13) 25%, transparent 25%, transparent 75%, rgb(0 0 0 / 0.13) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 6px 6px;
+}
+
+/* A near-white cut-out logo needs a dark plate to be legible at all. */
+@utility lead-checkerboard-dark {
+  background-color: var(--lead-checker-dark);
+  background-image: none;
+}
+
+/* ── mark glyphs ──
+   The marks are TEXT GLYPHS, never emoji images, because a glyph can be
+   recoloured — it turns green when set and greys out when unset — and a colour
+   emoji cannot.
+
+   But the studio's UI font has no Dingbats, so ✆ (U+2706) fell back to a
+   missing-glyph box. This stack reaches a font that actually has it. */
+@utility lead-glyph {
+  font-family:
+    "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Symbola",
+    sans-serif;
+}
+
+/* ── row tints ──
+   Precedence is issue > goodlead > exported > star, decided in rowTint().
+
+   The good-lead wash runs ~2x the others on purpose: it is the only mark that
+   is a QUEUE — these are the rows about to be exported, and "which ones did I
+   pick?" has to be answerable from across the room rather than by squinting at
+   three near-identical washes. */
+@utility lead-tint-issue {
+  background-color: color-mix(in srgb, var(--lead-bad) 13%, transparent);
+}
+@utility lead-tint-goodlead {
+  background-color: color-mix(in srgb, var(--lead-good) 26%, transparent);
+}
+@utility lead-tint-exported {
+  background-color: color-mix(in srgb, var(--lead-dl) 22%, transparent);
+}
+@utility lead-tint-star {
+  background-color: color-mix(in srgb, var(--lead-warn) 15%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lead-root] * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

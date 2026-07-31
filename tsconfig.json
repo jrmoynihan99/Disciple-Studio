@@ -9,6 +9,12 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // Node's own test runner resolves ESM specifiers literally — it does not read
+    // `paths` and it will not infer an extension. The Lead Console engine is
+    // tested with `node --test` (no runner dependency), so its modules import
+    // each other as `./color.ts`. Safe here because `noEmit` is set: nothing
+    // downstream ever sees these specifiers.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",

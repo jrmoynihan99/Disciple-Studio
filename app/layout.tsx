@@ -58,6 +58,14 @@ export default function RootLayout({
       // scroll restoration inside the view-transition update window.
       data-page-transition="fade"
       className={`${newsreader.variable} ${hanken.variable} ${jetbrains.variable}`}
+      // The Lead Console stamps `data-lead-theme` here from an inline script
+      // that must run BEFORE first paint — otherwise a dark-preference user
+      // gets a white flash, and, worse for that product, a verdict colour
+      // briefly painted from the wrong token set. The server cannot know the
+      // preference, so the attribute legitimately differs at hydration. This
+      // suppresses the warning for THIS element's attributes only, never for
+      // its subtree; it is the same mechanism next-themes uses.
+      suppressHydrationWarning
     >
       <body className="overflow-x-hidden bg-paper font-sans leading-normal text-ink antialiased [text-rendering:optimizeLegibility] selection:bg-accent selection:text-white">
         {children}
