@@ -16,14 +16,14 @@ import assert from "node:assert/strict";
 
 import { churchFromRecord } from "../adapt.ts";
 import { colorState } from "../color.ts";
-import { defaultFavorModel, favorCount, favorScore } from "../favor.ts";
+import { favorCount, favorScore, referenceFavorModel } from "../favor.ts";
 import { staffText } from "../staff.ts";
 import { stepsDisplayCount } from "../steps.ts";
 import { safeUrl } from "../url.ts";
 import type { EngineCtx } from "../types.ts";
 import { HAVE_FIXTURE, loadEdgeCases } from "./fixture.mts";
 
-const ctx: EngineCtx = { overrides: {}, favor: defaultFavorModel(), rows: [] };
+const ctx: EngineCtx = { overrides: {}, favor: referenceFavorModel(), rows: [] };
 
 describe("edge cases", { skip: !HAVE_FIXTURE && "fixture not present" }, () => {
   const ec = loadEdgeCases();

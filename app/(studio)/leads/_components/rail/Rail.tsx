@@ -105,8 +105,12 @@ export function Rail({
 
   const group = (g: FacetGroupKey) => facets.filter((f) => groupOf(f.key) === g);
 
+  // Width comes from the grid column (a clamp on the parent), not from a fixed
+  // w-* here — two sources for one width is how they drift apart.
+  // `scrollbar-gutter: stable` keeps the facet list from shifting sideways when
+  // the scrollbar appears and disappears as groups are expanded.
   return (
-    <aside className="sticky top-0 z-40 h-screen w-[250px] shrink-0 overflow-y-auto border-r border-lead-line px-4 pt-4 pb-20 max-[1000px]:static max-[1000px]:h-auto max-[1000px]:w-full max-[1000px]:border-r-0 max-[1000px]:border-b">
+    <aside className="sticky top-0 z-40 h-screen w-full overflow-y-auto border-r border-lead-line px-4 pt-4 pb-20 [scrollbar-gutter:stable] max-[1000px]:static max-[1000px]:h-auto max-[1000px]:border-r-0 max-[1000px]:border-b">
       {/* ── mark tray ── */}
       <div className="rounded-xl border border-lead-line bg-lead-panel p-3">
         <div className="mb-2.5 grid grid-cols-2 gap-x-2 gap-y-2">

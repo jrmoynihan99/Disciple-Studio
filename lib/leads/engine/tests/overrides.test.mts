@@ -18,12 +18,12 @@ import assert from "node:assert/strict";
 
 import { churchFromIndex } from "../adapt.ts";
 import { colorState } from "../color.ts";
-import { defaultFavorModel, favorScore } from "../favor.ts";
+import { favorScore, referenceFavorModel } from "../favor.ts";
 import type { ColorOverrides, EngineCtx } from "../types.ts";
 import { HAVE_FIXTURE, loadIndex } from "./fixture.mts";
 
 function ctxWith(overrides: ColorOverrides, rows: ReturnType<typeof loadIndex>): EngineCtx {
-  return { overrides, favor: defaultFavorModel(), rows };
+  return { overrides, favor: referenceFavorModel(), rows };
 }
 
 describe("user colour overrides", { skip: !HAVE_FIXTURE && "fixture not present" }, () => {

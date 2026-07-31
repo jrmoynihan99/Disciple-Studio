@@ -2,18 +2,19 @@
 
 import { useState } from "react";
 import type { IndexRow } from "@/lib/leads/engine/types";
+import { PLATE_CLASS, logoPlate } from "@/lib/leads/engine/logo";
 
 /**
- * The logo thumbnail, on its checkerboard.
+ * The logo thumbnail, on one of three plates.
  *
- * THE BACKING IS NOT A STYLE CHOICE. `background: white` hid every white-ink
- * cut-out logo — 32 of the 80 churches in one review batch carry
- * `logo_theme: "dark"` — and a logo that renders white-on-white is
- * indistinguishable from a logo we never found. The beige reads both ink
- * polarities and the checker makes transparency visible.
+ * THE BACKING IS NOT A STYLE CHOICE, and `logoPlate()` owns the decision — see
+ * the reasoning there. In short: white where the pipeline classified the ink and
+ * white is safe, a dark plate for cut-outs, and the beige checker ONLY where the
+ * polarity is unknown, because that is the one plate that reads both.
  *
- * Someone will try to replace this with `bg-white rounded-lg`. That is why the
- * rule lives in the honesty doc rather than the styling one.
+ * The failure this guards against is that a white-on-white logo is
+ * indistinguishable from a logo we never found — so the tile would silently
+ * report missing data that we actually have.
  */
 export function LogoTile({ row, size = 54 }: { row: IndexRow; size?: number }) {
   const [failed, setFailed] = useState(false);
@@ -37,7 +38,7 @@ export function LogoTile({ row, size = 54 }: { row: IndexRow; size?: number }) {
     );
   }
 
-  const dark = row.lt === "dark";
+  const plate = PLATE_CLASS[logoPlate(row.lt)];
 
   return (
     // A plain <img>, not next/image: these are content-addressed thumbs already
@@ -51,9 +52,7 @@ export function LogoTile({ row, size = 54 }: { row: IndexRow; size?: number }) {
       loading="lazy"
       onError={() => setFailed(true)}
       style={{ width: size, height: size }}
-      className={`shrink-0 rounded-lg border border-lead-line object-contain p-[3px] ${
-        dark ? "lead-checkerboard-dark" : "lead-checkerboard"
-      }`}
+      className={`shrink-0 rounded-lg border border-lead-line object-contain p-[3px] ${plate}`}
     />
   );
 }

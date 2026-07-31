@@ -35,6 +35,7 @@ function MarkButton({
   onClick,
   activeClass,
   size,
+  font = "lead-glyph",
 }: {
   glyph: string;
   on: boolean;
@@ -42,6 +43,7 @@ function MarkButton({
   onClick: () => void;
   activeClass: string;
   size: string;
+  font?: string;
 }) {
   return (
     <button
@@ -57,7 +59,7 @@ function MarkButton({
       // colour is near-invisible against the panel for a thin-stroke glyph —
       // ★ survives it because it is a filled shape, ✆ does not — and a control
       // nobody can see is a control nobody clicks.
-      className={`lead-glyph leading-none transition-opacity ${size} ${
+      className={`${font} leading-none transition-opacity ${size} ${
         on ? `${activeClass} opacity-100` : "text-lead-ink2 opacity-45 hover:opacity-100"
       }`}
     >
@@ -65,6 +67,24 @@ function MarkButton({
     </button>
   );
 }
+
+/**
+ * The row's own classes, exported so `/leads/audit` can assert on the string
+ * that actually ships rather than on a copy of it.
+ *
+ * HOVER DRAWS A BORDER AND NOTHING ELSE.
+ *
+ * It used to end `hover:bg-lead-panel`, which repainted the row background — so
+ * pointing at a good lead ERASED the green wash that said it was one. The tints
+ * are the only thing on the row carrying mark state, and a hover affordance may
+ * not be allowed to overwrite state. An inset outline changes no colour and
+ * reserves no space, so nothing reflows either.
+ */
+export const ROW_CLASS =
+  "relative grid cursor-pointer grid-cols-[44px_1fr_minmax(240px,380px)] items-center gap-4" +
+  " rounded-lg border-b border-lead-line py-3 pr-[30px] pl-3.5" +
+  " outline-offset-[-2px] outline-transparent transition-[outline-color]" +
+  " hover:outline-2 hover:outline-lead-brand max-[620px]:grid-cols-[44px_1fr]";
 
 function LeadRowInner({
   row,
@@ -86,9 +106,7 @@ function LeadRowInner({
       role="button"
       tabIndex={-1}
       onClick={() => onOpen(row.id)}
-      className={`relative grid cursor-pointer grid-cols-[44px_1fr_minmax(240px,380px)] items-center gap-4 rounded-lg border-b border-lead-line py-3 pr-[30px] pl-3.5 transition-colors hover:bg-lead-panel max-[620px]:grid-cols-[44px_1fr] ${
-        tint ? TINT_CLASS[tint] : ""
-      }`}
+      className={`${ROW_CLASS} ${tint ? TINT_CLASS[tint] : ""}`}
     >
       {/* ── marks ──
           Star and issue in a boxed rail; the green telephone BELOW the box in
@@ -111,8 +129,18 @@ function LeadRowInner({
             on={marks.issue}
             label={marks.issue ? "Issue flagged" : "Flag a data issue"}
             onClick={() => onToggleMark("issue", row.id)}
-            activeClass="grayscale-0"
-            size={`text-[19px] ${marks.issue ? "" : "grayscale"}`}
+            // Muted by OPACITY, not by `grayscale`. Every other mark is muted by
+            // ink colour, which a colour emoji cannot take — and greyscaling it
+            // made the one red control on the row read as a dead grey blob. A
+            // dimmed red bug still says "bug"; a grey one says "disabled".
+            // Set state also takes a red wash, the way ✆ takes a green one.
+            // Opacity alone is too weak a difference for the one mark whose
+            // glyph cannot change colour.
+            activeClass="bg-lead-bad/20"
+            size="text-[19px] rounded-md px-1"
+            // The ONE mark that must not use `lead-glyph`: that stack reaches
+            // Segoe UI Symbol's monochrome U+1F41E and the bug came out white.
+            font="lead-emoji"
           />
         </div>
         <button

@@ -34,7 +34,8 @@ function SourceLine({
 }) {
   if (!safeUrl(url)) return null;
   return (
-    <div className="mt-1.5 font-mono text-[10.5px] text-lead-ink2">
+    // .dv-src — 10.5px mono, 5px above.
+    <div className="mt-[5px] font-mono text-[10.5px] text-lead-ink2">
       {unread ? "we did not open this page — check it yourself" : "source"}
       {inherited && !unread ? " (from the parent question)" : ""}:{" "}
       <SafeLink href={url} className="text-lead-link break-all hover:underline" />
@@ -56,14 +57,29 @@ function Quote({
   inherited?: boolean;
 }) {
   return (
-    <div className="my-2">
-      <blockquote className="max-h-32 overflow-y-auto rounded-md border border-lead-line border-l-[3px] border-l-lead-good bg-lead-panel2 px-2.5 py-2 font-mono text-[11.5px] leading-relaxed break-words whitespace-pre-wrap text-lead-ink">
+    <div className="my-[7px]">
+      {/*
+        `.dv-quote` — 14px SERIF on a 2px left rule, per `real-example.html`.
+
+        It had been 11.5px mono in a filled panel, which is `.dv-snip` — the
+        style for matched MARKUP. The reference keeps those two apart on purpose:
+        a quote is a sentence a human wrote on the church's own website and is
+        the most important text in this panel, while a snippet is machine output
+        shown small because you only skim it. Rendering the first as the second
+        made the evidence look like debug output and shrank it ~20% below
+        everything around it.
+
+        No max-height. The panel scrolls; the quote is the product.
+      */}
+      <blockquote className="border-l-2 border-l-lead-line py-0.5 pl-3 font-serif text-[14px] leading-[1.5] break-words whitespace-pre-wrap text-lead-ink">
         “{text}”
         {/* `verified` proves the span is ON the page. It does NOT prove the span
             is ABOUT the question — that is `quote_confidence`, a different axis.
             Never collapse the two into one "confidence" badge. */}
         {verified && (
-          <span className="ml-1.5 font-mono text-[10px] text-lead-ink2">verified {verified}</span>
+          <cite className="mt-[3px] block font-mono text-[10px] not-italic text-lead-ink2">
+            verified {verified}
+          </cite>
         )}
       </blockquote>
       {url && <SourceLine url={url} unread={unread} inherited={inherited} />}
@@ -77,7 +93,8 @@ export function EvidenceBody({ q }: { q: QuestionView & Record<string, unknown> 
   const kind = (q.evidence_kind as string) ?? "";
 
   return (
-    <div className="text-[12.5px] leading-relaxed text-lead-ink2">
+    // .dv-ev — 12.5px / 1.5.
+    <div className="text-[12.5px] leading-[1.5] text-lead-ink2">
       {/* `q.label` is deliberately NOT rendered here. Every call site already
           shows it as the card's finding — the primary line a reader is looking
           for — so repeating it inside the expanded body just says the same
@@ -141,7 +158,8 @@ export function EvidenceBody({ q }: { q: QuestionView & Record<string, unknown> 
 
       {/* Sub-signals. Each may carry a quote and NO url of its own. */}
       {Array.isArray(q.subsignals) && q.subsignals.length > 0 && (
-        <div className="my-2 flex flex-col gap-1.5">
+        // .dv-subs / .dv-sub — 12px, 3px apart.
+        <div className="my-1.5 flex flex-col gap-[3px] text-xs">
           {(q.subsignals as SubSignal[]).map((s, i) => (
             <div key={i}>
               <div className="flex items-baseline gap-2">
@@ -174,14 +192,15 @@ export function EvidenceBody({ q }: { q: QuestionView & Record<string, unknown> 
           boilerplate: it explains why the titles and the count deliberately do
           not add up. */}
       {Array.isArray(q.titles) && (q.titles as string[]).length > 0 && (
-        <details className="my-2">
+        // .dv-titles — 12px, summary 11px mono, li 11.5px.
+        <details className="my-1.5 text-xs">
           <summary className="cursor-pointer font-mono text-[11px] text-lead-link">
             show / hide {(q.titles as string[]).length} paid titles
           </summary>
           {typeof q.disclaimer === "string" && q.disclaimer && (
             <p className="my-1.5 text-[11px]">{q.disclaimer}</p>
           )}
-          <ul className="mt-1 columns-2 pl-4 text-[11.5px] text-lead-ink">
+          <ul className="mt-[5px] columns-2 pl-[15px] text-[11.5px] text-lead-ink">
             {(q.titles as string[]).map((t, i) => (
               <li key={i} className="break-inside-avoid">
                 {t}

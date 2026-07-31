@@ -198,7 +198,13 @@ export function LeadConsole() {
         </div>
       )}
 
-      <div className="mx-auto grid max-w-[1400px] grid-cols-[250px_1fr] max-[1000px]:grid-cols-1">
+      {/* The rail WIDTH scales, its height does not.
+          250px is the floor — the width the facet rows and the tier inputs were
+          laid out against, below which they wrap — and on a wide monitor it
+          grows to 330 so the facet labels stop truncating. Height stays
+          `h-screen` with its own scroll: a rail that grew taller than the
+          viewport would just move the scrollbar somewhere less useful. */}
+      <div className="mx-auto grid max-w-[1400px] grid-cols-[clamp(250px,19vw,330px)_1fr] max-[1000px]:grid-cols-1">
         <Rail
           views={views}
           narrowed={base}

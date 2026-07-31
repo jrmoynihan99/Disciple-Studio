@@ -20,10 +20,69 @@ import { colorState } from "./color.ts";
 import { staffMaxPts, staffPts } from "./staff.ts";
 
 export const STEP_CATS = VOCAB.STEP_CATS;
+
+/**
+ * The REFERENCE model — core.js's own defaults, generated from the fixture.
+ *
+ * This is not what the console ships. It exists so the golden table stays
+ * checkable: `golden-colors.json` was produced by executing core.js under these
+ * exact numbers, so re-tuning the product must never move it. Every engine test
+ * pins this; only the app reads `defaultFavorModel()`.
+ */
 export const FAVOR_DEFAULTS = VOCAB.FAVOR_DEFAULTS;
 
-/** A fresh, deeply-cloned default model — nothing shares mutable tier objects. */
+/**
+ * The model the console STARTS on — the owner's tuning, not core.js's.
+ *
+ * Two things differ from the reference, and both are judgements about who buys,
+ * not facts the pipeline measured:
+ *
+ *   · Small churches score NEGATIVE. The reference gave 0-10 staff zero points,
+ *     which ranks a five-person plant level with a church we know nothing about.
+ *     -2 and -1 push them below the unknowns, where they belong in a call list.
+ *   · Large churches keep the full 2. The reference decayed 41-59 to 1 and 60+
+ *     to 0 on the theory that mega-churches already have a vendor; that is a
+ *     guess, and a wrong one often enough to cost leads.
+ *   · Custom login is worth 6x what it was (0.5 -> 3). It is the single
+ *     strongest signal in the set — it is the thing being sold.
+ *
+ * Anyone can move all of it at runtime in the tuning panel; this is only where
+ * the sliders sit before they touch them.
+ */
+export const TUNING_DEFAULTS: FavorModel = {
+  staffTiers: [
+    { lo: 0, hi: 4, pts: -2 },
+    { lo: 5, hi: 9, pts: -1 },
+    { lo: 10, hi: 10, pts: 0 },
+    { lo: 11, hi: 25, pts: 1 },
+    { lo: 26, hi: 40, pts: 2 },
+    { lo: 41, hi: 59, pts: 2 },
+    { lo: 60, hi: null, pts: 2 },
+  ],
+  loginPts: 3,
+  websitePts: FAVOR_DEFAULTS.websitePts,
+  appPts: FAVOR_DEFAULTS.appPts,
+  stepCat: FAVOR_DEFAULTS.stepCat,
+};
+
+/** Deep clone, so nothing shares a mutable tier object with the constant. */
+function clone(m: FavorModel): FavorModel {
+  return {
+    staffTiers: m.staffTiers.map((t) => ({ lo: t.lo, hi: t.hi, pts: t.pts })),
+    loginPts: m.loginPts,
+    websitePts: m.websitePts,
+    appPts: m.appPts,
+    stepCat: { ...m.stepCat },
+  };
+}
+
+/** What the app starts on, and what "reset to defaults" returns to. */
 export function defaultFavorModel(): FavorModel {
+  return clone(TUNING_DEFAULTS);
+}
+
+/** What the golden table was generated under. Tests only. */
+export function referenceFavorModel(): FavorModel {
   return {
     staffTiers: FAVOR_DEFAULTS.staffTiers.map((t) => ({ lo: t.lo, hi: t.hi, pts: t.pts })),
     loginPts: FAVOR_DEFAULTS.loginPts,
@@ -107,7 +166,7 @@ export function favorCount(view: ChurchView, ctx: EngineCtx): number {
 
 /**
  * The TRUE ceiling — sets the histogram axis.
- * In the fixture: 6.5.
+ * Reference model: 6.5. Shipped tuning: 9.
  */
 export function favorMax(favor: FavorModel): number {
   return (
@@ -120,14 +179,18 @@ export function favorMax(favor: FavorModel): number {
 }
 
 /**
- * The reference denominator shown in the chip ("3.2 / 5") — the most a church
+ * The reference denominator shown in the chip ("3.2 / 7.5") — the most a church
  * can score WITHOUT the custom-website and app opportunities.
- * In the fixture: 5.
+ * Reference model: 5. Shipped tuning: 7.5.
  *
- * SO A CHURCH CAN LEGITIMATELY SCORE ABOVE ITS OWN DENOMINATOR. `4.8 / 5` is not
+ * SO A CHURCH CAN LEGITIMATELY SCORE ABOVE ITS OWN DENOMINATOR. `8 / 7.5` is not
  * a bug; it is a church that also lacks a custom site and an app. Do not clamp
  * it, and do not render it as a percentage bar that visually maxes out — capping
  * it at 100% breaks the meaning of the chip.
+ *
+ * It can also go BELOW ZERO now that the small-church tiers are negative. A
+ * church of three staff reading `-2 / 7.5` is the model working, not a bug —
+ * the floor is `Math.max(0.5, ...)` on the DENOMINATOR only, never on the score.
  */
 export function favorBase(favor: FavorModel): number {
   return Math.max(

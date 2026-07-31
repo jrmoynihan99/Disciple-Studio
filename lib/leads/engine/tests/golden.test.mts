@@ -29,16 +29,24 @@ import {
   type ChurchView,
 } from "../adapt.ts";
 import { colorState } from "../color.ts";
-import { defaultFavorModel, favorBase, favorCount, favorMax, favorScore } from "../favor.ts";
+import { favorBase, favorCount, favorMax, favorScore, referenceFavorModel } from "../favor.ts";
 import { stepsDisplayCount } from "../steps.ts";
 import { QMETA, type EngineCtx, type QuestionKey } from "../types.ts";
 import { HAVE_FIXTURE, loadGolden, loadIndex, loadRecord } from "./fixture.mts";
 
 const QUESTION_KEYS = QMETA.map(([k]) => k as QuestionKey);
 
-/** Default tuning, no overrides — the exact conditions golden-colors.json was built under. */
+/**
+ * REFERENCE tuning, no overrides — the exact conditions golden-colors.json was
+ * built under.
+ *
+ * Deliberately NOT `defaultFavorModel()`. That is the owner's shipped tuning and
+ * it moves whenever the product's mind changes about who buys; this table is a
+ * proof that the PORT is faithful, and it must not turn red because someone
+ * decided mega-churches are worth two points after all.
+ */
 function makeCtx(rows: ReturnType<typeof loadIndex>): EngineCtx {
-  return { overrides: {}, favor: defaultFavorModel(), rows };
+  return { overrides: {}, favor: referenceFavorModel(), rows };
 }
 
 describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not present" }, () => {
@@ -54,7 +62,7 @@ describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not pr
   });
 
   test("the two denominators are derived, not hard-coded", () => {
-    const favor = defaultFavorModel();
+    const favor = referenceFavorModel();
     // A church can legitimately score ABOVE favorBase — it is the most you can
     // reach without the custom-website and app opportunities, not a ceiling.
     assert.equal(favorBase(favor), golden.favorBase, "favorBase");

@@ -23,7 +23,7 @@ import assert from "node:assert/strict";
 
 import { churchFromIndex, churchFromRecord } from "../adapt.ts";
 import { colorState } from "../color.ts";
-import { defaultFavorModel, favorCount, favorScore } from "../favor.ts";
+import { favorCount, favorScore, referenceFavorModel } from "../favor.ts";
 import { staffText } from "../staff.ts";
 import { stepsDisplayCount } from "../steps.ts";
 import { QMETA, type EngineCtx, type QuestionKey } from "../types.ts";
@@ -33,7 +33,7 @@ const QUESTION_KEYS = QMETA.map(([k]) => k as QuestionKey);
 
 describe("publish consistency", { skip: !HAVE_FIXTURE && "no publish at LEADS_FIXTURE_DIR" }, () => {
   const index = loadIndex();
-  const ctx: EngineCtx = { overrides: {}, favor: defaultFavorModel(), rows: index };
+  const ctx: EngineCtx = { overrides: {}, favor: referenceFavorModel(), rows: index };
 
   /** Records are optional — an index-only publish still gets the checks that do not need them. */
   const pairs = index.flatMap((row) => {

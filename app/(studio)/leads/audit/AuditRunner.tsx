@@ -6,6 +6,7 @@ import { colorState } from "@/lib/leads/engine/color";
 import { defaultFavorModel } from "@/lib/leads/engine/favor";
 import { QMETA, type ChurchRecord, type EngineCtx, type IndexRow, type QuestionKey } from "@/lib/leads/engine/types";
 import { safeUrl } from "@/lib/leads/engine/url";
+import { ROW_CLASS } from "../_components/list/LeadRow";
 
 interface Check {
   name: string;
@@ -28,17 +29,29 @@ export function AuditRunner() {
     const add = (name: string, pass: boolean, detail: string) => out.push({ name, pass, detail });
 
     // ── colour tokens, measured from the live DOM ──
-    const probe = (cls: string) => {
+    /**
+     * Mount the probe INSIDE `[data-lead-root]`, not on `document.body`.
+     *
+     * The colour tokens live on `:root` and would measure the same anywhere, but
+     * the type rules are scoped to the console's root — a probe on the body
+     * measures the studio's Inter/Newsreader and reports a failure that is only
+     * in the measurement.
+     */
+    const mount = () => document.querySelector("[data-lead-root]") ?? document.body;
+
+    const measure = <T,>(cls: string, read: (cs: CSSStyleDeclaration) => T): T => {
       const el = document.createElement("span");
       el.className = cls;
       el.style.position = "fixed";
       el.style.opacity = "0";
-      document.body.appendChild(el);
-      const cs = getComputedStyle(el);
-      const v = { bg: cs.backgroundColor, img: cs.backgroundImage };
+      mount().appendChild(el);
+      const v = read(getComputedStyle(el));
       el.remove();
       return v;
     };
+
+    const probe = (cls: string) =>
+      measure(cls, (cs) => ({ bg: cs.backgroundColor, img: cs.backgroundImage }));
 
     const unk = probe("bg-lead-unk");
     const unver = probe("bg-lead-unver lead-hatch");
@@ -61,11 +74,66 @@ export function AuditRunner() {
       `chip ${badChip.bg} vs cell ${bad.bg}`,
     );
 
+    /**
+     * The three logo plates. White is for a classified `light`/`either` logo;
+     * the beige checker is the UNKNOWN-polarity fallback and must stay beige and
+     * checkered, because it is the only plate that reads both ink polarities.
+     * If it ever goes flat white, every unclassified cut-out disappears into it
+     * and reads as "no logo found".
+     */
     const checker = probe("lead-checkerboard");
+    const white = probe("lead-plate-white");
+    const plateDark = probe("lead-checkerboard-dark");
+    const isWhite = (c: string) => /\b255,\s*255,\s*255\b/.test(c);
     add(
-      "the logo checkerboard survived",
-      checker.img.includes("gradient") && !checker.bg.includes("255, 255, 255"),
-      `${checker.bg}, ${checker.img.includes("gradient") ? "checkered" : "FLAT"}`,
+      "the three logo plates are distinct, and only one of them is white",
+      checker.img.includes("gradient") &&
+        !isWhite(checker.bg) &&
+        isWhite(white.bg) &&
+        !isWhite(plateDark.bg),
+      `unknown ${checker.bg} ${checker.img.includes("gradient") ? "checkered" : "FLAT"} · light ${white.bg} · dark ${plateDark.bg}`,
+    );
+
+    // ── type and chrome, measured the same way ──
+    const font = (cls: string) => measure(cls, (cs) => cs.fontFamily);
+
+    /**
+     * The studio wraps every route in Inter + Newsreader; the console reads in
+     * the three stacks the original tool used. This is not taste — the whole
+     * page looked subtly unlike `real-example.html` while it inherited them, in
+     * a way that is very hard to see one component at a time.
+     */
+    const mono = font("font-mono");
+    const serif = font("font-serif");
+    add(
+      "the console keeps its own type, not the studio's",
+      /Cascadia/i.test(mono) && /Iowan|Palatino|Cambria/i.test(serif),
+      `mono ${mono.split(",")[0]} · serif ${serif.split(",")[0]}`,
+    );
+
+    /**
+     * The two mark fonts must not collapse into one. `lead-glyph` reaches a
+     * symbol font so ✆ is not a missing-glyph box; `lead-emoji` reaches a COLOUR
+     * font so 🐞 is red rather than a white monochrome outline. A single stack
+     * cannot do both, and each failure looks like a broken control.
+     */
+    const glyph = font("lead-glyph");
+    const emoji = font("lead-emoji");
+    add(
+      "the symbol and colour-emoji stacks are still separate",
+      glyph !== emoji && /Symbol/i.test(glyph) && /Emoji/i.test(emoji),
+      `${glyph.split(",")[0]} vs ${emoji.split(",")[0]}`,
+    );
+
+    /**
+     * studio-globals hides scrollbars everywhere (`html { scrollbar-width: none }`).
+     * On a 14,400-row list inside an independently-scrolling rail, how far down
+     * you are is information, so this route undoes it.
+     */
+    add(
+      "scrollbars are visible on this route",
+      getComputedStyle(document.documentElement).scrollbarWidth !== "none",
+      `html scrollbar-width: ${getComputedStyle(document.documentElement).scrollbarWidth}`,
     );
 
     // ── data-driven checks over every record ──
@@ -131,6 +199,25 @@ export function AuditRunner() {
       "the page ships no literal question numbers",
       !/>Q(?:[1-9]|10)</.test(html),
       "checked the server-rendered markup",
+    );
+
+    /**
+     * A HOVER AFFORDANCE MAY NOT OVERWRITE STATE.
+     *
+     * The row background is the ONLY thing carrying mark state — the green wash
+     * that says "good lead", the red that says "issue". `hover:bg-lead-panel`
+     * repainted it, so pointing at a good lead erased the fact that it was one.
+     *
+     * Asserted against the imported constant rather than scraped out of `/leads`,
+     * because the server render of that page is a loading skeleton: no row has
+     * been fetched yet, so a markup scan would find nothing and quietly pass.
+     */
+    add(
+      "hovering a row changes no colour it is carrying",
+      !/hover:bg-/.test(ROW_CLASS) && /hover:outline/.test(ROW_CLASS),
+      /hover:bg-/.test(ROW_CLASS)
+        ? "a hover: background utility is back on the row"
+        : "hover draws an inset outline and nothing else",
     );
 
     return out;

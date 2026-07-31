@@ -40,11 +40,18 @@ function Card({
         <span className="min-w-0 flex-1">
           {/* The KICKER is the descriptive title, small; the FINDING is the
               church-specific answer and leads, because that is what a reader is
-              looking for. */}
-          <span className="block font-mono text-[9.5px] font-bold tracking-wider text-lead-ink2 uppercase">
+              looking for.
+
+              Sizes are `.dv-tn` (10px mono bold) and `.dv-lbl` (13.5px / 1.35)
+              out of `real-example.html`, not rounded-off approximations of them
+              — the panel's whole hierarchy is built on half-pixel steps and
+              flattening them is what made this read as one grey mass. */}
+          <span className="block font-mono text-[10px] font-bold tracking-wider text-lead-ink2 uppercase">
             {kicker}
           </span>
-          <span className="block text-[13px] font-semibold text-lead-ink">{finding}</span>
+          <span className="block text-[13.5px] leading-[1.35] font-semibold text-lead-ink">
+            {finding}
+          </span>
         </span>
         <span className={`shrink-0 text-[13px] font-bold ${TEXT[state]}`}>
           {verdictWord(state, qKey)}
@@ -80,7 +87,10 @@ function placeOf(record: ChurchRecord): string {
 function Section({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="mt-4">
-      <h3 className="mb-2 flex items-baseline gap-2 border-b border-lead-line pb-1 font-mono text-[12.5px] font-bold tracking-wide text-lead-brand uppercase">
+      {/* .dv-h — 11px mono uppercase, .08em, 5px above its rule. It was 12.5px,
+          which put the section heading ABOVE the finding it introduces in the
+          type scale and inverted the hierarchy. */}
+      <h3 className="mb-2 flex items-baseline gap-2 border-b border-lead-line pb-[5px] font-mono text-[11px] font-bold tracking-[.08em] text-lead-brand uppercase">
         <span className="flex-1">{title}</span>
         {right}
       </h3>
@@ -382,7 +392,7 @@ function StepsDetail({ view }: { view: ReturnType<typeof churchFromRecord> }) {
     <div className="flex flex-col gap-1.5">
       {s.cats.map((c) => (
         <div key={c.key} className="rounded-md border border-lead-line bg-lead-panel2 px-2.5 py-1.5">
-          <span className="font-mono text-[9.5px] font-bold tracking-wider text-lead-brand uppercase">
+          <span className="font-mono text-[10px] font-bold tracking-wider text-lead-brand uppercase">
             {c.label}
           </span>
           {c.state === "present" ? (
@@ -402,11 +412,15 @@ function StepsDetail({ view }: { view: ReturnType<typeof churchFromRecord> }) {
                   ))}
                 </div>
               )}
+              {/* Serif, on a left rule, like every other quote — this is a
+                  sentence off the church's own page, not machine output. One
+                  notch under `.dv-quote` because it is nested inside a category
+                  card rather than standing on its own. */}
               {c.quote && (
-                <blockquote className="mt-1.5 max-h-24 overflow-y-auto rounded border border-lead-line bg-lead-bg px-2 py-1.5 font-mono text-[11px] text-lead-ink">
+                <blockquote className="mt-1.5 border-l-2 border-l-lead-line py-0.5 pl-2.5 font-serif text-[13px] leading-[1.5] text-lead-ink">
                   “{c.quote}”
                   {c.verified && (
-                    <span className="ml-1.5 text-[10px] text-lead-ink2">
+                    <span className="ml-1.5 font-mono text-[10px] text-lead-ink2">
                       verified {c.verified}
                     </span>
                   )}

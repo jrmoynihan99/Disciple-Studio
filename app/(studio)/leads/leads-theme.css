@@ -69,6 +69,9 @@
      "no logo found". */
   --lead-checker: #d9d0c0;
   --lead-checker-dark: #2b2b30;
+
+  --lead-scroll-thumb: #3a4048;
+  --lead-scroll-thumb-hover: #4e5661;
 }
 
 [data-lead-theme="light"] {
@@ -97,6 +100,67 @@
   --lead-link: #3a6ea5;
 
   --lead-dl: #2f6fd0;
+
+  --lead-scroll-thumb: #c0bbac;
+  --lead-scroll-thumb-hover: #a49e8c;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TYPE
+
+   The console does NOT inherit the studio's type. The studio wraps every route
+   in Inter + Newsreader + Hanken Grotesk, which are the church-demo brand
+   fonts; the console is an internal instrument and reads in the three stacks
+   the original tool used. Mixing them is what made this page look subtly unlike
+   `real-example.html` everywhere at once.
+
+   Copied from `reference/leads.html` --sans / --serif / --mono verbatim. All
+   three are system stacks: no webfont request, nothing to wait for, and an
+   instrument someone stares at for eight hours renders in the face their OS
+   already tuned for that.
+
+   These have to be written as element selectors rather than as `--font-serif`
+   overrides, because studio-globals declares its fonts in `@theme inline` —
+   which substitutes the value into the utility at build time, so there is no
+   `var(--font-serif)` left at runtime to override. Unlayered CSS beats
+   `@layer utilities` regardless of specificity, which is what makes this stick.
+   ══════════════════════════════════════════════════════════════════ */
+
+[data-lead-root] {
+  --lead-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --lead-serif: "Iowan Old Style", "Palatino Linotype", "Cambria", "Hoefler Text", Georgia, serif;
+  --lead-mono: "Cascadia Code", "Cascadia Mono", ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  font-family: var(--lead-sans);
+  font-size: 14px;
+}
+
+[data-lead-root] .font-sans {
+  font-family: var(--lead-sans);
+}
+[data-lead-root] .font-serif {
+  font-family: var(--lead-serif);
+}
+[data-lead-root] .font-mono {
+  font-family: var(--lead-mono);
+}
+
+/* Form controls do not inherit font-family, and a rail of selects rendering in
+   the browser default while their labels render in the stack above is the
+   single most obvious way this page stops looking like one design.
+
+   IN `@layer base`, UNLIKE THE THREE RULES ABOVE. Those have to be unlayered to
+   beat Tailwind's utilities; this one must LOSE to them, because the mark
+   buttons carry `lead-glyph` and `lead-emoji` and are still <button> elements.
+   Unlayered, this rule silently reverted both — ✆ back to a missing-glyph box
+   and 🐞 back to white — which is the bug it was written next to. */
+@layer base {
+  [data-lead-root] input,
+  [data-lead-root] select,
+  [data-lead-root] textarea,
+  [data-lead-root] button {
+    font-family: inherit;
+  }
 }
 
 @theme inline {
@@ -138,10 +202,23 @@
   );
 }
 
-/* ── the logo checkerboard ──
-   The beige reads both ink polarities and the checker makes transparency
-   visible. Someone will try to replace this with a plain white rounded tile.
-   That is why the rule lives in the honesty doc and not the styling one. */
+/* ── the logo plates ──
+   Three of them, chosen by `logoPlate()` in the engine — read the reasoning
+   there, not here.
+
+   White is for logos the pipeline classified as `light` or `either`: dark ink
+   drawn for a white page, which the beige plate tints and makes look subtly
+   wrong. It is FIXED white in both themes, because the logo was designed
+   against a white page and a dark-theme "white" is not one. */
+@utility lead-plate-white {
+  background-color: #ffffff;
+  background-image: none;
+}
+
+/* The beige + 45° checker is now the UNKNOWN-polarity plate, not the default.
+   It is the only plate that reads both inks, and the checker makes transparency
+   visible. Someone will try to widen white to cover unknown too. That is why the
+   rule lives in the honesty doc and not the styling one. */
 @utility lead-checkerboard {
   background-color: var(--lead-checker);
   background-image:
@@ -170,6 +247,23 @@
     sans-serif;
 }
 
+/* ── the one mark that IS an emoji ──
+   🐞 has no monochrome equivalent worth drawing, so the issue flag is the
+   exception to the rule above — and it needs the OPPOSITE font stack.
+
+   `lead-glyph` reaches Segoe UI Symbol first, which carries its own MONOCHROME
+   U+1F41E. Windows served that in preference to the colour font, so the bug
+   rendered as a white outline: unreadable against the panel, and indisinguishable
+   from a broken glyph. Naming the colour fonts explicitly is what makes it red.
+
+   `grayscale` is what greys it out when unset — a colour emoji cannot be
+   recoloured, which is exactly why every other mark is a text glyph. */
+@utility lead-emoji {
+  font-family:
+    "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+    "Twemoji Mozilla", sans-serif;
+}
+
 /* ── row tints ──
    Precedence is issue > goodlead > exported > star, decided in rowTint().
 
@@ -188,6 +282,68 @@
 }
 @utility lead-tint-star {
   background-color: color-mix(in srgb, var(--lead-warn) 15%, transparent);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SCROLLBARS
+
+   studio-globals sets `html { scrollbar-width: none }` — the demo chrome hides
+   them everywhere. That is wrong for an instrument: this page is a list of
+   14,400 rows inside a rail that scrolls independently, and how far down you are
+   is information. `html[data-lead-theme]` is the console's own root attribute,
+   set by the pre-paint script and present on NO other route, so undoing the
+   hide here cannot leak into /studio or /admin.
+
+   Two mechanisms on purpose. `::-webkit-scrollbar` is the one that actually
+   renders on Chromium (this is a Windows/Chrome tool) and is the only way to get
+   a rounded, inset thumb; the `@supports` block is the Firefox path, kept behind
+   a guard because setting `scrollbar-color` in Chromium switches it to the
+   standard renderer and throws the webkit styling away.
+   ══════════════════════════════════════════════════════════════════ */
+
+html[data-lead-theme] {
+  scrollbar-width: auto;
+}
+
+html[data-lead-theme]::-webkit-scrollbar,
+[data-lead-root] ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+html[data-lead-theme]::-webkit-scrollbar-track,
+[data-lead-root] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The transparent border plus `background-clip: content-box` is what insets the
+   thumb inside its own track — a 12px gutter with an 6px pill in it, rather than
+   a 6px gutter that is hard to grab. */
+html[data-lead-theme]::-webkit-scrollbar-thumb,
+[data-lead-root] ::-webkit-scrollbar-thumb {
+  background-color: var(--lead-scroll-thumb);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+html[data-lead-theme]::-webkit-scrollbar-thumb:hover,
+[data-lead-root] ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--lead-scroll-thumb-hover);
+}
+
+/* Chromium draws a button-ish square where the two bars meet. */
+html[data-lead-theme]::-webkit-scrollbar-corner,
+[data-lead-root] ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@supports (-moz-appearance: none) {
+  html[data-lead-theme],
+  [data-lead-root] * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--lead-scroll-thumb) transparent;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

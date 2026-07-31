@@ -6,8 +6,8 @@
  *
  * Paid staff is scored by a customizable SIZE DISTRIBUTION: each tier
  * {lo, hi, pts} awards points to a church whose count falls inside it
- * (hi: null = no upper cap). NON-MONOTONIC BY DESIGN — mid-size churches (the
- * sweet spot) earn the most, tiny and mega churches earn nothing:
+ * (hi: null = no upper cap). core.js's own distribution was non-monotonic —
+ * mid-size churches earned the most, tiny and mega churches nothing:
  *
  *   0-10   0 pts   too small to buy
  *   11-25  1 pt
@@ -15,8 +15,13 @@
  *   41-59  1 pt
  *   60+    0 pts   mega-church, already has a vendor
  *
+ * The SHIPPED tuning (`TUNING_DEFAULTS` in favor.ts) is a different shape: seven
+ * bands, negative below ten, flat 2 above twenty-five. Points may therefore be
+ * NEGATIVE, and `staffPts` may return a negative number — which is the point,
+ * since a church we know is tiny should rank below one we never measured.
+ *
  * The user can add, remove and re-point tiers at runtime, so nothing here may
- * assume five tiers or a particular shape.
+ * assume five tiers, seven tiers, or a particular shape.
  */
 
 import type { FavorModel, QuestionView, StaffTier, VerdictState } from "./types.ts";
@@ -50,7 +55,10 @@ export function staffMaxPts(favor: FavorModel): number {
  * The colour a staff count paints: top-tier points -> good, any points -> good2,
  * none -> WARN.
  *
- * Not red. Red is reserved for the issue flag; a size mismatch is not an error.
+ * Not red. Red is reserved for the issue flag; a size mismatch is not an error —
+ * and that holds for the negative bands too. A three-person church costs you
+ * favor points, but "too small for us" is a fact about our product, not a defect
+ * in the church, and colouring it red would say the second thing.
  */
 export function staffCountState(count: number | null | undefined, favor: FavorModel): VerdictState {
   const t = staffTier(count, favor);
