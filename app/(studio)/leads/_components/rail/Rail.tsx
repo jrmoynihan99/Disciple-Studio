@@ -109,8 +109,15 @@ export function Rail({
   // w-* here — two sources for one width is how they drift apart.
   // `scrollbar-gutter: stable` keeps the facet list from shifting sideways when
   // the scrollbar appears and disappears as groups are expanded.
+  //
+  // It sticks BELOW the header and is exactly the height left over, so it can
+  // never reach into the header's band. It used to be `top-0 h-screen z-40`,
+  // which put a full-height rail over an opaque sticky header — so scrolling
+  // slid the filters across the wordmark. Lowering z alone would have hidden the
+  // rail's top 64px behind the header instead, which is the same bug wearing a
+  // different hat.
   return (
-    <aside className="sticky top-0 z-40 h-screen w-full overflow-y-auto border-r border-lead-line px-4 pt-4 pb-20 [scrollbar-gutter:stable] max-[1000px]:static max-[1000px]:h-auto max-[1000px]:border-r-0 max-[1000px]:border-b">
+    <aside className="sticky top-[var(--lead-header-h)] z-20 h-[calc(100dvh_-_var(--lead-header-h))] w-full overflow-y-auto border-r border-lead-line px-4 pt-4 pb-20 [scrollbar-gutter:stable] max-[1000px]:static max-[1000px]:h-auto max-[1000px]:border-r-0 max-[1000px]:border-b">
       {/* ── mark tray ── */}
       <div className="rounded-xl border border-lead-line bg-lead-panel p-3">
         <div className="mb-2.5 grid grid-cols-2 gap-x-2 gap-y-2">

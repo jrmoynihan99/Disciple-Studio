@@ -7,6 +7,7 @@ import { VALID_STATES } from "@/lib/leads/engine/types";
 import { answerLabel, VERDICT_WORD } from "@/lib/leads/engine/labels";
 import { facetCounts, optionState } from "@/lib/leads/engine/filter";
 import { fillClass } from "../verdict";
+import { Chevron } from "../Chevron";
 import { facetValues, type FacetDef } from "./facets";
 
 /**
@@ -64,7 +65,7 @@ export function FacetPanel({
         >
           {active ? `${selected.length} selected` : "any"}
         </span>
-        <span className={`shrink-0 text-[11px] text-lead-ink2 ${open ? "rotate-180" : ""}`}>⌄</span>
+        <Chevron open={open} className="text-lead-ink2" />
       </button>
 
       {open && (

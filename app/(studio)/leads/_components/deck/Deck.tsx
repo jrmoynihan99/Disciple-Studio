@@ -31,7 +31,10 @@ export function Deck({
   const peak = Math.max(1, ...summary.dist);
 
   return (
-    <div className="sticky top-0 z-20 border-b border-lead-line bg-lead-bg pt-1.5">
+    // Sticks below the header for the same reason the rail does — at `top-0` it
+    // pinned into the header's band and was covered by it, so the count and the
+    // histogram you steer by disappeared the moment you scrolled.
+    <div className="sticky top-[var(--lead-header-h)] z-10 border-b border-lead-line bg-lead-bg pt-1.5">
       <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
         <div className="font-serif">
           <b className="text-3xl font-semibold text-lead-ink">{fmt(summary.n)}</b>

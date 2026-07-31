@@ -32,6 +32,32 @@ export function LeadConsole() {
   const [limit, setLimit] = useState(PAGE);
   const [openId, setOpenId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  /**
+   * Publish the header's height as `--lead-header-h`.
+   *
+   * The rail and the deck both stick BELOW the header, and the rail sizes itself
+   * `100dvh` minus this. Hard-coding the number would be wrong at the width
+   * where the header wraps (measured: 63.25px normally, 113.25px under ~620px),
+   * and hard-coding a breakpoint would re-break the moment the header's copy
+   * changes. Measuring is the only version that stays true.
+   */
+  useEffect(() => {
+    const el = headerRef.current;
+    // Set on the console root, not on <html>: leads-theme.css declares the
+    // fallback on `[data-lead-root]`, and a value inherited from an ancestor
+    // loses to a declaration on the element itself. Inline style wins outright.
+    const root = document.querySelector<HTMLElement>("[data-lead-root]");
+    if (!el || !root) return;
+    const ro = new ResizeObserver(() => {
+      // borderBox, not contentRect — the header carries a 1px bottom border, and
+      // one pixel of overlap is still overlap.
+      root.style.setProperty("--lead-header-h", `${el.getBoundingClientRect().height}px`);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /**
    * Every filter change resets paging.
@@ -160,7 +186,7 @@ export function LeadConsole() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-lead-line bg-lead-bg">
+      <header ref={headerRef} className="sticky top-0 z-30 border-b border-lead-line bg-lead-bg">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-4 px-5 py-3">
           <span className="font-serif text-xl font-semibold tracking-tight text-lead-ink">
             Lead <b className="text-lead-brand italic">Console</b>

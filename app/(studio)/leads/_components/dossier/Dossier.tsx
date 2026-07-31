@@ -15,7 +15,9 @@ import {
   type QuestionKey,
   type VerdictState,
 } from "@/lib/leads/engine/types";
+import { safeUrl } from "@/lib/leads/engine/url";
 import { BORDER_L, TEXT } from "../verdict";
+import { Chevron } from "../Chevron";
 import { SafeLink } from "../SafeLink";
 import { EvidenceBody } from "./Evidence";
 
@@ -35,7 +37,9 @@ function Card({
   qKey?: QuestionKey;
 }) {
   return (
-    <details className={`border-t border-l-[3px] border-lead-line first:border-t-0 ${BORDER_L[state]}`}>
+    <details
+      className={`group border-t border-l-[3px] border-lead-line first:border-t-0 ${BORDER_L[state]}`}
+    >
       <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3 hover:bg-lead-panel">
         <span className="min-w-0 flex-1">
           {/* The KICKER is the descriptive title, small; the FINDING is the
@@ -56,7 +60,9 @@ function Card({
         <span className={`shrink-0 text-[13px] font-bold ${TEXT[state]}`}>
           {verdictWord(state, qKey)}
         </span>
-        <span className="shrink-0 font-mono text-[11px] text-lead-ink2">⌄</span>
+        {/* Native <details> owns its own open state, so the rotation comes off
+            the parent's [open] attribute rather than from React. */}
+        <Chevron className="text-lead-ink2 group-open:rotate-180" />
       </summary>
       <div className="px-3.5 pb-4">
         {children}
@@ -82,6 +88,21 @@ function placeOf(record: ChurchRecord): string {
   if (!city) return ` · ${region}`;
   if (!region || city.endsWith(region)) return ` · ${city}`;
   return ` · ${city}, ${region}`;
+}
+
+/**
+ * The bare host, for the primary button's label — `hillsonline.org`, not the
+ * full URL. Runs through `safeUrl` first so a hostile scheme cannot reach the
+ * URL parser, and falls back to nothing rather than to a guess.
+ */
+function hostOf(url: string | null | undefined): string {
+  const safe = safeUrl(url);
+  if (!safe) return "";
+  try {
+    return new URL(safe, window.location.origin).host.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
 }
 
 function Section({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
@@ -142,6 +163,30 @@ export function Dossier({
 
   const view = record ? churchFromRecord(record) : null;
   const brand = (record?.brand ?? {}) as Record<string, unknown>;
+  const siteUrl = safeUrl(record?.own_url);
+
+  /**
+   * `w` opens the church's site.
+   *
+   * Lives here rather than in LeadConsole's global handler because that handler
+   * has the org id but not the record, and re-fetching to answer a keypress
+   * would put a network round trip in front of the most frequent action in the
+   * product. Opening from a real keydown keeps it inside the user gesture, so no
+   * popup blocker sees it.
+   */
+  useEffect(() => {
+    if (!siteUrl) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "w" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      // The notes box is right here; typing "w" in it must type a w.
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(t?.tagName ?? "") || t?.isContentEditable) return;
+      e.preventDefault();
+      window.open(siteUrl, "_blank", "noopener,noreferrer");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [siteUrl]);
 
   // "The rest" scores over its five rows: good = 1, good2 = 1/2.
   const restScore = view
@@ -203,7 +248,12 @@ export function Dossier({
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-16">
+        {/* NO `pt-*` ON THE SCROLLPORT.
+            A sticky child is clamped to its containing block's padding box, so
+            top padding here would pin the Visit bar that many pixels low and
+            leave a band above it where the notes box scrolled through. The top
+            spacing belongs to the content instead. */}
+        <div className="flex-1 overflow-y-auto px-4 pb-16">
           {error && (
             <p className="py-8 text-center font-mono text-xs text-lead-ink2">
               This church&apos;s record could not be loaded.
@@ -214,7 +264,7 @@ export function Dossier({
               answer. A colour that appears before its data has arrived is a
               claim we did not verify. */}
           {!record && !error && (
-            <div className="space-y-3">
+            <div className="space-y-3 pt-4">
               {Array.from({ length: 6 }, (_, i) => (
                 <div key={i} className="h-14 animate-pulse rounded-lg bg-lead-panel" />
               ))}
@@ -226,7 +276,7 @@ export function Dossier({
               {/* ── brand header ──
                   It ALWAYS says something: a church we found nothing for must
                   look different from one we never looked at. */}
-              <div className="mb-4 flex items-center gap-3 border-b border-lead-line pb-3">
+              <div className="mb-4 flex items-center gap-3 border-b border-lead-line pt-4 pb-3">
                 <div className="min-w-0">
                   <div className="text-[15px] font-bold text-lead-ink">
                     {record.name || "(unnamed)"}
@@ -251,23 +301,50 @@ export function Dossier({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                {record.own_url && (
+              {/* ── the primary action ──
+                  This is the most-clicked control in the product: the reviewer's
+                  loop is read the dossier, open the church, judge it. Four things
+                  follow from that, and none is decoration.
+
+                  · It is FULL WIDTH and 40px tall. Fitts's law — the one target
+                    hit on every single church should be the cheapest to hit.
+                  · It STICKS to the top of the scroll body. The dossier is
+                    several screens long and the button used to scroll away
+                    exactly when a reader had finished deciding.
+                  · It NAMES THE DESTINATION. You are about to leave for a
+                    church-controlled site; seeing the host first is both the
+                    honest thing and how a reviewer catches a wrong record before
+                    burning a click.
+                  · It says it opens a new tab. "↗" alone is a guess. */}
+              <div className="sticky top-0 z-10 -mx-4 mt-3 border-b border-lead-line bg-lead-bg px-4 pt-1 pb-2.5">
+                {record.own_url ? (
                   <SafeLink
                     href={record.own_url}
-                    className="rounded-md bg-lead-brand px-3 py-1.5 text-[12.5px] font-semibold text-white"
+                    title="Open the church's website in a new tab (w)"
+                    className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-lead-brand px-3 text-[13.5px] font-semibold text-white transition-opacity hover:opacity-90"
                   >
-                    Visit website ↗
+                    Visit website
+                    <span className="font-mono text-[11px] font-normal opacity-75">
+                      {hostOf(record.own_url)} ↗
+                    </span>
                   </SafeLink>
+                ) : (
+                  // Never a dead-looking button: say WHY there is nothing to open.
+                  <p className="flex h-10 w-full items-center justify-center rounded-lg border border-dashed border-lead-line font-mono text-[11px] text-lead-ink2">
+                    no website URL on this record
+                  </p>
                 )}
-                {record.church_url && (
-                  <SafeLink
-                    href={record.church_url}
-                    className="font-mono text-[11px] text-lead-link hover:underline"
-                  >
-                    church center ↗
-                  </SafeLink>
-                )}
+                <div className="mt-1.5 flex items-baseline justify-between gap-3 font-mono text-[10.5px] text-lead-ink2">
+                  <span>opens in a new tab · press w</span>
+                  {record.church_url && (
+                    <SafeLink
+                      href={record.church_url}
+                      className="text-lead-link hover:underline"
+                    >
+                      church center ↗
+                    </SafeLink>
+                  )}
+                </div>
               </div>
 
               <textarea

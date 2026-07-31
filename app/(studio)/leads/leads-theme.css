@@ -127,6 +127,13 @@
    ══════════════════════════════════════════════════════════════════ */
 
 [data-lead-root] {
+  /* The sticky header's measured height. The rail and the deck stick BELOW it
+     and size themselves against it, so the header's band is never a space they
+     can occupy — which is what makes the overlap structurally impossible rather
+     than a z-index that has to keep winning. LeadConsole keeps this in sync with
+     a ResizeObserver; this value is the pre-measurement first paint. */
+  --lead-header-h: 64px;
+
   --lead-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --lead-serif: "Iowan Old Style", "Palatino Linotype", "Cambria", "Hoefler Text", Georgia, serif;
   --lead-mono: "Cascadia Code", "Cascadia Mono", ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
