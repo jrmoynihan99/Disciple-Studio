@@ -1,0 +1,115 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+/**
+ * Click the text, fix the text.
+ *
+ * It buffers locally while focused and commits ONCE on blur (or Enter, for a
+ * single line), rather than firing an operation per keystroke. The store would
+ * survive the latter — the ops are idempotent and fold to the same value — but
+ * twenty operations to change one word makes the "3 changes pending" counter
+ * meaningless, and that counter is how someone knows whether it is safe to close
+ * the tab.
+ *
+ * Escape restores the buffer and gives up focus, so an edit begun by accident
+ * costs nothing.
+ */
+export function EditableText({
+  value,
+  onCommit,
+  multiline,
+  placeholder,
+  className,
+  ariaLabel,
+  disabled,
+}: {
+  value: string;
+  onCommit: (next: string) => void;
+  multiline?: boolean;
+  placeholder?: string;
+  className?: string;
+  ariaLabel: string;
+  disabled?: boolean;
+}) {
+  /**
+   * The draft exists ONLY while editing, seeded from `value` at the moment the
+   * field opens. Keeping a mirrored copy the rest of the time would need an
+   * effect to re-sync it whenever the value changed underneath — from a revert,
+   * or from another tab — and that effect would eventually fire mid-edit and
+   * pull the text out from under the cursor.
+   */
+  const [draft, setDraft] = useState<string | null>(null);
+  const editing = draft !== null;
+  const ref = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing || !multiline) return;
+    const el = ref.current;
+    if (el instanceof HTMLTextAreaElement) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }, [editing, draft, multiline]);
+
+  const commit = () => {
+    const next = draft;
+    setDraft(null);
+    if (next !== null && next !== value) onCommit(next);
+  };
+  const cancel = () => setDraft(null);
+
+  const shared =
+    "w-full rounded-md border border-lead-brand bg-lead-bg px-2 py-1.5 text-inherit " +
+    "font-[inherit] leading-[inherit] text-lead-ink outline-none";
+
+  if (editing && !disabled) {
+    return multiline ? (
+      <textarea
+        ref={ref as React.RefObject<HTMLTextAreaElement>}
+        autoFocus
+        value={draft ?? ""}
+        aria-label={ariaLabel}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") cancel();
+        }}
+        className={`${shared} resize-none overflow-hidden ${className ?? ""}`}
+      />
+    ) : (
+      <input
+        ref={ref as React.RefObject<HTMLInputElement>}
+        autoFocus
+        value={draft ?? ""}
+        aria-label={ariaLabel}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          }
+          if (e.key === "Escape") cancel();
+        }}
+        className={`${shared} ${className ?? ""}`}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label={`Edit ${ariaLabel}`}
+      onClick={() => setDraft(value)}
+      // Dotted underline on hover, no permanent box: forty cards of outlined
+      // fields reads as a form to fill in rather than a proof sheet to check.
+      className={`w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-lead-panel2 ${
+        value ? "" : "text-lead-ink2 italic opacity-60"
+      } ${className ?? ""}`}
+    >
+      {value || placeholder || "—"}
+    </button>
+  );
+}

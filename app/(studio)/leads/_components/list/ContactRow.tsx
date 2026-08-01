@@ -69,7 +69,6 @@ function Line({
 }
 
 export function ContactRow({ row }: { row: IndexRow }) {
-  const site = safeUrl(row.u) || safeUrl(row.cu);
   const emails = (row.em ?? []).filter((c) => safeEmail(c.e));
 
   const socials = Object.entries(row.so ?? {}).filter(([, u]) => safeUrl(u));
@@ -77,16 +76,10 @@ export function ContactRow({ row }: { row: IndexRow }) {
 
   return (
     <div className="col-span-full mt-2 flex flex-col gap-1 border-t border-lead-line pt-2 font-mono text-[11px]">
-      <div>
-        {site ? (
-          <SafeLink href={site} className="font-bold text-lead-brand hover:underline" stopPropagation>
-            Visit website ↗
-          </SafeLink>
-        ) : (
-          <span className="text-lead-ink2">no website on file</span>
-        )}
-      </div>
-
+      {/* The website link used to lead this block. It moved up beside the
+          church's name (see VisitButton) — this strip is about WHO TO CONTACT,
+          which is the phase after you have decided, and mixing the two put the
+          most-used control in the least likely place to look for it. */}
       {emails.length > 0 ? (
         emails.map((c) => {
           const e = safeEmail(c.e);

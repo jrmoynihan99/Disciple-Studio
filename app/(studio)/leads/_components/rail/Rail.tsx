@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { ChurchView } from "@/lib/leads/engine/adapt";
+import type { ExportGroupSummary } from "@/lib/leads/engine/group-types";
 import type { EngineCtx, VerdictState } from "@/lib/leads/engine/types";
 import type { LeadFilters, MarkFilter } from "@/lib/leads/engine/filter";
 import { countryValues, networkValues, subdivValues } from "@/lib/leads/engine/filter";
@@ -17,6 +20,115 @@ const MARK_FILTERS: [MarkFilter, string][] = [
   ["issue", "Has Issue only"],
   ["exported", "Downloaded only"],
 ];
+
+/**
+ * ◎ is folded from the export log — "a mark you can set yourself stops being
+ * evidence" — and nothing writes that log yet. The control that used to write it
+ * was a stub that produced no file, so it was claiming a download that never
+ * happened; removing it is right, and saying so is the difference between
+ * dormant and rotten.
+ */
+const DORMANT =
+  "Dormant until the export ships. ◎ is folded from the export log, and nothing writes to it yet — it is never settable by hand.";
+
+/** The group menu, shared by the rail and (in spirit) the selection bar. */
+function GroupPicker({
+  label,
+  groups,
+  disabled,
+  busy,
+  onPick,
+  onCreate,
+}: {
+  label: string;
+  groups: ExportGroupSummary[];
+  disabled: boolean;
+  busy: boolean;
+  onPick: (groupId: string) => void;
+  onCreate: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState("");
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={box}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className="w-full rounded-md border border-lead-line bg-lead-bg px-2 py-1.5 font-mono text-[11px] text-lead-ink disabled:opacity-45"
+      >
+        {busy ? "Adding…" : `${label} ▾`}
+      </button>
+
+      {open && !disabled && (
+        <div className="absolute top-full right-0 left-0 z-30 mt-1 overflow-hidden rounded-lg border border-lead-line bg-lead-panel shadow-lg">
+          <div className="max-h-[200px] overflow-y-auto">
+            {groups.length === 0 && (
+              <p className="px-3 py-2 text-[11px] text-lead-ink2">No groups yet.</p>
+            )}
+            {groups.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onPick(g.id);
+                }}
+                className="flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-[11px] text-lead-ink hover:bg-lead-panel2"
+              >
+                <span className="min-w-0 flex-1 truncate">{g.name}</span>
+                <span className="shrink-0 font-mono text-[10px] text-lead-ink2">{g.count}</span>
+              </button>
+            ))}
+          </div>
+          <div className="border-t border-lead-line p-1.5">
+            {naming ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const n = name.trim();
+                  if (!n) return;
+                  setOpen(false);
+                  setNaming(false);
+                  setName("");
+                  onCreate(n);
+                }}
+              >
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Group name"
+                  className="w-full rounded-md border border-lead-line bg-lead-bg px-2 py-1 text-[11px] text-lead-ink"
+                />
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setNaming(true)}
+                className="w-full rounded-md border border-dashed border-lead-line py-1 font-mono text-[10px] text-lead-ink2 hover:border-lead-brand hover:text-lead-brand"
+              >
+                + New group
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Counter({ n, label, className }: { n: number; label: string; className: string }) {
   return (
@@ -67,8 +179,10 @@ export function Rail({
   filters,
   setFilters,
   state,
-  onExport,
-  onOpenHistory,
+  groups,
+  adding,
+  onAddGoodLeads,
+  onCreateGroupWithGoodLeads,
   onResetFilters,
   onRecolour,
   onFavorChange,
@@ -79,8 +193,10 @@ export function Rail({
   filters: LeadFilters;
   setFilters: (f: LeadFilters) => void;
   state: LeadState;
-  onExport: () => void;
-  onOpenHistory: () => void;
+  groups: ExportGroupSummary[];
+  adding: boolean;
+  onAddGoodLeads: (groupId: string) => void;
+  onCreateGroupWithGoodLeads: (name: string) => void;
   onResetFilters: () => void;
   /** A recolour is shared team config, not a filter — it goes to the state layer. */
   onRecolour: (q: string, answer: string, state: VerdictState | null) => void;
@@ -124,50 +240,68 @@ export function Rail({
           <Counter n={countMarked(state, "star")} label="Starred" className="text-lead-brand" />
           <Counter n={queue.length} label="Good leads" className="text-lead-good" />
           <Counter n={countMarked(state, "issue")} label="Issue" className="text-lead-bad" />
-          <Counter
-            n={Object.keys(state.lastExportedAt).length}
-            label="Downloaded"
-            className="text-lead-dl"
-          />
+          <div title={DORMANT} className="opacity-45">
+            <Counter
+              n={Object.keys(state.lastExportedAt).length}
+              label="Downloaded"
+              className="text-lead-dl"
+            />
+          </div>
         </div>
 
-        {MARK_FILTERS.map(([kind, label]) => (
-          <label
-            key={kind}
-            className="flex cursor-pointer items-center gap-2 py-0.5 text-xs text-lead-ink2"
-          >
-            <input
-              type="checkbox"
-              checked={filters.marks[kind]}
-              onChange={(e) => set({ marks: { ...filters.marks, [kind]: e.target.checked } })}
-            />
-            {label}
-          </label>
-        ))}
+        {MARK_FILTERS.map(([kind, label]) => {
+          // ◎ is fed by the export log, and no export writes one yet. Rather than
+          // leave a filter that silently matches nothing, say so: a dormant
+          // subsystem that looks live is how one rots unnoticed.
+          const dormant = kind === "exported";
+          return (
+            <label
+              key={kind}
+              title={dormant ? DORMANT : undefined}
+              className={`flex items-center gap-2 py-0.5 text-xs text-lead-ink2 ${
+                dormant ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+              }`}
+            >
+              <input
+                type="checkbox"
+                disabled={dormant}
+                checked={filters.marks[kind]}
+                onChange={(e) => set({ marks: { ...filters.marks, [kind]: e.target.checked } })}
+              />
+              {label}
+              {dormant && <span className="font-mono text-[9px]">· dormant</span>}
+            </label>
+          );
+        })}
 
-        <div className="mt-2.5 flex gap-1.5">
-          <button
-            type="button"
-            onClick={onExport}
-            disabled={queue.length === 0}
-            className="flex-1 rounded-md border border-lead-line bg-lead-bg px-2 py-1.5 font-mono text-[11px] text-lead-ink disabled:opacity-45"
+        {/* ── good leads → a group ──
+            This replaced "↓ Export good leads", which dispatched `export.commit`
+            and produced no file — it marked churches as downloaded when nothing
+            had been downloaded, which is exactly what ◎ is forbidden to do.
+            A group is where a batch goes now; the export happens from there,
+            after someone has read it. */}
+        <div className="mt-2.5">
+          <GroupPicker
+            label={`Add good leads to group (${queue.length})`}
+            groups={groups}
+            disabled={queue.length === 0 || adding}
+            busy={adding}
+            onPick={onAddGoodLeads}
+            onCreate={onCreateGroupWithGoodLeads}
+          />
+          <Link
+            href="/leads/groups"
+            className="mt-1.5 block rounded-md border border-lead-line bg-lead-bg px-2 py-1.5 text-center font-mono text-[11px] text-lead-ink"
           >
-            ↓ Export good leads ({queue.length})
-          </button>
-          <button
-            type="button"
-            onClick={onOpenHistory}
-            className="rounded-md border border-lead-line bg-lead-bg px-2 py-1.5 font-mono text-[11px] text-lead-ink"
-          >
-            History
-          </button>
+            Export groups ({groups.length})
+          </Link>
         </div>
 
         {/* Say WHY the button is disabled, rather than leaving a dead control. */}
         {queue.length === 0 && (
           <p className="mt-2 font-mono text-[10px] leading-relaxed text-lead-ink2">
-            Mark churches with ✆ to build an export batch. The export sends the
-            good-lead set, never the filtered view.
+            Mark churches with ✆ to build a batch, or tick rows and use the bar at
+            the bottom. A group sends what you put in it, never the filtered view.
           </p>
         )}
       </div>

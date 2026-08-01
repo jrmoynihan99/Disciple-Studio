@@ -38,7 +38,7 @@ every church.
 > **The index must carry every field the COLOUR ENGINE, the FILTERS, the SORTS
 > and the FAVOR SCORE consume — not merely the fields a row displays.**
 
-This is the one that gets missed, and it has been missed three times already
+This is the one that gets missed, and it has been missed four times already
 (§5). The failure is silent and asymmetric: a field the row displays is obviously
 missing when it is missing. A field only the *colour* depends on just makes the
 church paint grey — which the interface legitimately uses to mean "we never
@@ -63,8 +63,8 @@ Short keys, because every user downloads this on cold load. `a` = answer.
 
 | question | required | why the extra fields are needed |
 |---|---|---|
-| **q1** Pathway | `a` | fully table-driven |
-| **q2** Staff | `a`, `c`, `fl`, **`uc`** | the colour bands on the count; `fl` renders `12+`, `uc` renders `12?` — see §5.3 |
+| **q1** Pathway | `a` | fully table-driven. The ORDERED pathway goes on the record only — see §3.1 |
+| **q2** Staff | `a`, `c`, **`sc`** | the colour bands on the count; `sc` is the claim's strength and renders `12` / `12+` / `12+?` — see §5.3 |
 | **q3** Steps | *(omit entirely)* | **retired.** Stays in the full record; costs 53 B/church in the index for nothing — see §7 |
 | **q4** Groups | `a`, **`cell`** | the colour comes from `cell`, never from the answer |
 | **q5** Login | `a` | fully table-driven |
@@ -79,6 +79,54 @@ Short keys, because every user downloads this on cold load. `a` = answer.
 **Never emit a colour the engine could compute differently.** If a record names
 its own `cell`, that always wins over any inference — so the index must carry it
 or the two views diverge by construction.
+
+### 3.1 · The ordered discipleship pathway — RECORD ONLY
+
+A church's own named, ordered track ("Growth Track: Step 1 Baptism … Step 7
+Leadership") now exists in the demo-side export as `discipleship_pathway_*`. It
+does not reach the console at all, in either view.
+
+**Put it on the full record. Do NOT put it in the index.** 4 of 100 churches have
+one, so ~96% of rows would carry an empty array, and the index is the one file
+every user downloads on cold load. It is dossier content by nature: nothing
+filters, sorts, facets or scores on it.
+
+Emit it under `q1`, spelled exactly as the demo export already spells it, so a
+third wording of the same fact never comes into existence:
+
+```jsonc
+"q1": {
+  "answer": "yes",
+  "pathway_name": "LIFE Track",              // verbatim; "" when unnamed
+  "pathway_source_url": "https://…/new-here",
+  "pathway_order_basis": "explicit_sequenced",
+  "pathway_steps": [
+    {
+      "ordinal": 1,                          // 1-based, dense, no gaps
+      "label": "Visit LifeGate",             // VERBATIM
+      "blurb": "",
+      "category": "connect",                 // one of the 8, or null
+      "category_raw": "visit",               // the richer upstream word
+      "source_url": "https://…/new-here",
+      "quote": "Visit LifeGate",
+      "verified": "exact",
+      "label_verified": "exact"
+    }
+  ]
+}
+```
+
+**`pathway_order_basis` is the field that makes this renderable.** Four values —
+`explicit_numbered`, `explicit_sequenced`, `page_order`, or absent. Only the first
+two license printing "Step 1 → Step 4"; `page_order` means we know the DOM order
+and nothing about sequence, and the console will render it as an unnumbered list.
+
+**`label_verified` proves the label is ON the page, never that it is the step's
+NAME.** Page furniture verifies `exact` too — six footer and header blocks did,
+in a shipped build, under a pathway titled "LIFE Track". Keep the upstream
+furniture guard; do not treat this field as sufficient.
+
+---
 
 ## 4 · Required top-level fields
 
@@ -109,10 +157,13 @@ even when it is false.
 
 ---
 
-## 5 · Three confirmed gaps in the current publish
+## 5 · Confirmed gaps in the current publish (and two that are not gaps)
 
-All three found by folding the shipped fixture through the real engine and
-diffing against `golden-colors.json`.
+§5.1–5.3 were found by folding the shipped fixture through the real engine and
+diffing against `golden-colors.json`. §5.5 was found by trying to render a field
+the row needs and discovering the index does not carry it — a reminder that the
+rule in §2 catches the colour-engine cases and a *display* field can still go
+missing quietly.
 
 ### 5.1 · q6 carries no verdict — 101 of 1,340 cells wrong
 
@@ -159,26 +210,45 @@ subdivision is expected, which put "USA" in the state dropdown until the console
 guarded against it. If there is no subdivision, omit it rather than falling back
 to the country.
 
-### 5.3 · There is nowhere to put an uncited staff count
+### 5.3 · The staff count's strength needs one field, not two booleans
+
+*(Rewritten. An earlier version of this section asked for `uc: true` beside `fl`.
+That ask was wrong, in exactly the way described below — two booleans for one
+fact. Ignore it; `sc` supersedes it.)*
 
 A paid-staff count has **three strengths**, and they must not look alike:
 
 ```
-27    cited      titles verified verbatim on the staff page
-12+   floor      the page does not enumerate everyone; the real number is ≥ 12
-12?   uncited    we counted rows; no title was verified
+27     exact          titles verified verbatim on the staff page
+12+    floor          some titles were not found; the real number is ≥ 12
+12+?   floor_uncited  every title WAS found, but the page lists more people than
+                      distinct titles (two "Pastor" rows are one title). The
+                      citations prove the ROLES, never the HEADCOUNT.
 ```
 
-The index schema has `fl` for the floor and **nothing for uncited**. So an
-uncited estimate publishes as a bare `12` — a number that reads as a
-measurement.
+The index schema has `fl` for the floor and nothing else, so both of the other
+two publish as a bare `12` — a number that reads as a measurement.
 
-No church in the fixture has `count_is_uncited`, so this is **untested, not
-proven safe**; the synthetic record `zz_staff_uncited` exists precisely because
-the state is real and this batch does not contain one.
+**Fix: emit a single `sc` enum**, `"exact" | "floor" | "floor_uncited"`.
 
-**Fix:** emit `uc: true` alongside `fl`. This is the same failure class the whole
-dataset is built against — an uncertain thing rendered as a certain one.
+**Not two booleans.** `floor_uncited` IS a floor, so a `fl` + `uc` pair fires
+both flags on the same church, and every renderer downstream must then choose one
+— floor wins under any sane ladder, and the second flag becomes unobservable.
+That is not hypothetical: the demo-side pipeline shipped exactly that pair, all
+12 of its `uncited` churches also carried `floor`, and the `12?` form rendered for
+nobody. It has since collapsed them into `paid_staff_claim` with these three
+values. `sc` is the same field under the index's short-key convention, so the two
+artifacts cannot disagree.
+
+The console honours `sc` first and falls back to `fl`/`uc` so a pre-enum publish
+keeps rendering. One case is deliberately **not** folded: `uc` alone, without
+`fl`, is the older and *weaker* claim — rows counted, no title verified at all —
+and it renders `12?`. Do not emit it for a floor; it means something else.
+
+No church in the shipped fixture carries any uncited flag, so all of this is
+**untested by real data, not proven safe**. The synthetic record
+`zz_staff_uncited` exists precisely because the state is real and this batch does
+not contain one.
 
 ### 5.4 · Not a gap: 3 of 134 churches have no name
 
@@ -195,6 +265,72 @@ in our data into an invisible church.
 The validator reports the count rather than failing, and fails only if it exceeds
 10% of the corpus — at which point it is a pipeline regression rather than the
 usual handful.
+
+### 5.5 · The slogan is dropped — 51 of 134 churches
+
+The record carries `brand.slogan` (51 of 134), `brand.slogan_scope` and
+`brand.slogan_confidence`. **The index carries none of them.**
+
+The list row shows the slogan under the church name — it is how a reviewer
+recognises a church at a glance, and it is the one line of the church's own voice
+in a screen full of verdicts. Rendered from the index alone, all 134 rows would
+read "no slogan found", which is a **false negative about 51 real churches**.
+
+Add two fields:
+
+```jsonc
+"sl": "Love God, Love People",   // brand.slogan, verbatim, "" when none
+"ss": "homepage_only"            // brand.slogan_scope, "" when the search was complete
+```
+
+**Both, not just `sl`.** There are three states and the text alone distinguishes
+only two:
+
+| `sl` | `ss` | means |
+|---|---|---|
+| set | — | the slogan |
+| `""` | `homepage_only` | only the homepage was read — **absence is not evidence of absence**, /about is where a slogan usually lives |
+| `""` | `""` | we looked properly and there is none |
+
+Collapsing the middle row into "no slogan found" asserts something the pipeline
+never checked. In the current fixture **every one of the 83 churches without a
+slogan is `homepage_only`** — the console can never honestly say "none found"
+about this corpus, and it does not.
+
+`slogan_confidence` is deliberately NOT requested: the row does not vary on it,
+and a field nothing consumes is a field that silently rots.
+
+Until a publish carries these, `lib/leads/server/fixture.ts` backfills them by
+reading the records. That is a **dev-source shim, not the contract** — it reads
+134 files per process, which is fine on local disk and is exactly what does not
+work at 14,400.
+
+### 5.6 · Not gaps: two states that are permanent by decision
+
+Recorded here because both LOOK like backlog, and a future pass that "fills them
+in" would be inventing data.
+
+**`q5: custom_candidate` is terminal.** The step that would confirm a login
+candidate renders the page, and that is not being run — the proxy bills per
+megabyte and it is ~1,070 churches at full scale. It will never become
+`custom_confirmed`.
+
+22 of 134 churches (16%) sit here. The console keeps painting them `unver` with
+the hatch, because "we have a signal we cannot stand behind" is still exactly
+true — but the wording no longer says *"needs a check"*, since that asked a
+salesperson for work nobody will do, on one church in six. Do not re-add a
+"pending verification" flavour to this answer.
+
+**`q10: unknown` is an abstention, not a missing measurement.** Only ~2,000 of
+15,275 churches publish a locations page at all. Where there is none, the pipeline
+abstains rather than inferring single-site — confirmed as deliberate.
+
+The consequence downstream is worth stating: q10 is grey for **80% of the
+fixture**, so *The rest — lighter-touch signals* has **no church scoring 5/5**;
+the observed maximum is 4.5. That is correct. An unmeasured signal must score
+zero, and a per-church denominator would make two churches' scores incomparable,
+which is worse than an unreachable ceiling. **Do not make the denominator
+dynamic, and do not backfill `single_site`.**
 
 ---
 

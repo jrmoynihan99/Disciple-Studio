@@ -32,6 +32,28 @@ export function shortUrl(u: unknown): string {
 }
 
 /**
+ * The bare host — `hillsonline.org`, not the full URL.
+ *
+ * Used as the LABEL of every "visit this church" control, in the list and in the
+ * dossier both, so a reviewer always sees where the click goes before taking it.
+ * One implementation, because two controls that mean the same thing and print
+ * the host differently is how a reviewer stops trusting either.
+ *
+ * Runs through `safeUrl` first, so a hostile scheme never reaches the parser.
+ * Returns "" for the relative and anchor forms `safeUrl` also allows — they have
+ * no host, and inventing one would be a claim about a church we cannot support.
+ */
+export function hostOf(u: unknown): string {
+  const safe = safeUrl(u);
+  if (!/^https?:/i.test(safe)) return "";
+  try {
+    return new URL(safe).host.replace(/^www\./i, "");
+  } catch {
+    return "";
+  }
+}
+
+/**
  * The same shape check `qa.clean_email()` applies upstream.
  *
  * The roster model once stored a link's TEXT ("Email Bianca Bellido") as an

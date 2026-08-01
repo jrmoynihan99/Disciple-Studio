@@ -18,6 +18,38 @@ export function isVerdictState(v: unknown): v is VerdictState {
   return typeof v === "string" && (VALID_STATES as readonly string[]).includes(v);
 }
 
+/**
+ * The strengths a paid-staff count can claim. See `staff.ts` for what each
+ * renders as.
+ *
+ * THE PUBLISH CONTRACT EMITS THE FIRST THREE. `uncited` is reachable only from a
+ * pre-enum publish that set `count_is_uncited` WITHOUT `count_is_floor`, and it
+ * means something the new enum has no slot for: we counted rows and verified no
+ * title at all. That is a WEAKER claim than `floor` — folding it into
+ * `floor_uncited` would assert "at least this many", which nobody told us.
+ *
+ * Zero churches in the 134-church fixture carry it, and the ten synthetic
+ * edge-case records are the only place it is exercised. That is exactly why it
+ * has to keep its own value: an untested branch that silently upgrades a claim
+ * is how a weaker fact becomes a stronger one.
+ */
+export type StaffClaim = "exact" | "floor" | "floor_uncited" | "uncited";
+
+const STAFF_CLAIMS: readonly string[] = ["exact", "floor", "floor_uncited", "uncited"];
+
+/**
+ * Lives here rather than in `staff.ts` so `adapt.ts` can narrow the index's
+ * `sc` without importing the staff module, which would close an import cycle
+ * (staff -> types, colour -> staff, favor -> colour).
+ *
+ * An unrecognised value falls through to the legacy booleans rather than being
+ * coerced — a publish inventing a fourth claim must not silently render as an
+ * exact count.
+ */
+export function isStaffClaim(v: unknown): v is StaffClaim {
+  return typeof v === "string" && STAFF_CLAIMS.includes(v);
+}
+
 /* ----------------------------------------------------------------- questions */
 
 /** Every question the pipeline produces, including the retired ones. */
@@ -93,9 +125,20 @@ export interface SubSignal {
 export interface QuestionView {
   answer?: string | null;
   count?: number | null;
-  /** true → render `12+`. We proved 12 roles verbatim and could not prove the total. */
+  /**
+   * The strength of the count, as ONE value. `staffClaim()` resolves it, and
+   * `staffText()` is the only thing that renders it.
+   *
+   *   exact          titles verified verbatim; this is the number
+   *   floor          some titles were not found → `12+`
+   *   floor_uncited  every title WAS found, but the page lists more people than
+   *                  distinct titles → `12+?`. The citations prove the ROLES.
+   *   uncited        LEGACY — rows counted, no title verified → `12?`
+   */
+  count_claim?: StaffClaim;
+  /** LEGACY, kept so a pre-enum publish still renders. See `staffClaim()`. */
   count_is_floor?: boolean;
-  /** true → render `12?`. We counted rows; no title was verified. */
+  /** LEGACY. Never fired alone in any publish — it is a sub-case of the floor. */
   count_is_uncited?: boolean;
   /** The record naming its own colour. ALWAYS wins over an inference. */
   cell?: VerdictState | null;
@@ -202,7 +245,12 @@ export interface IndexContact {
 export interface IndexQuestion {
   /** answer */ a?: string;
   /** count — q2 paid staff · q9 services · q10 campuses */ c?: number;
-  /** count_is_floor */ fl?: boolean;
+  /**
+   * staff claim — `exact` | `floor` | `floor_uncited`. Supersedes `fl`; see
+   * `INDEX-CONTRACT.md` §5.3. A publish carrying both: `sc` wins.
+   */
+  sc?: string;
+  /** LEGACY count_is_floor. Read only when `sc` is absent. */ fl?: boolean;
   /** q3 steps_state */ ss?: string;
   /** q3 conv_state */ cs?: string;
   /** q3 steps_n */ sn?: number;
@@ -241,6 +289,24 @@ export interface IndexRow {
    * `platformLineFromIndex` for the one case this affects.
    */
   ap?: boolean;
+
+  /**
+   * The church's slogan, verbatim, and the SCOPE of the search that looked for
+   * it. Both are needed, because the row has to distinguish three states and the
+   * text alone only distinguishes two:
+   *
+   *   sl set            → the slogan
+   *   sl "", ss set     → "no slogan on the homepage" — INNER PAGES WERE NEVER
+   *                       READ, so absence here is not evidence of absence
+   *   sl "", ss ""      → we looked and found none
+   *
+   * NOT IN THE SHIPPED FIXTURE INDEX — 51 of 134 records carry `brand.slogan`
+   * and the index drops all of them. `fixture.ts` backfills it from the records
+   * so the console is honest today; a real publish must emit it. See
+   * `INDEX-CONTRACT.md` §5.5.
+   */
+  /** slogan */ sl?: string;
+  /** slogan_scope, e.g. "homepage_only" */ ss?: string;
 
   q1?: IndexQuestion;
   q2?: IndexQuestion;

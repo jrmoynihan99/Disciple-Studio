@@ -19,7 +19,7 @@ import { colorState } from "../color.ts";
 import { favorCount, favorScore, referenceFavorModel } from "../favor.ts";
 import { staffText } from "../staff.ts";
 import { stepsDisplayCount } from "../steps.ts";
-import { safeUrl } from "../url.ts";
+import { hostOf, safeUrl } from "../url.ts";
 import type { EngineCtx } from "../types.ts";
 import { HAVE_FIXTURE, loadEdgeCases } from "./fixture.mts";
 
@@ -72,6 +72,30 @@ describe("edge cases", { skip: !HAVE_FIXTURE && "fixture not present" }, () => {
       undefined,
     ]) {
       assert.equal(safeUrl(bad), "", `${String(bad)} should be refused`);
+    }
+  });
+
+  /**
+   * `hostOf` labels every "visit this church" control, so it is fed the same
+   * church-controlled URLs as `safeUrl` — and it additionally hands them to the
+   * URL parser. It must refuse before parsing, and never throw.
+   */
+  test("hostOf prints a host, or nothing — and never invents one", () => {
+    assert.equal(hostOf("https://www.hillsonline.org/staff"), "hillsonline.org");
+    assert.equal(hostOf("http://gracespringchurch.org"), "gracespringchurch.org");
+    assert.equal(hostOf("https://sub.trbc.org:8443/x?y=1#z"), "sub.trbc.org:8443");
+    for (const none of [
+      "javascript:alert(1)",
+      "data:text/html,<script>",
+      "mailto:info@example.org", // safeUrl allows it; it is not a website
+      "/relative", //  no host to state
+      "#anchor",
+      "not a url",
+      "",
+      null,
+      undefined,
+    ]) {
+      assert.equal(hostOf(none), "", `${String(none)} has no host to print`);
     }
   });
 

@@ -15,10 +15,13 @@ import {
   rowTint,
   type MarkKind,
 } from "@/lib/leads/client/state";
+import { useGroupList } from "@/lib/leads/client/useGroups";
 import { Rail } from "./rail/Rail";
 import { Deck } from "./deck/Deck";
 import { LeadRow } from "./list/LeadRow";
+import { SelectionBar } from "./list/SelectionBar";
 import { Dossier } from "./dossier/Dossier";
+import { SlideOver } from "./SlideOver";
 import { useTheme } from "@/lib/leads/client/theme";
 
 const PAGE = 60;
@@ -33,6 +36,23 @@ export function LeadConsole() {
   const [openId, setOpenId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const headerRef = useRef<HTMLElement>(null);
+
+  /**
+   * Selection is EPHEMERAL — component state, never the reducer.
+   *
+   * A mark is a judgement about a church that outlives the session and is worth
+   * persisting. "These fourteen, right now, into that group" is not; it is
+   * consumed the moment it is used, and storing it would leave a stale selection
+   * waiting on the next visit.
+   */
+  const groupList = useGroupList();
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  const [adding, setAdding] = useState(false);
+  const [addResult, setAddResult] = useState<{
+    added: number;
+    skipped: { id: string; reason: string }[];
+  } | null>(null);
+  const anchorRef = useRef<string | null>(null);
 
   /**
    * Publish the header's height as `--lead-header-h`.
@@ -139,7 +159,17 @@ export function LeadConsole() {
         searchRef.current?.focus();
         return;
       }
-      if (e.key === "Escape") return setOpenId(null);
+      if (e.key === "Escape") {
+        // Selection first, dossier second. Esc means "undo the thing I most
+        // recently got into", and a selection you cannot see behind an open
+        // panel is the more surprising one to leave behind.
+        if (selected.size) {
+          setSelected(new Set());
+          anchorRef.current = null;
+          return;
+        }
+        return setOpenId(null);
+      }
 
       if (openId) {
         if (e.key === "j" || e.key === "ArrowDown") return step(1);
@@ -151,7 +181,7 @@ export function LeadConsole() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openId, step, visible, mutate]);
+  }, [openId, step, visible, mutate, selected]);
 
   const onRecolour = useCallback(
     (q: string, answer: string, st: VerdictState | null) =>
@@ -159,14 +189,59 @@ export function LeadConsole() {
     [mutate],
   );
 
-  const onExport = useCallback(() => {
-    const ids = pendingIds(state);
-    if (!ids.length) return;
-    // M7 replaces this with a server-built ZIP. The ordering contract is already
-    // right: nothing is cleared until the export succeeds, and the marks are
-    // never deleted — a newer mark simply beats the last export timestamp.
-    mutate({ type: "export.commit", ids, at: Date.now() });
-  }, [state, mutate]);
+  /**
+   * Shift extends from the last click over the CURRENTLY VISIBLE list, the way a
+   * file manager does — so "filter to Charlotte, click the first, shift-click the
+   * last" selects exactly what is on screen and nothing that is filtered out.
+   */
+  const onToggleSelect = useCallback(
+    (id: string, shift: boolean) => {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        const anchor = anchorRef.current;
+        if (shift && anchor) {
+          const shown = visible.slice(0, limit).map((v) => v.id);
+          const a = shown.indexOf(anchor);
+          const b = shown.indexOf(id);
+          if (a >= 0 && b >= 0) {
+            for (const s of shown.slice(Math.min(a, b), Math.max(a, b) + 1)) next.add(s);
+            return next;
+          }
+        }
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        anchorRef.current = id;
+        return next;
+      });
+    },
+    [visible, limit],
+  );
+
+  const addToGroup = useCallback(
+    async (groupId: string, ids: string[]) => {
+      if (!ids.length) return;
+      setAdding(true);
+      const out = await groupList.addChurches(groupId, ids);
+      setAdding(false);
+      if (!out) return;
+      // Reported, always. A church that quietly fails to arrive is the same class
+      // of error as asserting absence: you would build a batch of forty, get
+      // thirty-seven, and have no way to find out which three.
+      setAddResult({ added: out.added.length, skipped: out.skipped });
+      setSelected(new Set());
+      anchorRef.current = null;
+    },
+    [groupList],
+  );
+
+  /** Create, then immediately fill it with whatever is selected. */
+  const createWith = useCallback(
+    async (name: string, ids: string[]) => {
+      const id = await groupList.create(name);
+      if (id) await addToGroup(id, ids);
+    },
+    [groupList, addToGroup],
+  );
 
   if (error) {
     return (
@@ -238,8 +313,10 @@ export function LeadConsole() {
           filters={filters}
           setFilters={setFilters}
           state={state}
-          onExport={onExport}
-          onOpenHistory={() => {}}
+          groups={groupList.groups}
+          adding={adding}
+          onAddGoodLeads={(groupId) => void addToGroup(groupId, pendingIds(state))}
+          onCreateGroupWithGoodLeads={(name) => void createWith(name, pendingIds(state))}
           onResetFilters={() => setFilters(defaultFilters())}
           onRecolour={onRecolour}
           onFavorChange={(favor) => mutate({ type: "config.favor.set", favor })}
@@ -285,10 +362,12 @@ export function LeadConsole() {
                       goodlead: isPending(state, v.id),
                       downloaded: isDownloaded(state, v.id),
                     }}
+                    selected={selected.has(v.id)}
                     onOpen={setOpenId}
                     onToggleMark={(kind: MarkKind, id) =>
                       mutate({ type: "mark.toggle", kind, orgId: id })
                     }
+                    onToggleSelect={onToggleSelect}
                   />
                 );
               })}
@@ -310,23 +389,44 @@ export function LeadConsole() {
         </main>
       </div>
 
+      <SelectionBar
+        count={selected.size}
+        groups={groupList.groups}
+        busy={adding}
+        result={addResult}
+        onAdd={(groupId) => void addToGroup(groupId, [...selected])}
+        onCreate={(name) => void createWith(name, [...selected])}
+        onClear={() => {
+          setSelected(new Set());
+          anchorRef.current = null;
+        }}
+        onDismissResult={() => setAddResult(null)}
+      />
+
       {openId && (
-        <Dossier
-          // Remount per church rather than resetting state inside the fetch
-          // effect — otherwise the previous church's evidence paints for one
-          // frame under the new church's name.
-          key={openId}
-          orgId={openId}
-          ctx={ctx}
-          position={openIndex + 1}
-          total={visible.length}
-          starred={isMarked(state, "star", openId)}
-          note={state.notes[openId] ?? ""}
-          onNote={(text) => mutate({ type: "note.set", orgId: openId, text })}
-          onStar={() => mutate({ type: "mark.toggle", kind: "star", orgId: openId })}
-          onStep={step}
-          onClose={() => setOpenId(null)}
-        />
+        // SlideOver is deliberately UNKEYED and Dossier is keyed. React keeps
+        // this element mounted for as long as anything is open, so the panel
+        // slides in once; only the child inside is torn down when j/k steps to
+        // another church. Keying the outer element would replay the entrance on
+        // every keypress while walking a list.
+        <SlideOver label="church dossier" onClose={() => setOpenId(null)}>
+          <Dossier
+            // Remount per church rather than resetting state inside the fetch
+            // effect — otherwise the previous church's evidence paints for one
+            // frame under the new church's name.
+            key={openId}
+            orgId={openId}
+            ctx={ctx}
+            position={openIndex + 1}
+            total={visible.length}
+            starred={isMarked(state, "star", openId)}
+            note={state.notes[openId] ?? ""}
+            onNote={(text) => mutate({ type: "note.set", orgId: openId, text })}
+            onStar={() => mutate({ type: "mark.toggle", kind: "star", orgId: openId })}
+            onStep={step}
+            onClose={() => setOpenId(null)}
+          />
+        </SlideOver>
       )}
     </>
   );

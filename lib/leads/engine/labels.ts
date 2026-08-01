@@ -27,11 +27,74 @@ const ANSWER_LABEL = VOCAB.ANSWER_LABEL as Record<string, Record<string, string>
  */
 const ANSWER_LABEL_PATCH: Record<string, Record<string, string>> = {
   q1: { implicit_uncited: "Topics named, no quotable pathway" },
+
+  /**
+   * THE SECOND REPAIR — `q5: custom_candidate`, 22 of 134 churches (16%).
+   *
+   * It read "Possible custom login (needs check)". The pipeline has since
+   * confirmed that the confirming step WAS RETIRED: pages are not rendered to
+   * resolve a login candidate, now or at full scale, because the proxy bills per
+   * megabyte and it would be ~1,070 churches. `custom_candidate` is terminal and
+   * will never become `custom_confirmed`.
+   *
+   * So "(needs check)" asked a salesperson for work nobody will ever do, on one
+   * church in six. The fact did not change — we still cannot stand behind the
+   * signal, which is why the state stays `unver` and keeps its hatch. What
+   * changed is that the uncertainty is now permanent, and the label has to say
+   * the permanent thing.
+   */
+  q5: { custom_candidate: "Possible custom login — unconfirmable" },
 };
 
 /** Plain English for a raw answer enum. Anything unmapped falls back to the value. */
 export function answerLabel(k: QuestionKey | string, v: string): string {
   return ANSWER_LABEL_PATCH[k]?.[v] ?? ANSWER_LABEL[k]?.[v] ?? v;
+}
+
+/**
+ * The per-church `label` a record carries, made safe to render.
+ *
+ * THE SECOND REPAIR. 28 of 134 q1 labels end "… See Q3 for details." — the
+ * pipeline's own cross-reference, written when q3 was a rendered question. It
+ * breaks two rules at once now:
+ *
+ *  · No "Q1".."Q10" string may appear anywhere in the UI. That rule exists
+ *    because the same question once read as "Q11" in the grid and "Q5" in the
+ *    dossier, colliding with the real q5. This label is a literal question
+ *    number shown to a salesperson.
+ *  · q3 is RETIRED. It renders nowhere, so the pointer leads to a question the
+ *    reader cannot find — worse than no pointer at all.
+ *
+ * The sentence is dropped, not rewritten. Everything before it is the
+ * pipeline's own finding and is left untouched; inventing a replacement clause
+ * would be putting words about a real church into its record.
+ */
+const DANGLING_XREF = /\s*See\s+Q\d+\s+for\s+details\.?\s*$/i;
+
+/**
+ * THE THIRD REPAIR — a retired instruction, 22 of 134.
+ *
+ * Every `q5: custom_candidate` record labels itself
+ * "Possible custom login — needs a render check". The render check is not run,
+ * now or at full scale: it costs a page render per church and it would be ~1,070
+ * of them. The state is terminal.
+ *
+ * The trailing clause is dropped and the finding kept, because "Possible custom
+ * login" is the whole fact — the clause was only ever describing how the
+ * uncertainty *would* be resolved, and that route is closed.
+ *
+ * Not folded into `ANSWER_LABEL_PATCH`: that table is the fallback for when a
+ * record has no label of its own, and these records all have one. A per-church
+ * label wins over the table, so a repair aimed at the table would have silently
+ * done nothing here — which is exactly what happened on the first attempt.
+ */
+const RETIRED_INSTRUCTION = /\s*[—–-]\s*needs? (?:a )?(?:render )?check.*$/i;
+
+export function recordLabel(label: unknown): string {
+  return String(label ?? "")
+    .replace(DANGLING_XREF, "")
+    .replace(RETIRED_INSTRUCTION, "")
+    .trim();
 }
 
 /** Is this answer's wording a real label, or are we echoing the machine value? */
@@ -67,9 +130,27 @@ export const VERDICT_WORD: Record<VerdictState, string> = {
  * already have it". Calling a mid-size miss "Bad fit" would read as an error,
  * and red is reserved for the issue flag.
  */
+/**
+ * Per-question overrides for the verdict word.
+ *
+ * `q5.unver` is the reason this table cannot be collapsed into `VERDICT_WORD`.
+ * Both q1 and q5 reach `unver`, and the state means the same thing in both —
+ * "we have a signal we cannot stand behind" — but the READER'S NEXT MOVE is
+ * opposite:
+ *
+ *   q1 `unverified`      the model claimed text that is not on the page. Opening
+ *                        the page RESOLVES it. "Needs a check" is an instruction.
+ *   q5 `custom_candidate` the confirming step was retired upstream. Opening the
+ *                        page resolves NOTHING we will ever record. It is a
+ *                        permanent state, and telling someone to check it wastes
+ *                        their time on one church in six.
+ *
+ * A shared word cannot say both. Do not "simplify" this away.
+ */
 export const VERDICT_WORD_BY_Q: Partial<Record<QuestionKey, Partial<Record<VerdictState, string>>>> =
   {
     q2: { warn: "Not a good fit" },
+    q5: { unver: "Can't confirm" },
   };
 
 export function verdictWord(state: VerdictState, k?: QuestionKey): string {

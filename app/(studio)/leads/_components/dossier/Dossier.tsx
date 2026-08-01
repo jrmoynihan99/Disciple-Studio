@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { churchFromRecord } from "@/lib/leads/engine/adapt";
 import { colorState } from "@/lib/leads/engine/color";
 import { favFmt } from "@/lib/leads/engine/favor";
-import { answerLabel, QTITLE, verdictWord } from "@/lib/leads/engine/labels";
-import { staffText } from "@/lib/leads/engine/staff";
+import { answerLabel, QTITLE, recordLabel, verdictWord } from "@/lib/leads/engine/labels";
+import { staffPhrase } from "@/lib/leads/engine/staff";
 import { stepsSummaryState } from "@/lib/leads/engine/steps";
 import {
   APP_WEB_KEYS,
@@ -15,11 +15,14 @@ import {
   type QuestionKey,
   type VerdictState,
 } from "@/lib/leads/engine/types";
-import { safeUrl } from "@/lib/leads/engine/url";
+import { hostOf, safeUrl } from "@/lib/leads/engine/url";
+import { decodeEntities } from "@/lib/leads/engine/text";
 import { BORDER_L, TEXT } from "../verdict";
 import { Chevron } from "../Chevron";
 import { SafeLink } from "../SafeLink";
 import { EvidenceBody } from "./Evidence";
+import { ProfileBlock } from "./ProfileBlock";
+import { ContactBlock } from "./ContactBlock";
 
 function Card({
   kicker,
@@ -88,21 +91,6 @@ function placeOf(record: ChurchRecord): string {
   if (!city) return ` · ${region}`;
   if (!region || city.endsWith(region)) return ` · ${city}`;
   return ` · ${city}, ${region}`;
-}
-
-/**
- * The bare host, for the primary button's label — `hillsonline.org`, not the
- * full URL. Runs through `safeUrl` first so a hostile scheme cannot reach the
- * URL parser, and falls back to nothing rather than to a guess.
- */
-function hostOf(url: string | null | undefined): string {
-  const safe = safeUrl(url);
-  if (!safe) return "";
-  try {
-    return new URL(safe, window.location.origin).host.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
 }
 
 function Section({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
@@ -198,256 +186,253 @@ export function Dossier({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <aside
-        aria-label="church dossier"
-        className="fixed top-0 right-0 z-50 flex h-screen w-[480px] max-w-[94vw] flex-col border-l border-lead-line bg-lead-bg shadow-2xl"
-      >
-        <header className="flex items-center gap-2 border-b border-lead-line px-4 py-3.5">
-          <button
-            type="button"
-            onClick={() => onStep(-1)}
-            title="previous (k / ↑)"
-            className="size-[30px] rounded-md border border-lead-line bg-lead-panel font-mono text-sm text-lead-ink2 hover:text-lead-ink"
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            onClick={() => onStep(1)}
-            title="next (j / ↓)"
-            className="size-[30px] rounded-md border border-lead-line bg-lead-panel font-mono text-sm text-lead-ink2 hover:text-lead-ink"
-          >
-            ↓
-          </button>
-          <div className="min-w-0 flex-1">
-            <span className="block truncate font-serif text-[19px] font-semibold text-lead-ink">
-              {record?.name || (record ? "(unnamed)" : "…")}
-            </span>
-            <span className="font-mono text-[11px] text-lead-ink2">
-              {position} of {total}
-              {record ? placeOf(record) : ""}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={onStar}
-            title="star (s)"
-            aria-pressed={starred}
-            className={`text-[22px] leading-none ${starred ? "text-lead-warn" : "text-lead-line"}`}
-          >
-            ★
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            title="close (Esc)"
-            className="size-[30px] rounded-md border border-lead-line bg-lead-panel font-mono text-sm text-lead-ink2 hover:text-lead-ink"
-          >
-            ✕
-          </button>
-        </header>
-
-        {/* NO `pt-*` ON THE SCROLLPORT.
-            A sticky child is clamped to its containing block's padding box, so
-            top padding here would pin the Visit bar that many pixels low and
-            leave a band above it where the notes box scrolled through. The top
-            spacing belongs to the content instead. */}
-        <div className="flex-1 overflow-y-auto px-4 pb-16">
-          {error && (
-            <p className="py-8 text-center font-mono text-xs text-lead-ink2">
-              This church&apos;s record could not be loaded.
-            </p>
-          )}
-
-          {/* An unloaded dossier shows a SKELETON, never a default-coloured
-              answer. A colour that appears before its data has arrived is a
-              claim we did not verify. */}
-          {!record && !error && (
-            <div className="space-y-3 pt-4">
-              {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className="h-14 animate-pulse rounded-lg bg-lead-panel" />
-              ))}
-            </div>
-          )}
-
-          {record && view && (
-            <>
-              {/* ── brand header ──
-                  It ALWAYS says something: a church we found nothing for must
-                  look different from one we never looked at. */}
-              <div className="mb-4 flex items-center gap-3 border-b border-lead-line pt-4 pb-3">
-                <div className="min-w-0">
-                  <div className="text-[15px] font-bold text-lead-ink">
-                    {record.name || "(unnamed)"}
-                  </div>
-                  {typeof brand.slogan === "string" && brand.slogan ? (
-                    <p className="mt-1 text-[13px] leading-tight italic text-lead-ink2">
-                      “{brand.slogan}”
-                    </p>
-                  ) : brand.slogan_scope === "homepage_only" ? (
-                    <p
-                      className="mt-1 text-xs text-lead-ink2 opacity-70"
-                      title="Only the homepage was read for branding; inner pages such as /about were not fetched."
-                    >
-                      No slogan on the homepage{" "}
-                      <span className="rounded bg-lead-unk px-1.5 font-mono text-[9px] text-lead-bg">
-                        inner pages not read
-                      </span>
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-xs text-lead-ink2 opacity-70">No slogan found</p>
-                  )}
-                </div>
-              </div>
-
-              {/* ── the primary action ──
-                  This is the most-clicked control in the product: the reviewer's
-                  loop is read the dossier, open the church, judge it. Four things
-                  follow from that, and none is decoration.
-
-                  · It is FULL WIDTH and 40px tall. Fitts's law — the one target
-                    hit on every single church should be the cheapest to hit.
-                  · It STICKS to the top of the scroll body. The dossier is
-                    several screens long and the button used to scroll away
-                    exactly when a reader had finished deciding.
-                  · It NAMES THE DESTINATION. You are about to leave for a
-                    church-controlled site; seeing the host first is both the
-                    honest thing and how a reviewer catches a wrong record before
-                    burning a click.
-                  · It says it opens a new tab. "↗" alone is a guess. */}
-              <div className="sticky top-0 z-10 -mx-4 mt-3 border-b border-lead-line bg-lead-bg px-4 pt-1 pb-2.5">
-                {record.own_url ? (
-                  <SafeLink
-                    href={record.own_url}
-                    title="Open the church's website in a new tab (w)"
-                    className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-lead-brand px-3 text-[13.5px] font-semibold text-white transition-opacity hover:opacity-90"
-                  >
-                    Visit website
-                    <span className="font-mono text-[11px] font-normal opacity-75">
-                      {hostOf(record.own_url)} ↗
-                    </span>
-                  </SafeLink>
-                ) : (
-                  // Never a dead-looking button: say WHY there is nothing to open.
-                  <p className="flex h-10 w-full items-center justify-center rounded-lg border border-dashed border-lead-line font-mono text-[11px] text-lead-ink2">
-                    no website URL on this record
-                  </p>
-                )}
-                <div className="mt-1.5 flex items-baseline justify-between gap-3 font-mono text-[10.5px] text-lead-ink2">
-                  <span>opens in a new tab · press w</span>
-                  {record.church_url && (
-                    <SafeLink
-                      href={record.church_url}
-                      className="text-lead-link hover:underline"
-                    >
-                      church center ↗
-                    </SafeLink>
-                  )}
-                </div>
-              </div>
-
-              <textarea
-                value={note}
-                onChange={(e) => onNote(e.target.value)}
-                placeholder="Team notes — everyone can see these."
-                className="mt-3 min-h-[74px] w-full resize-y rounded-lg border border-lead-line bg-lead-panel px-2.5 py-2 text-xs text-lead-ink"
-              />
-
-              <Section title="Key findings — the crucial fields, highest scrutiny">
-                <Card
-                  kicker="Paid staff"
-                  qKey="q2"
-                  finding={
-                    view.q("q2")?.answer === "counted" && view.q("q2")?.count != null
-                      ? view.q("q2")?.count_is_floor
-                        ? `${staffText(view.q("q2"))} paid staff (at least)`
-                        : `${view.q("q2")?.count} paid staff (est.)`
-                      : "Not counted"
-                  }
-                  state={colorState("q2", view.q("q2"), ctx)}
-                  q={record.q2}
-                />
-                <Card
-                  kicker="Next steps"
-                  finding={
-                    view.steps.looked
-                      ? `${view.steps.nPresent}/${view.steps.nCats} Next Steps`
-                      : "Next Steps (pages not read)"
-                  }
-                  state={stepsSummaryState(view.steps)}
-                >
-                  <StepsDetail view={view} />
-                </Card>
-                <Card
-                  kicker="Custom login"
-                  finding={record.q5?.label ?? answerLabel("q5", view.q("q5")?.answer ?? "unknown")}
-                  state={colorState("q5", view.q("q5"), ctx)}
-                  q={record.q5}
-                />
-              </Section>
-
-              <Section title="App & Website">
-                {APP_WEB_KEYS.map((k) => (
-                  <Card
-                    key={k}
-                    kicker={QTITLE[k]}
-                    qKey={k}
-                    finding={
-                      (record[k]?.label as string) ??
-                      answerLabel(k, view.q(k)?.answer ?? "unknown")
-                    }
-                    state={colorState(k, view.q(k), ctx)}
-                    q={record[k]}
-                  />
-                ))}
-              </Section>
-
-              {/* ── THE REST — five rows, scored x/5 ──
-                  Rows are numbered 1..N linearly and that number is a POSITION,
-                  NOT AN IDENTITY. No "Q1".."Q10" string appears anywhere. */}
-              <Section
-                title="The rest — lighter-touch signals"
-                right={
-                  <span
-                    title="favorable lighter-touch signals (green = 1, light green = ½)"
-                    className="font-mono text-[11px] normal-case text-lead-ink2"
-                  >
-                    <b className="font-serif text-[15px] font-semibold text-lead-good">
-                      {favFmt(restScore)}
-                    </b>
-                    /{REST_KEYS.length}
-                  </span>
-                }
-              >
-                {REST_KEYS.map((k, i) => (
-                  <Card
-                    key={k}
-                    kicker={`${i + 1} · ${QTITLE[k]}`}
-                    finding={
-                      (record[k]?.label as string) ??
-                      answerLabel(k, view.q(k)?.answer ?? "unknown")
-                    }
-                    state={colorState(k, view.q(k), ctx)}
-                    q={record[k]}
-                  >
-                    {/* Pathway reads OPPOSITE to its four neighbours: they are
-                        all "the church lacks it, so there is something to sell",
-                        where a green here means the church ALREADY HAS an
-                        organized pathway — favourable because it signals fit. */}
-                    {k === "q1" && (
-                      <p className="mb-2 rounded-md bg-lead-panel2 px-2.5 py-1.5 text-[11px] italic text-lead-ink2">
-                        Green here means the church <b>already has</b> a pathway — a fit
-                        signal, not a gap to sell into.
-                      </p>
-                    )}
-                  </Card>
-                ))}
-              </Section>
-            </>
-          )}
+      <header className="flex items-center gap-2 border-b border-lead-line px-4 py-3.5">
+        <button
+          type="button"
+          onClick={() => onStep(-1)}
+          title="previous (k / ↑)"
+          className="size-[30px] rounded-md border border-lead-line bg-lead-panel font-mono text-sm text-lead-ink2 hover:text-lead-ink"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          onClick={() => onStep(1)}
+          title="next (j / ↓)"
+          className="size-[30px] rounded-md border border-lead-line bg-lead-panel font-mono text-sm text-lead-ink2 hover:text-lead-ink"
+        >
+          ↓
+        </button>
+        <div className="min-w-0 flex-1">
+          <span className="block truncate font-serif text-[19px] font-semibold text-lead-ink">
+            {record?.name || (record ? "(unnamed)" : "…")}
+          </span>
+          <span className="font-mono text-[11px] text-lead-ink2">
+            {position} of {total}
+            {record ? placeOf(record) : ""}
+          </span>
         </div>
-      </aside>
+        <button
+          type="button"
+          onClick={onStar}
+          title="star (s)"
+          aria-pressed={starred}
+          className={`text-[22px] leading-none ${starred ? "text-lead-warn" : "text-lead-line"}`}
+        >
+          ★
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          title="close (Esc)"
+          className="size-[30px] rounded-md border border-lead-line bg-lead-panel font-mono text-sm text-lead-ink2 hover:text-lead-ink"
+        >
+          ✕
+        </button>
+      </header>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-8">
+        {error && (
+          <p className="py-8 text-center font-mono text-xs text-lead-ink2">
+            This church&apos;s record could not be loaded.
+          </p>
+        )}
+
+        {/* An unloaded dossier shows a SKELETON, never a default-coloured
+            answer. A colour that appears before its data has arrived is a
+            claim we did not verify. */}
+        {!record && !error && (
+          <div className="space-y-3 pt-4">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="h-14 animate-pulse rounded-lg bg-lead-panel" />
+            ))}
+          </div>
+        )}
+
+        {/* `lead-fade-in` runs once, on the frame the record replaces the
+            skeleton. The panel is already open by then — the slide answered the
+            click — so this is only about the swap not being a hard cut. */}
+        {record && view && (
+          <div className="lead-fade-in">
+            {/* ── brand header ──
+                It ALWAYS says something: a church we found nothing for must
+                look different from one we never looked at. */}
+            <div className="mb-4 flex items-center gap-3 border-b border-lead-line pt-4 pb-3">
+              <div className="min-w-0">
+                <div className="text-[15px] font-bold text-lead-ink">
+                  {record.name || "(unnamed)"}
+                </div>
+                {typeof brand.slogan === "string" && brand.slogan.trim() ? (
+                  <p className="mt-1 text-[13px] leading-tight italic text-lead-ink2">
+                    “{decodeEntities(brand.slogan)}”
+                  </p>
+                ) : brand.slogan_scope === "homepage_only" ? (
+                  <p
+                    className="mt-1 text-xs text-lead-ink2 opacity-70"
+                    title="Only the homepage was read for branding; inner pages such as /about were not fetched."
+                  >
+                    No slogan on the homepage{" "}
+                    <span className="rounded bg-lead-unk px-1.5 font-mono text-[9px] text-lead-bg">
+                      inner pages not read
+                    </span>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-lead-ink2 opacity-70">No slogan found</p>
+                )}
+              </div>
+            </div>
+
+            {/* The primary action, near the top and in the flow — no pinning.
+                Bigger and clearer than the original small text link, but it
+                belongs with the church's identity rather than in a bar of its
+                own. It names the host so you can see where the click goes. */}
+            {siteUrl ? (
+              <SafeLink
+                href={siteUrl}
+                title="Open the church's website in a new tab (w)"
+                className="mt-1 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl bg-lead-brand px-4 text-[14.5px] font-semibold text-white transition-opacity hover:opacity-90"
+              >
+                <span aria-hidden="true" className="text-[16px] leading-none">
+                  ↗
+                </span>
+                Visit {hostOf(siteUrl)}
+              </SafeLink>
+            ) : (
+              // Never a dead-looking button: say why there is nothing to open.
+              <p className="mt-1 flex h-11 w-full items-center justify-center rounded-xl border border-dashed border-lead-line font-mono text-[11.5px] text-lead-ink2">
+                no website URL on this record
+              </p>
+            )}
+            {record.church_url && (
+              <div className="mt-1.5 text-right font-mono text-[10.5px]">
+                <SafeLink href={record.church_url} className="text-lead-link hover:underline">
+                  church center ↗
+                </SafeLink>
+              </div>
+            )}
+
+            <textarea
+              value={note}
+              onChange={(e) => onNote(e.target.value)}
+              placeholder="Team notes — everyone can see these."
+              className="mt-3 min-h-[74px] w-full resize-y rounded-lg border border-lead-line bg-lead-panel px-2.5 py-2 text-xs text-lead-ink"
+            />
+
+            <Section title="Key findings — the crucial fields, highest scrutiny">
+              <Card
+                kicker="Paid staff"
+                qKey="q2"
+                // `staffPhrase`, not a local branch. This used to re-implement
+                // the floor rule inline, so the dossier and the list tile each
+                // knew it separately — and when a third claim (`floor_uncited`)
+                // arrived, only one of them would have learned about it.
+                finding={staffPhrase(view.q("q2"))}
+                state={colorState("q2", view.q("q2"), ctx)}
+                q={record.q2}
+              />
+              <Card
+                kicker="Next steps"
+                finding={
+                  view.steps.looked
+                    ? `${view.steps.nPresent}/${view.steps.nCats} Next Steps`
+                    : "Next Steps (pages not read)"
+                }
+                state={stepsSummaryState(view.steps)}
+              >
+                <StepsDetail view={view} />
+              </Card>
+              <Card
+                kicker="Custom login"
+                // `qKey` is REQUIRED here, not decorative. Without it the card
+                // falls back to the generic verdict word, and q5's `unver` reads
+                // "Needs a check" — the one wording this question must not use,
+                // because the confirming step was retired upstream.
+                qKey="q5"
+                finding={
+                  recordLabel(record.q5?.label) ||
+                  answerLabel("q5", view.q("q5")?.answer ?? "unknown")
+                }
+                state={colorState("q5", view.q("q5"), ctx)}
+                q={record.q5}
+              />
+            </Section>
+
+            <Section title="App & Website">
+              {APP_WEB_KEYS.map((k) => (
+                <Card
+                  key={k}
+                  kicker={QTITLE[k]}
+                  qKey={k}
+                  finding={
+                    recordLabel(record[k]?.label) ||
+                    answerLabel(k, view.q(k)?.answer ?? "unknown")
+                  }
+                  state={colorState(k, view.q(k), ctx)}
+                  q={record[k]}
+                />
+              ))}
+            </Section>
+
+            {/* ── THE REST — five rows, scored x/5 ──
+                Rows are numbered 1..N linearly and that number is a POSITION,
+                NOT AN IDENTITY. No "Q1".."Q10" string appears anywhere. */}
+            <Section
+              title="The rest — lighter-touch signals"
+              right={
+                <span
+                  // 5/5 IS UNREACHABLE FOR MOST CHURCHES, ON PURPOSE. Campuses
+                  // is `unknown` for 80% of the corpus, because only ~2,000 of
+                  // 15,275 churches publish a locations page and the pipeline
+                  // abstains rather than inferring single-site. An unmeasured
+                  // signal must score 0, and a per-church denominator would make
+                  // two churches incomparable — worse than a ceiling nobody
+                  // reaches. The tooltip says so, so the gap reads as a fact
+                  // about the data rather than a broken meter.
+                  title="Favorable lighter-touch signals — green = 1, light green = ½. A signal we never measured scores 0, so most churches cannot reach 5."
+                  className="font-mono text-[11px] normal-case text-lead-ink2"
+                >
+                  <b className="font-serif text-[15px] font-semibold text-lead-good">
+                    {favFmt(restScore)}
+                  </b>
+                  /{REST_KEYS.length}
+                </span>
+              }
+            >
+              {REST_KEYS.map((k, i) => (
+                <Card
+                  key={k}
+                  kicker={`${i + 1} · ${QTITLE[k]}`}
+                  finding={
+                    recordLabel(record[k]?.label) ||
+                    answerLabel(k, view.q(k)?.answer ?? "unknown")
+                  }
+                  state={colorState(k, view.q(k), ctx)}
+                  q={record[k]}
+                >
+                  {/* Pathway reads OPPOSITE to its four neighbours: they are
+                      all "the church lacks it, so there is something to sell",
+                      where a green here means the church ALREADY HAS an
+                      organized pathway — favourable because it signals fit. */}
+                  {k === "q1" && (
+                    <p className="mb-2 rounded-md bg-lead-panel2 px-2.5 py-1.5 text-[11px] italic text-lead-ink2">
+                      Green here means the church <b>already has</b> a pathway — a fit
+                      signal, not a gap to sell into.
+                    </p>
+                  )}
+                </Card>
+              ))}
+            </Section>
+
+            {/* `profileBlock` and `contactBlock` from core.js. They were the two
+                pieces of the reference dossier this build had not ported — the
+                console showed every verdict and none of the attributes or the
+                people, so a reviewer who decided "yes" had nobody to call. */}
+            <ProfileBlock record={record} />
+            <ContactBlock record={record} />
+          </div>
+        )}
+      </div>
+
     </>
   );
 }

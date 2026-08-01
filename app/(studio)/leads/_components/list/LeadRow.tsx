@@ -4,10 +4,12 @@ import { memo } from "react";
 import type { ChurchView } from "@/lib/leads/engine/adapt";
 import type { EngineCtx, IndexRow } from "@/lib/leads/engine/types";
 import { favFmt } from "@/lib/leads/engine/favor";
+import { decodeEntities } from "@/lib/leads/engine/text";
 import type { MarkKind, RowTint } from "@/lib/leads/client/state";
 import { LogoTile } from "./LogoTile";
 import { CrucialTiles } from "./CrucialTiles";
 import { ContactRow } from "./ContactRow";
+import { VisitButton } from "./VisitButton";
 
 const TINT_CLASS: Record<RowTint, string> = {
   issue: "lead-tint-issue",
@@ -24,8 +26,11 @@ interface Props {
   base: number;
   tint: RowTint | null;
   marks: { star: boolean; issue: boolean; goodlead: boolean; downloaded: boolean };
+  selected: boolean;
   onOpen: (id: string) => void;
   onToggleMark: (kind: MarkKind, id: string) => void;
+  /** `shift` extends from the last click, the way a file list does. */
+  onToggleSelect: (id: string, shift: boolean) => void;
 }
 
 function MarkButton({
@@ -86,6 +91,44 @@ export const ROW_CLASS =
   " outline-offset-[-2px] outline-transparent transition-[outline-color]" +
   " hover:outline-2 hover:outline-lead-brand max-[620px]:grid-cols-[44px_1fr]";
 
+/**
+ * The slogan line, and the two ways it can be absent.
+ *
+ * Same three-way split the dossier makes, so the list and the dossier cannot
+ * tell a reader different things about the same church.
+ */
+function Slogan({ row }: { row: IndexRow }) {
+  const slogan = decodeEntities(row.sl ?? "").trim();
+
+  if (slogan) {
+    return (
+      <p className="mt-1.5 truncate text-[13px] leading-tight italic text-lead-ink2">
+        “{slogan}”
+      </p>
+    );
+  }
+
+  if (row.ss === "homepage_only") {
+    return (
+      <p
+        title="Only the homepage was read for branding; inner pages such as /about were not fetched."
+        className="mt-1.5 truncate text-[12.5px] leading-tight text-lead-ink2 opacity-60"
+      >
+        No slogan on the homepage{" "}
+        <span className="rounded bg-lead-unk px-1.5 align-[1px] font-mono text-[9px] text-lead-bg not-italic">
+          inner pages not read
+        </span>
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-1.5 truncate text-[12.5px] leading-tight text-lead-ink2 opacity-60">
+      No slogan found
+    </p>
+  );
+}
+
 function LeadRowInner({
   row,
   view,
@@ -94,8 +137,10 @@ function LeadRowInner({
   base,
   tint,
   marks,
+  selected,
   onOpen,
   onToggleMark,
+  onToggleSelect,
 }: Props) {
   const sub = [row.rg, view.platformLine, row.ts && `scraped ${row.ts}`]
     .filter(Boolean)
@@ -106,7 +151,12 @@ function LeadRowInner({
       role="button"
       tabIndex={-1}
       onClick={() => onOpen(row.id)}
-      className={`${ROW_CLASS} ${tint ? TINT_CLASS[tint] : ""}`}
+      // Selection shows as an outline, never as a background: the tints are the
+      // only thing carrying mark state and a selection wash would erase them,
+      // which is the same bug hover had.
+      className={`${ROW_CLASS} ${tint ? TINT_CLASS[tint] : ""} ${
+        selected ? "outline-2 outline-lead-brand" : ""
+      }`}
     >
       {/* ── marks ──
           Star and issue in a boxed rail; the green telephone BELOW the box in
@@ -115,6 +165,30 @@ function LeadRowInner({
           emoji images: an emoji carries baked-in colour and can neither turn
           green when set nor grey out when unset. */}
       <div className="flex flex-col items-stretch gap-[7px]">
+        {/* ── selection ──
+            Selecting is not marking. A mark is a judgement about the church that
+            outlives the session; this is "these ones, now", and it lives only in
+            component state. It rides in the existing mark column rather than
+            adding a grid track, so no row geometry changes. */}
+        <label
+          title="Select for a group"
+          onClick={(e) => e.stopPropagation()}
+          className="flex cursor-pointer items-center justify-center rounded-lg border border-lead-line bg-lead-panel py-1.5"
+        >
+          <input
+            type="checkbox"
+            checked={selected}
+            aria-label={`Select ${row.n || "this church"}`}
+            onClick={(e) => {
+              // The row itself is a click target; without this, selecting also
+              // opens the dossier.
+              e.stopPropagation();
+              onToggleSelect(row.id, e.shiftKey);
+            }}
+            onChange={() => {}}
+            className="h-3.5 w-3.5 cursor-pointer accent-[var(--lead-brand)]"
+          />
+        </label>
         <div className="flex flex-col items-center gap-2.5 rounded-xl border border-lead-line bg-lead-panel px-[5px] py-2.5">
           <MarkButton
             glyph="★"
@@ -184,9 +258,23 @@ function LeadRowInner({
             <i className="text-[11px] font-medium not-italic text-lead-ink2">/{favFmt(base)}</i>
           </span>
         </div>
+        {/* ── slogan ──
+            THREE STATES, NOT TWO. "We looked at the homepage and found none"
+            and "we never opened the inner pages" are different facts, and the
+            second is not evidence of absence — /about is where a slogan usually
+            lives. Collapsing them into one "no slogan found" would assert
+            something we did not check.
+
+            It renders even when empty, in muted ink, because a church with no
+            slogan and a church we have not finished reading should both be
+            visible while scanning rather than silently identical to each other. */}
+        <Slogan row={row} />
+
         {sub && (
-          <div className="mt-3.5 truncate font-mono text-[11px] text-lead-ink2">{sub}</div>
+          <div className="mt-2 truncate font-mono text-[11px] text-lead-ink2">{sub}</div>
         )}
+        {/* Under the identity, not down in the contact strip. See VisitButton. */}
+        <VisitButton row={row} />
       </div>
 
       {/* ── crucial tiles ── */}

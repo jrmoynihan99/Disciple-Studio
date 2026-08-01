@@ -353,6 +353,61 @@ html[data-lead-theme]::-webkit-scrollbar-corner,
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   THE DOSSIER'S ENTRANCE
+
+   Done with `@starting-style`, so there is no `useState`, no
+   `requestAnimationFrame`, and no mount-then-flip-a-class dance. The browser
+   interpolates from the starting value on the element's FIRST style resolution,
+   which is exactly the frame React inserts it on.
+
+   Two separate movements, because they answer two different questions:
+
+   · The panel slides and the scrim fades on OPEN — 220ms, an ease-out curve
+     that front-loads the motion so the panel is most of the way there in the
+     first 80ms. That is the receipt for the click, and it lands long before the
+     record does.
+   · The BODY fades up when the record arrives, ~180ms. The skeleton is honest
+     about the wait; this keeps the swap from being a hard cut.
+
+   Nothing here animates on close. A dismissal wants to be gone, and keeping the
+   panel mounted through an exit transition would mean either a second copy of
+   the church state or a delay before the next one can open.
+
+   The reduced-motion block below removes all of it.
+   ══════════════════════════════════════════════════════════════════ */
+
+.lead-scrim {
+  opacity: 1;
+  transition: opacity 160ms ease-out;
+}
+
+.lead-slideover {
+  transform: translateX(0);
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.lead-fade-in {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity 180ms ease-out,
+    translate 180ms ease-out;
+}
+
+@starting-style {
+  .lead-scrim {
+    opacity: 0;
+  }
+  .lead-slideover {
+    transform: translateX(100%);
+  }
+  .lead-fade-in {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-lead-root] * {
     animation: none !important;

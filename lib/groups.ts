@@ -2,6 +2,13 @@ import { list, put, del, get } from "@vercel/blob";
 import { slugify } from "@/lib/generateDemo";
 
 /**
+ * NOT the Lead Console's export groups. See `lib/leads/server/groups.ts`.
+ *
+ * These are demo-generation groups, keyed by demo `slug`, at the `groups/`
+ * prefix, shared. Those are lead export groups, keyed by `org_id`, at
+ * `leads/groups/<userId>/`, single-writer. The two meet when the export button
+ * is wired to demo generation; until then, do not read one as the other.
+ *
  * Import groups — one blob per bulk import, stored as `groups/<id>.json` in the
  * same private Vercel Blob store as the church demos. A group bundles the demos
  * produced by one import plus the data for its downloadable output spreadsheet.

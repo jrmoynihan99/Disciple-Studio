@@ -41,7 +41,7 @@ import type {
   StepsSummary,
   VerdictState,
 } from "./types.ts";
-import { isVerdictState } from "./types.ts";
+import { isStaffClaim, isVerdictState } from "./types.ts";
 import { VOCAB } from "./vocab.generated.ts";
 import { nextStepsSummary } from "./steps.ts";
 import { platformLineFromIndex, platformLineFromRecord } from "./platform.ts";
@@ -100,6 +100,12 @@ export function questionFromIndex(
   const view: QuestionView = {
     answer: q.a ?? null,
     count: q.c ?? null,
+    // `sc` is the current field, `fl` the pre-enum one. Both are passed through
+    // rather than resolved here, so `staffClaim()` stays the single place that
+    // knows the precedence — otherwise the index and the record could resolve
+    // the same church differently, which is the one thing this module exists to
+    // make impossible.
+    count_claim: isStaffClaim(q.sc) ? q.sc : undefined,
     count_is_floor: q.fl ?? false,
     steps_state: q.ss ?? null,
     conv_state: q.cs ?? null,

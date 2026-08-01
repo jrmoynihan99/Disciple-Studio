@@ -39,9 +39,56 @@ function fixturePath(...parts: string[]) {
   return resolve(process.cwd(), DIR, ...parts);
 }
 
+/**
+ * FIXTURE-ONLY BACKFILL: the slogan.
+ *
+ * 51 of the 134 records carry `brand.slogan` and the shipped index drops every
+ * one, so a row rendered from the index alone would print "no slogan found" for
+ * churches whose slogan we are holding — a false negative about a real church,
+ * which is the exact failure the honesty rules exist to prevent.
+ *
+ * A real publish MUST emit `sl`/`ss` (see `INDEX-CONTRACT.md` §5.5); when it
+ * does, this merge is a no-op because the published value wins. It exists so the
+ * console is truthful against today's fixture, not as a permanent shim — and it
+ * is deliberately here, in the dev source, rather than in the client, so nothing
+ * above `dataset.ts` learns that the fixture is special.
+ *
+ * Reading 134 small files once per process is fine on local disk. It would NOT
+ * be fine at 14,400, which is precisely why the publisher owns this field.
+ */
+let sloganCache: Map<string, { sl: string; ss: string }> | null = null;
+
+async function sloganBackfill(rows: IndexRow[]) {
+  if (sloganCache) return sloganCache;
+  const out = new Map<string, { sl: string; ss: string }>();
+  await Promise.all(
+    rows.map(async (r) => {
+      const rec = await fixtureRecord(r.id);
+      const brand = (rec?.brand ?? {}) as Record<string, unknown>;
+      const sl = typeof brand.slogan === "string" ? brand.slogan.trim() : "";
+      const ss = typeof brand.slogan_scope === "string" ? brand.slogan_scope : "";
+      if (sl || ss) out.set(r.id, { sl, ss });
+    }),
+  );
+  sloganCache = out;
+  return out;
+}
+
 export async function fixtureIndex(): Promise<IndexRow[]> {
   assertDev();
-  return JSON.parse(await readFile(fixturePath("index.json"), "utf8")) as IndexRow[];
+  const rows = JSON.parse(await readFile(fixturePath("index.json"), "utf8")) as IndexRow[];
+
+  // Only fill what the index did not already state. A published `sl` is the
+  // source of truth; this never overwrites one.
+  const missing = rows.some((r) => r.sl === undefined && r.ss === undefined);
+  if (!missing) return rows;
+
+  const fill = await sloganBackfill(rows);
+  return rows.map((r) =>
+    r.sl === undefined && r.ss === undefined && fill.has(r.id)
+      ? { ...r, ...fill.get(r.id)! }
+      : r,
+  );
 }
 
 export async function fixtureRecord(orgId: string): Promise<ChurchRecord | null> {
