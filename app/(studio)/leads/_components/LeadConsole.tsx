@@ -2,57 +2,74 @@
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { churchFromIndex } from "@/lib/leads/engine/adapt";
-import { computeView, defaultFilters, type LeadFilters } from "@/lib/leads/engine/filter";
+import {
+  computeView,
+  defaultFilters,
+  type LeadFilters,
+  type MarkFilter,
+} from "@/lib/leads/engine/filter";
 import { defaultFavorModel, favorBase } from "@/lib/leads/engine/favor";
 import type { EngineCtx, VerdictState } from "@/lib/leads/engine/types";
 import { useDataset } from "@/lib/leads/client/useDataset";
 import { useLeadState } from "@/lib/leads/client/useLeadState";
-import {
-  isDownloaded,
-  isMarked,
-  isPending,
-  pendingIds,
-  rowTint,
-  type MarkKind,
-} from "@/lib/leads/client/state";
-import { useGroupList } from "@/lib/leads/client/useGroups";
+import { isDownloaded, isMarked, rowTint, type MarkKind } from "@/lib/leads/client/state";
+import { useGroupList, useMembership } from "@/lib/leads/client/useGroups";
+import { earlierBatches, isCollecting } from "@/lib/leads/engine/group-types";
 import { Rail } from "./rail/Rail";
 import { Deck } from "./deck/Deck";
 import { LeadRow } from "./list/LeadRow";
-import { SelectionBar } from "./list/SelectionBar";
+import { LegacyMarks } from "./LegacyMarks";
 import { Dossier } from "./dossier/Dossier";
 import { SlideOver } from "./SlideOver";
 import { useTheme } from "@/lib/leads/client/theme";
 
 const PAGE = 60;
 
+/**
+ * Where you were, kept across a route change.
+ *
+ * `/leads` and `/leads/groups/[id]` are sibling routes, so opening a batch
+ * unmounts this component entirely — and every filter, the paging cap and the
+ * scroll position went with it. You would collect twenty churches from a
+ * filtered view, go and review them, come back, and land on an unfiltered
+ * sixty-row list at the top of the page.
+ *
+ * Same trick `useDataset` already uses for the index itself ("Survives a route
+ * change within the session, so going back is instant") — module scope outlives
+ * the unmount, and a fresh page load still starts clean.
+ */
+let sessionView: { filters: LeadFilters; limit: number } | null = null;
+
 export function LeadConsole() {
   const { rows, loading, error, updateAvailable, reload } = useDataset();
   const { state, mutate } = useLeadState();
   const { theme, toggle } = useTheme();
 
-  const [filters, setFiltersRaw] = useState<LeadFilters>(defaultFilters);
-  const [limit, setLimit] = useState(PAGE);
+  const [filters, setFiltersRaw] = useState<LeadFilters>(
+    () => sessionView?.filters ?? defaultFilters(),
+  );
+  const [limit, setLimit] = useState(() => sessionView?.limit ?? PAGE);
+  useEffect(() => {
+    sessionView = { filters, limit };
+  }, [filters, limit]);
   const [openId, setOpenId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const headerRef = useRef<HTMLElement>(null);
 
-  /**
-   * Selection is EPHEMERAL — component state, never the reducer.
-   *
-   * A mark is a judgement about a church that outlives the session and is worth
-   * persisting. "These fourteen, right now, into that group" is not; it is
-   * consumed the moment it is used, and storing it would leave a stale selection
-   * waiting on the next visit.
-   */
   const groupList = useGroupList();
-  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
-  const [adding, setAdding] = useState(false);
-  const [addResult, setAddResult] = useState<{
-    added: number;
-    skipped: { id: string; reason: string }[];
-  } | null>(null);
+  const { membership, collect, toggle: toggleCollect } = useMembership();
+  /** The anchor for shift-click on ✆ — a range extends from the last one. */
   const anchorRef = useRef<string | null>(null);
+
+  const openBatch = useMemo(
+    () => groupList.groups.find((g) => g.id === membership.openGroupId) ?? null,
+    [groupList.groups, membership.openGroupId],
+  );
+  /** Counted from membership, not the summary, so it moves the instant you click. */
+  const collectingCount = useMemo(
+    () => Object.keys(membership.byOrg).filter((id) => isCollecting(membership, id)).length,
+    [membership],
+  );
 
   /**
    * Publish the header's height as `--lead-header-h`.
@@ -111,19 +128,26 @@ export function LeadConsole() {
     [state.config.colors, state.config.favor, rows],
   );
 
+  /** In a batch OTHER than the one being collected into — so it sinks. */
+  const isEarlier = useCallback(
+    (id: string) => earlierBatches(membership, id).length > 0,
+    [membership],
+  );
+
   const isMarkedFor = useCallback(
-    (kind: "star" | "issue" | "goodlead" | "exported", id: string) =>
-      kind === "exported"
-        ? isDownloaded(state, id)
-        : kind === "goodlead"
-          ? isPending(state, id)
-          : isMarked(state, kind, id),
-    [state],
+    (kind: MarkFilter, id: string) => {
+      if (kind === "exported") return isDownloaded(state, id);
+      // "Collected" is answered by batch membership, not by a mark — including
+      // the open batch, so filtering to it shows today's work.
+      if (kind === "collected") return (membership.byOrg[id]?.length ?? 0) > 0;
+      return isMarked(state, kind, id);
+    },
+    [state, membership],
   );
 
   const { base, rows: visible, summary, scores } = useMemo(
-    () => computeView(views, { ...filters, q: deferredQ }, ctx, isMarkedFor),
-    [views, filters, deferredQ, ctx, isMarkedFor],
+    () => computeView(views, { ...filters, q: deferredQ }, ctx, isMarkedFor, isEarlier),
+    [views, filters, deferredQ, ctx, isMarkedFor, isEarlier],
   );
 
   const baseDenom = favorBase(ctx.favor);
@@ -159,29 +183,22 @@ export function LeadConsole() {
         searchRef.current?.focus();
         return;
       }
-      if (e.key === "Escape") {
-        // Selection first, dossier second. Esc means "undo the thing I most
-        // recently got into", and a selection you cannot see behind an open
-        // panel is the more surprising one to leave behind.
-        if (selected.size) {
-          setSelected(new Set());
-          anchorRef.current = null;
-          return;
-        }
-        return setOpenId(null);
-      }
+      if (e.key === "Escape") return setOpenId(null);
 
       if (openId) {
         if (e.key === "j" || e.key === "ArrowDown") return step(1);
         if (e.key === "k" || e.key === "ArrowUp") return step(-1);
         if (e.key === "s") return mutate({ type: "mark.toggle", kind: "star", orgId: openId });
+        // The same gesture the row's ✆ makes, without reaching for the mouse:
+        // read the dossier, decide, collect, j to the next one.
+        if (e.key === "c") return toggleCollect(openId);
       } else if ((e.key === "Enter" || e.key === "o") && visible.length) {
         setOpenId(visible[0].id);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openId, step, visible, mutate, selected]);
+  }, [openId, step, visible, mutate, toggleCollect]);
 
   const onRecolour = useCallback(
     (q: string, answer: string, st: VerdictState | null) =>
@@ -190,57 +207,30 @@ export function LeadConsole() {
   );
 
   /**
-   * Shift extends from the last click over the CURRENTLY VISIBLE list, the way a
-   * file manager does — so "filter to Charlotte, click the first, shift-click the
-   * last" selects exactly what is on screen and nothing that is filtered out.
+   * ✆ — collect, or collect a range.
+   *
+   * Shift extends from the last one over the CURRENTLY VISIBLE list, the way a
+   * file manager does, so "filter to Charlotte, click the first, shift-click the
+   * twentieth" collects exactly what is on screen and nothing filtered out. One
+   * control, both gestures — which is why the checkbox is gone.
    */
-  const onToggleSelect = useCallback(
+  const onToggleCollect = useCallback(
     (id: string, shift: boolean) => {
-      setSelected((prev) => {
-        const next = new Set(prev);
-        const anchor = anchorRef.current;
-        if (shift && anchor) {
-          const shown = visible.slice(0, limit).map((v) => v.id);
-          const a = shown.indexOf(anchor);
-          const b = shown.indexOf(id);
-          if (a >= 0 && b >= 0) {
-            for (const s of shown.slice(Math.min(a, b), Math.max(a, b) + 1)) next.add(s);
-            return next;
-          }
+      const anchor = anchorRef.current;
+      if (shift && anchor && anchor !== id) {
+        const shown = visible.slice(0, limit).map((v) => v.id);
+        const a = shown.indexOf(anchor);
+        const b = shown.indexOf(id);
+        if (a >= 0 && b >= 0) {
+          collect(shown.slice(Math.min(a, b), Math.max(a, b) + 1));
+          anchorRef.current = id;
+          return;
         }
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        anchorRef.current = id;
-        return next;
-      });
+      }
+      toggleCollect(id);
+      anchorRef.current = id;
     },
-    [visible, limit],
-  );
-
-  const addToGroup = useCallback(
-    async (groupId: string, ids: string[]) => {
-      if (!ids.length) return;
-      setAdding(true);
-      const out = await groupList.addChurches(groupId, ids);
-      setAdding(false);
-      if (!out) return;
-      // Reported, always. A church that quietly fails to arrive is the same class
-      // of error as asserting absence: you would build a batch of forty, get
-      // thirty-seven, and have no way to find out which three.
-      setAddResult({ added: out.added.length, skipped: out.skipped });
-      setSelected(new Set());
-      anchorRef.current = null;
-    },
-    [groupList],
-  );
-
-  /** Create, then immediately fill it with whatever is selected. */
-  const createWith = useCallback(
-    async (name: string, ids: string[]) => {
-      const id = await groupList.create(name);
-      if (id) await addToGroup(id, ids);
-    },
-    [groupList, addToGroup],
+    [visible, limit, collect, toggleCollect],
   );
 
   if (error) {
@@ -288,6 +278,8 @@ export function LeadConsole() {
         </div>
       </header>
 
+      <LegacyMarks onMove={async (ids) => collect(ids)} />
+
       {updateAvailable && (
         // Never hot-swap the dataset under someone mid-scroll, and never with a
         // dossier open. Offer it; let them choose the moment.
@@ -314,9 +306,8 @@ export function LeadConsole() {
           setFilters={setFilters}
           state={state}
           groups={groupList.groups}
-          adding={adding}
-          onAddGoodLeads={(groupId) => void addToGroup(groupId, pendingIds(state))}
-          onCreateGroupWithGoodLeads={(name) => void createWith(name, pendingIds(state))}
+          openBatch={openBatch}
+          collecting={collectingCount}
           onResetFilters={() => setFilters(defaultFilters())}
           onRecolour={onRecolour}
           onFavorChange={(favor) => mutate({ type: "config.favor.set", favor })}
@@ -329,6 +320,8 @@ export function LeadConsole() {
             onSort={(sort) => setFilters((f) => ({ ...f, sort }))}
             bucket={filters.favorBucket}
             onBucket={(favorBucket) => setFilters((f) => ({ ...f, favorBucket }))}
+            newFirst={filters.newFirst}
+            onNewFirst={(newFirst) => setFilters((f) => ({ ...f, newFirst }))}
           />
 
           {loading ? (
@@ -355,19 +348,23 @@ export function LeadConsole() {
                     ctx={ctx}
                     score={scores.get(v.id) ?? 0}
                     base={baseDenom}
-                    tint={rowTint(state, v.id)}
+                    tint={rowTint(state, v.id, {
+                      collecting: isCollecting(membership, v.id),
+                      earlier: isEarlier(v.id),
+                    })}
                     marks={{
                       star: isMarked(state, "star", v.id),
                       issue: isMarked(state, "issue", v.id),
-                      goodlead: isPending(state, v.id),
                       downloaded: isDownloaded(state, v.id),
                     }}
-                    selected={selected.has(v.id)}
+                    collecting={isCollecting(membership, v.id)}
+                    batchName={openBatch?.name ?? ""}
+                    earlier={earlierBatches(membership, v.id)}
                     onOpen={setOpenId}
                     onToggleMark={(kind: MarkKind, id) =>
                       mutate({ type: "mark.toggle", kind, orgId: id })
                     }
-                    onToggleSelect={onToggleSelect}
+                    onToggleCollect={onToggleCollect}
                   />
                 );
               })}
@@ -388,20 +385,6 @@ export function LeadConsole() {
           )}
         </main>
       </div>
-
-      <SelectionBar
-        count={selected.size}
-        groups={groupList.groups}
-        busy={adding}
-        result={addResult}
-        onAdd={(groupId) => void addToGroup(groupId, [...selected])}
-        onCreate={(name) => void createWith(name, [...selected])}
-        onClear={() => {
-          setSelected(new Set());
-          anchorRef.current = null;
-        }}
-        onDismissResult={() => setAddResult(null)}
-      />
 
       {openId && (
         // SlideOver is deliberately UNKEYED and Dossier is keyed. React keeps

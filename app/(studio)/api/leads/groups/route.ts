@@ -1,8 +1,5 @@
 import { getUserId } from "@/lib/leads/server/userId";
-import { listGroups, writeGroup } from "@/lib/leads/server/groups";
-import { makeExportGroupId } from "@/lib/leads/engine/group";
-import { GROUP_SCHEMA_VERSION } from "@/lib/leads/engine/group-types";
-import type { ExportGroup } from "@/lib/leads/engine/group-types";
+import { listGroups, startBatch } from "@/lib/leads/server/groups";
 
 /**
  * Export groups, listed and created.
@@ -52,22 +49,12 @@ export async function POST(req: Request) {
   const name = typeof body.name === "string" ? body.name.trim().slice(0, 120) : "";
   if (!name) return bad("A group needs a name");
 
-  const now = new Date().toISOString();
-  const group: ExportGroup = {
-    schema: GROUP_SCHEMA_VERSION,
-    id: makeExportGroupId(name, Date.now().toString(36).slice(-5)),
-    userId,
-    name,
-    createdAt: now,
-    updatedAt: now,
-    rev: 0,
-    entries: [],
-  };
-
+  // Creating a batch STARTS one: whatever was being collected into is closed, so
+  // ✆ never has two places it could put a church.
   try {
-    await writeGroup(userId, group);
+    const group = await startBatch(userId, name);
+    return Response.json({ ok: true, id: group.id, name: group.name });
   } catch (e) {
     return bad(e instanceof Error ? e.message : "Could not create the group", 500);
   }
-  return Response.json({ ok: true, id: group.id, name: group.name });
 }

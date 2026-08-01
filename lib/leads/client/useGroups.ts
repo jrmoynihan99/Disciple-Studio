@@ -21,7 +21,14 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { applyOp } from "@/lib/leads/engine/group";
-import type { ExportGroup, ExportGroupSummary, GroupOp } from "@/lib/leads/engine/group-types";
+import { EMPTY_MEMBERSHIP, isCollecting } from "@/lib/leads/engine/group-types";
+import type {
+  ExportGroup,
+  ExportGroupSummary,
+  GroupOp,
+  Membership,
+  MembershipRef,
+} from "@/lib/leads/engine/group-types";
 
 /** Idle debounce, matching the notes contract in docs/05-SHARED-STATE.md. */
 const FLUSH_IDLE_MS = 1_500;
@@ -284,6 +291,10 @@ class GroupListStore {
   };
 
   fail = (message: string) => this.set({ error: message });
+
+  /** The batch's display name, for an optimistic membership entry. */
+  nameOf = (id: string): string | null =>
+    this.snap.groups.find((g) => g.id === id)?.name ?? null;
 }
 
 let listStore: GroupListStore | null = null;
@@ -367,6 +378,192 @@ export function useGroupList(): GroupListHandle {
   return useMemo(
     () => ({ ...snap, reload, create, addChurches, remove }),
     [snap, reload, create, addChurches, remove],
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Membership — what ✆ reads and writes
+ * ------------------------------------------------------------------ */
+
+/**
+ * Which batches each church is in.
+ *
+ * Optimistic, and it has to be: ✆ is clicked twenty times in a session, and a
+ * control that greys out for a round trip each time stops feeling like a control.
+ * The row turns green immediately and the server reconciles; a failure rolls the
+ * row back and says so rather than leaving a green row that was never saved.
+ */
+class MembershipStore {
+  private snap: Membership = EMPTY_MEMBERSHIP;
+  private listeners = new Set<() => void>();
+  private started = false;
+  private error = "";
+
+  getSnapshot = (): Membership => this.snap;
+  getServerSnapshot = (): Membership => EMPTY_MEMBERSHIP;
+  getError = (): string => this.error;
+
+  subscribe = (fn: () => void): (() => void) => {
+    this.listeners.add(fn);
+    if (!this.started) {
+      this.started = true;
+      void this.reload();
+    }
+    return () => this.listeners.delete(fn);
+  };
+
+  private emit() {
+    for (const fn of this.listeners) fn();
+  }
+
+  private set(next: Membership, error = "") {
+    this.snap = next;
+    this.error = error;
+    this.emit();
+  }
+
+  reload = async (): Promise<void> => {
+    try {
+      const res = await fetch("/api/leads/groups/membership", { cache: "no-store" });
+      if (!res.ok) {
+        // Never fall back to an empty map: that would silently un-mark every row
+        // and invite collecting the same church twice.
+        this.set(this.snap, "Could not read your batches.");
+        return;
+      }
+      this.set((await res.json()) as Membership);
+    } catch {
+      this.set(this.snap, "Could not reach the server.");
+    }
+  };
+
+  /** The open batch, creating one if this is the first church of the day. */
+  private async ensureOpen(): Promise<string | null> {
+    if (this.snap.openGroupId) return this.snap.openGroupId;
+    try {
+      const res = await fetch("/api/leads/groups/open", { method: "POST" });
+      if (!res.ok) return null;
+      const g = (await res.json()) as ExportGroupSummary;
+      this.set({ ...this.snap, openGroupId: g.id });
+      void getListStore().reload();
+      return g.id;
+    } catch {
+      return null;
+    }
+  }
+
+  private localAdd(ids: string[], ref: MembershipRef): Membership {
+    const byOrg = { ...this.snap.byOrg };
+    for (const id of ids) {
+      const cur = byOrg[id] ?? [];
+      if (!cur.some((g) => g.id === ref.id)) byOrg[id] = [...cur, ref];
+    }
+    return { ...this.snap, byOrg };
+  }
+
+  private localRemove(ids: string[], groupId: string): Membership {
+    const byOrg = { ...this.snap.byOrg };
+    for (const id of ids) {
+      const next = (byOrg[id] ?? []).filter((g) => g.id !== groupId);
+      if (next.length) byOrg[id] = next;
+      else delete byOrg[id];
+    }
+    return { ...this.snap, byOrg };
+  }
+
+  /** Put these churches in the open batch. Already-present ones are left alone. */
+  collect = async (ids: string[]): Promise<void> => {
+    if (!ids.length) return;
+    const groupId = await this.ensureOpen();
+    if (!groupId) {
+      this.set(this.snap, "Could not open a batch.");
+      return;
+    }
+    const fresh = ids.filter((id) => !(this.snap.byOrg[id] ?? []).some((g) => g.id === groupId));
+    if (!fresh.length) return;
+
+    const before = this.snap;
+    const name = getListStore().nameOf(groupId) ?? "this batch";
+    this.set(this.localAdd(fresh, { id: groupId, name, status: "open" }));
+
+    try {
+      const res = await fetch(`/api/leads/groups/${groupId}/churches`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: fresh }),
+      });
+      if (!res.ok) {
+        this.set(before, "Could not add to the batch.");
+        return;
+      }
+      void getListStore().reload();
+      // Re-read rather than trusting the optimistic copy: the server is the only
+      // thing that knows what it actually skipped.
+      void this.reload();
+    } catch {
+      this.set(before, "Offline — that church was not collected.");
+    }
+  };
+
+  /** Take a church back out of the open batch. */
+  uncollect = async (orgId: string): Promise<void> => {
+    const groupId = this.snap.openGroupId;
+    if (!groupId) return;
+    const before = this.snap;
+    this.set(this.localRemove([orgId], groupId));
+
+    try {
+      const res = await fetch(`/api/leads/groups/${groupId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ops: [{ op: "church.remove", orgId }] }),
+      });
+      if (!res.ok) {
+        this.set(before, "Could not remove that church.");
+        return;
+      }
+      void getListStore().reload();
+    } catch {
+      this.set(before, "Offline — that church was not removed.");
+    }
+  };
+}
+
+let membershipStore: MembershipStore | null = null;
+
+function getMembershipStore(): MembershipStore {
+  if (!membershipStore) membershipStore = new MembershipStore();
+  return membershipStore;
+}
+
+export interface MembershipHandle {
+  membership: Membership;
+  error: string;
+  /** Toggle one church in or out of the open batch. */
+  toggle: (orgId: string) => void;
+  /** Bulk add — what shift-click produces. */
+  collect: (ids: string[]) => void;
+  reload: () => void;
+}
+
+export function useMembership(): MembershipHandle {
+  const s = getMembershipStore();
+  const membership = useSyncExternalStore(s.subscribe, s.getSnapshot, s.getServerSnapshot);
+  const error = useSyncExternalStore(s.subscribe, s.getError, () => "");
+
+  const toggle = useCallback(
+    (orgId: string) => {
+      if (isCollecting(membership, orgId)) void s.uncollect(orgId);
+      else void s.collect([orgId]);
+    },
+    [s, membership],
+  );
+  const collect = useCallback((ids: string[]) => void s.collect(ids), [s]);
+  const reload = useCallback(() => void s.reload(), [s]);
+
+  return useMemo(
+    () => ({ membership, error, toggle, collect, reload }),
+    [membership, error, toggle, collect, reload],
   );
 }
 

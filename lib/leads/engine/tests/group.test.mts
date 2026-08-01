@@ -16,6 +16,7 @@ import { buildEntry } from "../snapshot.ts";
 import {
   applyOp,
   applyOps,
+  cardFlags,
   departedEntries,
   exportableItems,
   fresherGroup,
@@ -350,6 +351,102 @@ describe("staleness", { skip }, () => {
     const empty = new Map<string, string>();
     assert.equal(staleEntries(group, empty).size, 0);
     assert.deepEqual([...departedEntries(group, empty)], [entry.orgId]);
+  });
+});
+
+/**
+ * The flags on a review row.
+ *
+ * They exist to aim a reviewer skimming twenty churches at the places a mistake
+ * is most likely, which only works if they are RARE. A flag that appears on
+ * every card is not a signal, it is furniture — and the two easiest ways to end
+ * up with one are both live here:
+ *
+ *  · an unedited slogan is `uncited` by construction ("from the site's title"),
+ *  · so is an unedited step label ("our category").
+ *
+ * Flag on `uncited` generally and every one of the 134 churches lights up.
+ */
+describe("review flags", { skip }, () => {
+  const keys = (card: ReturnType<typeof resolve>) => cardFlags(card).map((f) => f.key);
+
+  test("no flag ever claims something is wrong", () => {
+    const index = loadIndex();
+    for (const row of index.slice(0, 60)) {
+      const card = resolve(buildEntry(row, loadRecord(row.id), "fixture-1", 0));
+      for (const f of cardFlags(card)) {
+        assert.ok(f.title.length > 20, `${f.key} has no explanation`);
+        assert.ok(
+          !/\b(wrong|bad|error|invalid)\b/i.test(`${f.label} ${f.title}`),
+          `"${f.label}" reads as a verdict on the church, not on our pipeline`,
+        );
+      }
+    }
+  });
+
+  test("an ordinary church is not flagged for having a slogan and contacts", () => {
+    const index = loadIndex();
+    const row = index.find((r) => {
+      const card = resolve(buildEntry(r, loadRecord(r.id), "f", 0));
+      return card.slogan.kind === "slogan" && card.contacts.length > 0 && card.stepsLooked;
+    });
+    assert.ok(row, "no church in the fixture has a slogan, contacts and read steps");
+    const card = resolve(buildEntry(row, loadRecord(row.id), "f", 0));
+    assert.ok(!keys(card).includes("slogan"));
+    assert.ok(!keys(card).includes("contacts"));
+    assert.ok(!keys(card).includes("steps"));
+  });
+
+  /** 83 of 134 are `homepage_only` — the single most common gap in the corpus. */
+  test("a homepage-only slogan is flagged as unread, not as absent", () => {
+    const index = loadIndex();
+    const row = index.find(
+      (r) => resolve(buildEntry(r, loadRecord(r.id), "f", 0)).slogan.kind === "homepage_only",
+    )!;
+    const flag = cardFlags(resolve(buildEntry(row, loadRecord(row.id), "f", 0))).find(
+      (f) => f.key === "slogan",
+    )!;
+    assert.equal(flag.tone, "unk", "we never looked — that is not the same as finding none");
+    assert.match(flag.label, /homepage/);
+  });
+
+  test("suppressing the last contact raises the flag; putting it back lowers it", () => {
+    const { entry, group } = pick();
+    let g = group;
+    for (const c of entry.snapshot.contacts) {
+      g = applyOp(g, { op: "item.suppress", orgId: entry.orgId, itemId: c.id }, 0);
+    }
+    assert.ok(
+      keys(resolve(g.entries[0])).includes("contacts"),
+      "striking out everyone leaves nobody to write to, and the row must say so",
+    );
+
+    g = applyOp(g, { op: "item.restore", orgId: entry.orgId, itemId: entry.snapshot.contacts[0].id }, 0);
+    assert.ok(!keys(resolve(g.entries[0])).includes("contacts"));
+  });
+
+  test("a struck-out quote stops counting as uncitable", () => {
+    const index = loadIndex();
+    // A church holding a quote we never recorded a page for.
+    const found = index
+      .map((r) => buildEntry(r, loadRecord(r.id), "f", 0))
+      .find((e) =>
+        resolve(e).steps.some((s) => s.quote?.attribution.kind === "uncited"),
+      );
+    if (!found) return; // every quote in this corpus is cited — the stronger case
+    const before = cardFlags(resolve(found)).find((f) => f.key === "uncited")!;
+    assert.equal(before.tone, "unver");
+
+    let g = group1([found]);
+    for (const s of resolve(found).steps) {
+      if (s.quote?.attribution.kind === "uncited") {
+        g = applyOp(g, { op: "item.suppress", orgId: found.orgId, itemId: s.id }, 0);
+      }
+    }
+    assert.ok(
+      !keys(resolve(g.entries[0])).includes("uncited"),
+      "an item you have already struck out must not keep asking to be checked",
+    );
   });
 });
 

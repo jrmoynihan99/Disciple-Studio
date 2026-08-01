@@ -17,7 +17,12 @@ import { PLATFORM_FACETS } from "./platform.ts";
 
 export type SortKey = "opp" | "steps" | "name" | "paid" | "state" | "scraped";
 
-export type MarkFilter = "star" | "issue" | "goodlead" | "exported";
+/**
+ * `collected` replaced `goodlead`. It is answered by batch membership rather
+ * than by a mark, because the mark's "queue" was never real — nothing wrote the
+ * export log, so it only ever meant "is it marked".
+ */
+export type MarkFilter = "star" | "issue" | "collected" | "exported";
 
 export interface LeadFilters {
   /** Name only — not city, not quote text. */
@@ -33,6 +38,15 @@ export interface LeadFilters {
   favorBucket: number | null;
   /** facet key -> accepted values. Empty/absent means "any". */
   qsel: Record<string, string[]>;
+  /**
+   * Sink churches already collected in an EARLIER batch to the bottom.
+   *
+   * The daily job is finding the best twenty NEW churches, so the ones already
+   * handled should stop competing for attention. They are never hidden — a gap
+   * in what you see must never be silent — only sorted last, and the count is
+   * reported in the deck.
+   */
+  newFirst: boolean;
 }
 
 export function defaultFilters(): LeadFilters {
@@ -45,9 +59,10 @@ export function defaultFilters(): LeadFilters {
     country: "",
     subdiv: "",
     network: "",
-    marks: { star: false, issue: false, goodlead: false, exported: false },
+    marks: { star: false, issue: false, collected: false, exported: false },
     favorBucket: null,
     qsel: {},
+    newFirst: true,
   };
 }
 
@@ -155,7 +170,7 @@ export function baseFiltered(
     if (term && !v.name.toLowerCase().includes(term)) return false;
     if (f.opponly && favorCount(v, ctx) === 0) return false;
 
-    for (const kind of ["star", "issue", "goodlead", "exported"] as const) {
+    for (const kind of ["star", "issue", "collected", "exported"] as const) {
       if (f.marks[kind] && !isMarked(kind, v.id)) return false;
     }
 
@@ -187,6 +202,8 @@ export interface Summary {
   total: number;
   /** One entry per integer favor bucket, over the FULL dataset's axis. */
   dist: number[];
+  /** How many of `n` were already collected in an earlier batch. Reported, never hidden. */
+  collected: number;
 }
 
 /**
@@ -199,13 +216,16 @@ export function summarize(
   total: number,
   ctx: EngineCtx,
   scores: Map<string, number>,
+  isEarlier: (orgId: string) => boolean = () => false,
 ): Summary {
   const max = Math.max(1, Math.ceil(favorMax(ctx.favor)));
   const dist = Array<number>(max + 1).fill(0);
+  let collected = 0;
   for (const v of base) {
     dist[favorBucket(scores.get(v.id) ?? 0, ctx.favor)]++;
+    if (isEarlier(v.id)) collected++;
   }
-  return { n: base.length, total, dist };
+  return { n: base.length, total, dist, collected };
 }
 
 export interface ViewResult {
@@ -220,6 +240,8 @@ export function computeView(
   f: LeadFilters,
   ctx: EngineCtx,
   isMarked: MarkLookup = NO_MARKS,
+  /** In a batch that is not the one being collected into. */
+  isEarlier: (orgId: string) => boolean = () => false,
 ): ViewResult {
   const base = baseFiltered(views, f, ctx, isMarked);
 
@@ -227,14 +249,15 @@ export function computeView(
   const scores = new Map<string, number>();
   for (const v of base) scores.set(v.id, favorScore(v, ctx));
 
-  const summary = summarize(base, views.length, ctx, scores);
+  const summary = summarize(base, views.length, ctx, scores, isEarlier);
 
   let rows = base;
   if (f.favorBucket != null) {
     rows = base.filter((v) => favorBucket(scores.get(v.id) ?? 0, ctx.favor) === f.favorBucket);
   }
 
-  rows = rows.slice().sort(comparator(f.sort, scores));
+  const sort = comparator(f.sort, scores);
+  rows = rows.slice().sort(f.newFirst ? demoteCollected(sort, isEarlier) : sort);
   return { base, rows, summary, scores };
 }
 
@@ -253,6 +276,28 @@ function scrapedAt(v: ChurchView): number {
  * reshuffles equal rows. Every sort puts missing data LAST — never first, and
  * never in the middle as if it were a value.
  */
+/**
+ * Wrap a sort so churches collected in an EARLIER batch fall to the bottom.
+ *
+ * Applied OVER the chosen sort rather than inside each case, so every sort keeps
+ * its own meaning and gains this for free.
+ *
+ * Churches in the OPEN batch are deliberately not demoted. They are today's
+ * work; sinking them would make the list reshuffle under someone the moment they
+ * collected a row, which is the fastest way to lose your place in a list of
+ * fourteen thousand.
+ */
+export function demoteCollected(
+  inner: (a: ChurchView, b: ChurchView) => number,
+  isEarlier: (orgId: string) => boolean,
+): (a: ChurchView, b: ChurchView) => number {
+  return (a, b) => {
+    const ea = isEarlier(a.id) ? 1 : 0;
+    const eb = isEarlier(b.id) ? 1 : 0;
+    return ea - eb || inner(a, b);
+  };
+}
+
 export function comparator(
   sort: SortKey,
   scores: Map<string, number>,

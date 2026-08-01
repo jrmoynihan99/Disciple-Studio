@@ -18,12 +18,16 @@ export function Deck({
   onSort,
   bucket,
   onBucket,
+  newFirst,
+  onNewFirst,
 }: {
   summary: Summary;
   sort: SortKey;
   onSort: (s: SortKey) => void;
   bucket: number | null;
   onBucket: (b: number | null) => void;
+  newFirst: boolean;
+  onNewFirst: (v: boolean) => void;
 }) {
   // The axis comes from the FULL dataset, not the filtered rows, so the bars do
   // not rescale while the user is filtering. This matters more than it sounds:
@@ -71,7 +75,27 @@ export function Deck({
           ))}
         </div>
 
-        <div className="ml-auto">
+        {/* ── new first ──
+            The daily job is the next twenty NEW churches, so the ones already
+            collected sort last. Never hidden, and the count is always on screen:
+            a row you cannot find is worse than a row further down. */}
+        <label
+          title="Churches already collected in an earlier batch sort to the bottom. They are never hidden."
+          className="ml-auto flex cursor-pointer items-center gap-1.5 font-mono text-[10px] text-lead-ink2"
+        >
+          <input
+            type="checkbox"
+            checked={newFirst}
+            onChange={(e) => onNewFirst(e.target.checked)}
+            className="accent-[var(--lead-brand)]"
+          />
+          New first
+          {summary.collected > 0 && (
+            <span className="text-lead-dl">· {fmt(summary.collected)} collected</span>
+          )}
+        </label>
+
+        <div>
           <select
             value={sort}
             onChange={(e) => onSort(e.target.value as SortKey)}

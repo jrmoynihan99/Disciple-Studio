@@ -170,6 +170,34 @@
   }
 }
 
+/* ── the pointer cursor ──
+   Tailwind v4 dropped `cursor: pointer` from its preflight — it sets only
+   `appearance: button` on <button> now — so every button in this console
+   rendered with an arrow. It read worst on a lead row, which carries
+   `cursor-pointer` itself: the row said "clickable" and the ★ 🐞 ✆ inside it
+   said "not".
+
+   `@layer base` FOR THE SAME REASON AS THE RULE ABOVE, and it matters more
+   here. Three controls deliberately refuse the pointer — the derived facet
+   swatch (`cursor-default`), the dormant "Sent only" filter and the inert
+   export button (`cursor-not-allowed`) — and all three say so with a utility.
+   Utilities beat `base` whatever the specificity, so those keep winning.
+   Unlayered, this rule would quietly re-arm three controls that are supposed to
+   look unavailable.
+
+   <a href> is left out: the UA stylesheet already does it. <label> is left out
+   on purpose — the two that wrap a checkbox already carry the class, while one
+   wraps a <select> (which shows an arrow) and one is a sibling that clicks
+   nothing. A blanket rule would lie about both. */
+@layer base {
+  [data-lead-root] :is(button, summary, [role="button"]):not(:disabled) {
+    cursor: pointer;
+  }
+  [data-lead-root] button:disabled {
+    cursor: not-allowed;
+  }
+}
+
 @theme inline {
   --color-lead-good: var(--lead-good);
   --color-lead-good2: var(--lead-good2);

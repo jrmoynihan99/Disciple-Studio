@@ -59,8 +59,15 @@ export function EditableText({
   };
   const cancel = () => setDraft(null);
 
+  /**
+   * `py-1`, not `py-1.5`. A review sheet renders roughly thirty of these per
+   * church, so four pixels of padding each is ~250px of column height per church
+   * — measured, and the single largest thing standing between a reviewer and a
+   * second church on the screen. It stays non-zero: the padding is the click
+   * target, and this is a control you hit with a mouse on a line of text.
+   */
   const shared =
-    "w-full rounded-md border border-lead-brand bg-lead-bg px-2 py-1.5 text-inherit " +
+    "w-full rounded-md border border-lead-brand bg-lead-bg px-2 py-1 text-inherit " +
     "font-[inherit] leading-[inherit] text-lead-ink outline-none";
 
   if (editing && !disabled) {
@@ -105,7 +112,11 @@ export function EditableText({
       onClick={() => setDraft(value)}
       // Dotted underline on hover, no permanent box: forty cards of outlined
       // fields reads as a form to fill in rather than a proof sheet to check.
-      className={`w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-lead-panel2 ${
+      //
+      // `cursor-text`, not the pointer the base rule would give any other
+      // button. This one turns into a text field, and a caret is the honest
+      // answer to "what will this click do".
+      className={`w-full cursor-text rounded-md px-2 py-1 text-left transition-colors hover:bg-lead-panel2 ${
         value ? "" : "text-lead-ink2 italic opacity-60"
       } ${className ?? ""}`}
     >

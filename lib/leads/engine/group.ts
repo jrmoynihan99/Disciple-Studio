@@ -25,6 +25,8 @@ import type {
   ResolvedPathwayStep,
   ResolvedSlogan,
   ResolvedStep,
+  Membership,
+  MembershipRef,
   SnapshotContact,
   Voice,
 } from "./group-types.ts";
@@ -311,6 +313,94 @@ export function exportableItems(card: ResolvedCard): {
 }
 
 /* ------------------------------------------------------------------ *
+ * Flags
+ * ------------------------------------------------------------------ */
+
+/**
+ * `unk` — we never looked. `unver` — we looked, and cannot stand behind it.
+ * `plain` — a measured absence, which is a fact and not a verdict.
+ */
+export type CardFlagTone = "unk" | "unver" | "plain";
+
+export interface CardFlag {
+  key: string;
+  label: string;
+  tone: CardFlagTone;
+  /** Why it is here. Every flag has to be able to answer that. */
+  title: string;
+}
+
+/**
+ * Where to look first on a card.
+ *
+ * A reviewer skimming twenty churches cannot read every line of every one, so
+ * these point at the places a mistake is most likely. THEY NEVER SAY SOMETHING
+ * IS WRONG — every one is either "we did not read this" or "we cannot cite
+ * this", both of which are facts about our pipeline rather than claims about a
+ * church.
+ *
+ * Two absences are deliberately NOT flagged, because flagging them would put a
+ * badge on nearly every card and badges that are always on are invisible:
+ *
+ *  · an unedited slogan is `uncited` by construction ("from the site's title"),
+ *  · so is an unedited step label ("our category").
+ *
+ * Only QUOTES are checked for citation, because a quote is the one thing on the
+ * card that claims to be the church's own words.
+ */
+export function cardFlags(card: ResolvedCard): CardFlag[] {
+  const out: CardFlag[] = [];
+
+  if (card.slogan.kind === "homepage_only") {
+    out.push({
+      key: "slogan",
+      label: "slogan: homepage only",
+      tone: "unk",
+      title: "Only the homepage was read for branding. /about was never fetched, which is where a slogan usually lives.",
+    });
+  } else if (card.slogan.kind === "none") {
+    out.push({
+      key: "slogan",
+      label: "no slogan",
+      tone: "plain",
+      title: "We read the site and found no slogan.",
+    });
+  }
+
+  if (!card.stepsLooked) {
+    out.push({
+      key: "steps",
+      label: "next steps: not read",
+      tone: "unk",
+      title: "Next-step pages were never fetched for this church. This is not a list of what they lack.",
+    });
+  }
+
+  const uncited = [...card.steps, ...card.pathway.steps].filter(
+    (s) => !s.suppressed && s.quote?.attribution.kind === "uncited",
+  ).length;
+  if (uncited > 0) {
+    out.push({
+      key: "uncited",
+      label: `${uncited} quote${uncited === 1 ? "" : "s"} with no page`,
+      tone: "unver",
+      title: "We hold these words but recorded no page they came from, so nobody can check them.",
+    });
+  }
+
+  if (card.contacts.filter((c) => !c.suppressed).length === 0) {
+    out.push({
+      key: "contacts",
+      label: "no contacts",
+      tone: "plain",
+      title: "No contact details survived. There is nobody to send this to.",
+    });
+  }
+
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
  * Staleness
  * ------------------------------------------------------------------ */
 
@@ -436,6 +526,13 @@ export function applyOp(group: ExportGroup, op: GroupOp, at: number): ExportGrou
   switch (op.op) {
     case "group.rename":
       return { ...group, name: op.name };
+    case "group.close":
+      // Not `exported`. Nothing has been sent, and a status that says otherwise
+      // would make ◎ — the only defence against contacting a church twice — a
+      // claim anybody could set by pressing a button.
+      return group.status === "open"
+        ? { ...group, status: "closed", closedAt: new Date(at).toISOString() }
+        : group;
     case "field.set":
       return withEntry(group, op.orgId, (e) => setField(e, op.path, op.value, op.base, at));
     case "field.revert":
@@ -457,6 +554,35 @@ export function applyOp(group: ExportGroup, op: GroupOp, at: number): ExportGrou
 
 export function applyOps(group: ExportGroup, ops: GroupOp[], at: number): ExportGroup {
   return ops.reduce((g, op) => applyOp(g, op, at), group);
+}
+
+/* ------------------------------------------------------------------ *
+ * Membership
+ * ------------------------------------------------------------------ */
+
+/**
+ * Which batches each church is in, built from the batches themselves.
+ *
+ * IDS AND NAMES ONLY, and that is a rule rather than an optimisation. The
+ * console asks for this on every load — it is the one group response nobody
+ * clicks for — so it must stay proportional to what has been collected rather
+ * than to the corpus. Letting a snapshot through here would put every quote and
+ * every contact of every collected church on the critical path of opening the
+ * page. There is a test asserting the shape, because the leak would be silent:
+ * everything would still work, just slower every day.
+ */
+export function membershipFrom(groups: readonly ExportGroup[]): Membership {
+  const byOrg: Record<string, MembershipRef[]> = {};
+  let openGroupId: string | null = null;
+
+  for (const g of groups) {
+    const status = g.status ?? "open";
+    if (status === "open" && !openGroupId) openGroupId = g.id;
+    const ref: MembershipRef = { id: g.id, name: g.name, status };
+    for (const e of g.entries) (byOrg[e.orgId] ??= []).push(ref);
+  }
+
+  return { openGroupId, byOrg };
 }
 
 /* ------------------------------------------------------------------ *
@@ -551,6 +677,8 @@ export function sanitizeOp(raw: unknown): GroupOp | null {
       const name = s(o.name, 120);
       return name && name.trim() ? { op: "group.rename", name: name.trim() } : null;
     }
+    case "group.close":
+      return { op: "group.close" };
     case "field.set": {
       const value = s(o.value), base = s(o.base);
       if (!orgId || !path || !PATH_RE.test(path) || value == null || base == null) return null;

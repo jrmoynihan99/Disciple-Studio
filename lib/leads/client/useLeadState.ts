@@ -22,7 +22,15 @@
  */
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
-import { emptyState, reduce, type LeadState, type Mutation } from "./state";
+import {
+  emptyState,
+  hydrate,
+  persistable,
+  reduce,
+  withoutStaleExportLog,
+  type LeadState,
+  type Mutation,
+} from "./state";
 
 const KEY = "leads-state-v1";
 const FLUSH_IDLE_MS = 400;
@@ -48,6 +56,7 @@ function localUserId(): string {
 
 /** The snapshot the server renders: no marks, no notes, no overrides. */
 const SERVER_SNAPSHOT = emptyState("u_server");
+
 
 class LocalLeadStore {
   private snapshot: LeadState | null = null;
@@ -91,11 +100,7 @@ class LocalLeadStore {
     const s = this.snapshot;
     if (!s) return;
     try {
-      const { userId, mine, lastExportedAt, notes, config } = s;
-      localStorage.setItem(
-        KEY,
-        JSON.stringify({ userId, mine, lastExportedAt, notes, config }),
-      );
+      localStorage.setItem(KEY, JSON.stringify(persistable(s)));
     } catch {
       /* quota or private mode — the UI keeps working from memory */
     }
@@ -110,23 +115,22 @@ class LocalLeadStore {
     this.timer = setTimeout(this.flush, FLUSH_IDLE_MS);
   }
 
+  /**
+   * Reads the blob; `hydrate` decides what survives it. The split is deliberate:
+   * everything below is untestable (localStorage), everything above it is pure
+   * and is tested against the real function rather than a copy of its shape.
+   */
   private load(): LeadState {
-    const base = emptyState(localUserId());
+    const userId = localUserId();
     try {
       const raw = localStorage.getItem(KEY);
-      if (!raw) return base;
-      const saved = JSON.parse(raw) as Partial<LeadState>;
-      return {
-        ...base,
-        ...saved,
-        userId: base.userId,
-        mine: { ...base.mine, ...saved.mine },
-        // At one user, team === mine. The Blob layer folds other users in here.
-        team: base.team,
-        config: { ...base.config, ...saved.config },
-      };
+      const saved = raw ? JSON.parse(raw) : null;
+      // Take the stub export's leftovers off the disk, not just out of memory.
+      const cleaned = withoutStaleExportLog(saved);
+      if (cleaned) localStorage.setItem(KEY, JSON.stringify(cleaned));
+      return hydrate(saved, userId);
     } catch {
-      return base;
+      return emptyState(userId);
     }
   }
 }

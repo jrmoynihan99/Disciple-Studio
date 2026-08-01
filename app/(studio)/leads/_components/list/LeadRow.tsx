@@ -6,6 +6,7 @@ import type { EngineCtx, IndexRow } from "@/lib/leads/engine/types";
 import { favFmt } from "@/lib/leads/engine/favor";
 import { decodeEntities } from "@/lib/leads/engine/text";
 import type { MarkKind, RowTint } from "@/lib/leads/client/state";
+import type { MembershipRef } from "@/lib/leads/engine/group-types";
 import { LogoTile } from "./LogoTile";
 import { CrucialTiles } from "./CrucialTiles";
 import { ContactRow } from "./ContactRow";
@@ -13,7 +14,10 @@ import { VisitButton } from "./VisitButton";
 
 const TINT_CLASS: Record<RowTint, string> = {
   issue: "lead-tint-issue",
-  goodlead: "lead-tint-goodlead",
+  // Renamed, not restyled. The wash still runs ~2x the others for the reason the
+  // CSS gives: it is the queue, and "which ones did I pick?" has to be
+  // answerable from across the room. The difference now is that the queue is real.
+  collecting: "lead-tint-goodlead",
   exported: "lead-tint-exported",
   star: "lead-tint-star",
 };
@@ -25,12 +29,17 @@ interface Props {
   score: number;
   base: number;
   tint: RowTint | null;
-  marks: { star: boolean; issue: boolean; goodlead: boolean; downloaded: boolean };
-  selected: boolean;
+  marks: { star: boolean; issue: boolean; downloaded: boolean };
+  /** In the batch currently being collected into. */
+  collecting: boolean;
+  /** Its name, for the ✆ tooltip. */
+  batchName: string;
+  /** Batches OTHER than the open one — "collected Aug 1". */
+  earlier: readonly MembershipRef[];
   onOpen: (id: string) => void;
   onToggleMark: (kind: MarkKind, id: string) => void;
-  /** `shift` extends from the last click, the way a file list does. */
-  onToggleSelect: (id: string, shift: boolean) => void;
+  /** `shift` extends from the last one, the way a file list does. */
+  onToggleCollect: (id: string, shift: boolean) => void;
 }
 
 function MarkButton({
@@ -137,10 +146,12 @@ function LeadRowInner({
   base,
   tint,
   marks,
-  selected,
+  collecting,
+  batchName,
+  earlier,
   onOpen,
   onToggleMark,
-  onToggleSelect,
+  onToggleCollect,
 }: Props) {
   const sub = [row.rg, view.platformLine, row.ts && `scraped ${row.ts}`]
     .filter(Boolean)
@@ -151,12 +162,7 @@ function LeadRowInner({
       role="button"
       tabIndex={-1}
       onClick={() => onOpen(row.id)}
-      // Selection shows as an outline, never as a background: the tints are the
-      // only thing carrying mark state and a selection wash would erase them,
-      // which is the same bug hover had.
-      className={`${ROW_CLASS} ${tint ? TINT_CLASS[tint] : ""} ${
-        selected ? "outline-2 outline-lead-brand" : ""
-      }`}
+      className={`${ROW_CLASS} ${tint ? TINT_CLASS[tint] : ""}`}
     >
       {/* ── marks ──
           Star and issue in a boxed rail; the green telephone BELOW the box in
@@ -165,30 +171,6 @@ function LeadRowInner({
           emoji images: an emoji carries baked-in colour and can neither turn
           green when set nor grey out when unset. */}
       <div className="flex flex-col items-stretch gap-[7px]">
-        {/* ── selection ──
-            Selecting is not marking. A mark is a judgement about the church that
-            outlives the session; this is "these ones, now", and it lives only in
-            component state. It rides in the existing mark column rather than
-            adding a grid track, so no row geometry changes. */}
-        <label
-          title="Select for a group"
-          onClick={(e) => e.stopPropagation()}
-          className="flex cursor-pointer items-center justify-center rounded-lg border border-lead-line bg-lead-panel py-1.5"
-        >
-          <input
-            type="checkbox"
-            checked={selected}
-            aria-label={`Select ${row.n || "this church"}`}
-            onClick={(e) => {
-              // The row itself is a click target; without this, selecting also
-              // opens the dossier.
-              e.stopPropagation();
-              onToggleSelect(row.id, e.shiftKey);
-            }}
-            onChange={() => {}}
-            className="h-3.5 w-3.5 cursor-pointer accent-[var(--lead-brand)]"
-          />
-        </label>
         <div className="flex flex-col items-center gap-2.5 rounded-xl border border-lead-line bg-lead-panel px-[5px] py-2.5">
           <MarkButton
             glyph="★"
@@ -217,16 +199,29 @@ function LeadRowInner({
             font="lead-emoji"
           />
         </div>
+        {/* ── ✆ collect ──
+            The one control that DOES something, and now it finally does: it puts
+            the church in the open batch. It used to write a `goodlead` mark
+            described as "the export queue" — but nothing ever wrote the export
+            log, so that queue was a mark pretending to be a destination.
+
+            Shift-click extends from the last one, which is why there is no
+            checkbox any more: one control, both gestures. */}
         <button
           type="button"
-          title={marks.goodlead ? "In the export queue" : "Mark as a good lead (export queue)"}
-          aria-pressed={marks.goodlead}
+          title={
+            collecting
+              ? `In ${batchName || "this batch"} — click to take it out`
+              : "Collect into the current batch · shift-click for a range"
+          }
+          aria-label={collecting ? "Remove from the batch" : "Collect into the batch"}
+          aria-pressed={collecting}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleMark("goodlead", row.id);
+            onToggleCollect(row.id, e.shiftKey);
           }}
           className={`lead-glyph flex items-center justify-center rounded-xl border px-1 py-1.5 text-2xl leading-none transition-colors ${
-            marks.goodlead
+            collecting
               ? "border-lead-good bg-lead-good/20 text-lead-good opacity-100"
               : "border-lead-line bg-lead-panel text-lead-ink2 opacity-50 hover:text-lead-good hover:opacity-100"
           }`}
@@ -272,6 +267,19 @@ function LeadRowInner({
 
         {sub && (
           <div className="mt-2 truncate font-mono text-[11px] text-lead-ink2">{sub}</div>
+        )}
+
+        {/* ── already collected ──
+            The console could not tell you this at all, which is how the same
+            church ended up in a second batch a week later. It is deliberately
+            quiet and never hides the row: these churches sort to the bottom, and
+            a sorted-last row is findable in a way a filtered-out one is not. */}
+        {earlier.length > 0 && (
+          <div className="mt-1 truncate font-mono text-[10px] text-lead-ink2 opacity-75">
+            <span className="mr-1 align-[1px] text-lead-dl">◍</span>
+            collected {earlier.map((g) => g.name).join(" · ")}
+            {earlier.some((g) => g.status === "exported") && " · exported"}
+          </div>
         )}
         {/* Under the identity, not down in the contact strip. See VisitButton. */}
         <VisitButton row={row} />

@@ -302,12 +302,31 @@ export interface GroupEntry {
   edits: EntryEdits;
 }
 
+/**
+ * Where a batch is in its life.
+ *
+ *   open      ✆ collects into it. There is at most ONE, which is the whole
+ *             reason nobody has to create or name a group: the batch is implied
+ *             by the work and named afterwards, if at all.
+ *   closed    you stopped collecting into it. Nothing was sent.
+ *   exported  it went out.
+ *
+ * `closed` exists because the export does not. Without it there would be no
+ * honest way to finish a batch and start tomorrow's — the only alternative was
+ * marking it `exported`, which would claim churches had been contacted when they
+ * had not, and ◎ exists precisely to stop that claim being made loosely.
+ */
+export type GroupStatus = "open" | "closed" | "exported";
+
 export interface ExportGroup {
   schema: number;
   id: string;
   /** From the signed cookie, server-side. Never a body field. */
   userId: string;
   name: string;
+  /** Absent on groups written before batches existed; read as `open`. */
+  status?: GroupStatus;
+  closedAt?: string;
   createdAt: string;
   updatedAt: string;
   /**
@@ -324,9 +343,53 @@ export interface ExportGroup {
 export interface ExportGroupSummary {
   id: string;
   name: string;
+  status: GroupStatus;
   count: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Which batches a church is already in.
+ *
+ * IDS ONLY. The console fetches this on every load and a single group runs to
+ * ~210 KB, so answering "have I collected this one before?" by loading groups is
+ * not viable at 14k rows. This payload is proportional to what you have
+ * collected, not to the corpus.
+ *
+ * It is what lets the row say `collected Aug 1` — the thing the console could
+ * not tell you at all, and the reason the same church kept turning up in a
+ * second batch a week later.
+ */
+export interface MembershipRef {
+  id: string;
+  name: string;
+  status: GroupStatus;
+}
+
+export interface Membership {
+  /** The batch ✆ collects into. `null` until the first church is collected. */
+  openGroupId: string | null;
+  byOrg: Record<string, MembershipRef[]>;
+}
+
+export const EMPTY_MEMBERSHIP: Membership = { openGroupId: null, byOrg: {} };
+
+/** Is this church in the batch currently being collected? */
+export function isCollecting(m: Membership, orgId: string): boolean {
+  return !!m.openGroupId && (m.byOrg[orgId] ?? []).some((g) => g.id === m.openGroupId);
+}
+
+/**
+ * Batches this church is in OTHER than the open one.
+ *
+ * The distinction is load-bearing: a church in the open batch is today's work
+ * and must keep its place in the list, while one in an earlier batch is already
+ * handled and sinks. Collapsing the two would reshuffle the list under someone
+ * mid-collection.
+ */
+export function earlierBatches(m: Membership, orgId: string): MembershipRef[] {
+  return (m.byOrg[orgId] ?? []).filter((g) => g.id !== m.openGroupId);
 }
 
 /* ------------------------------------------------------------------ *
@@ -377,7 +440,9 @@ export type GroupOp =
   | { op: "item.restore"; orgId: string; itemId: string }
   | { op: "item.add"; orgId: string; item: AddedItem }
   | { op: "item.remove"; orgId: string; itemId: string }
-  | { op: "church.remove"; orgId: string };
+  | { op: "church.remove"; orgId: string }
+  /** Stop collecting into this batch. Not "sent" — nothing has been sent. */
+  | { op: "group.close" };
 
 /* ------------------------------------------------------------------ *
  * The resolved render model

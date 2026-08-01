@@ -20,6 +20,125 @@ type Add = (name: string, pass: boolean, detail: string) => void;
 const ctx: EngineCtx = { overrides: {}, favor: defaultFavorModel(), rows: [] };
 
 /**
+ * The row, rendered twice: collecting now, and collected last week.
+ *
+ * `/leads` cannot be scraped for this — its server HTML is a loading skeleton
+ * with no rows in it, so a markup scan finds nothing and passes. The shipping
+ * component is mounted instead.
+ */
+async function auditRow(add: Add) {
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const { LeadRow } = await import("../_components/list/LeadRow");
+  const { churchFromIndex } = await import("@/lib/leads/engine/adapt");
+
+  const rows: IndexRow[] = await fetch("/api/leads/index").then((r) => r.json());
+  const row = rows.find((r) => r.lo && (r.em?.length ?? 0) > 0) ?? rows[0];
+  const view = churchFromIndex(row);
+
+  const host = document.createElement("div");
+  host.style.position = "fixed";
+  host.style.left = "-10000px";
+  host.style.width = "1100px";
+  (document.querySelector("[data-lead-root]") ?? document.body).appendChild(host);
+
+  const root = createRoot(host);
+  const props = {
+    row,
+    view,
+    ctx,
+    score: 3,
+    base: 9,
+    marks: { star: false, issue: false, downloaded: false },
+    onOpen: () => {},
+    onToggleMark: () => {},
+    onToggleCollect: () => {},
+  } as const;
+
+  try {
+    flushSync(() => {
+      root.render(
+        <>
+          <div data-probe="collecting">
+            <LeadRow {...props} tint="collecting" collecting batchName="Aug 2" earlier={[]} />
+          </div>
+          <div data-probe="earlier">
+            <LeadRow
+              {...props}
+              tint={null}
+              collecting={false}
+              batchName="Aug 2"
+              earlier={[{ id: "aug-1", name: "Aug 1", status: "exported" }]}
+            />
+          </div>
+        </>,
+      );
+    });
+
+    /**
+     * ONE control, ONE meaning.
+     *
+     * The row briefly carried a checkbox ("select for a group") sitting right
+     * next to ✆ ("the export queue") — two controls for the same idea. ✆ won,
+     * because it was always the right gesture; it just had nowhere to put the
+     * church. This is what stops a second batch affordance growing back.
+     */
+    const boxes = host.querySelectorAll('input[type="checkbox"]');
+    const collect = host.querySelectorAll('[aria-pressed][aria-label*="batch" i]');
+    add(
+      "a row has exactly one way to collect a church",
+      boxes.length === 0 && collect.length === 2,
+      `${boxes.length} checkboxes, ${collect.length} collect controls across 2 rows`,
+    );
+
+    /**
+     * The pointer cursor, asserted because a FRAMEWORK CHANGE removed it.
+     *
+     * Tailwind v4 dropped `cursor: pointer` from its preflight, so every button
+     * in the console silently began rendering with an arrow — worst on a row,
+     * which carries `cursor-pointer` itself, so the row said "clickable" and the
+     * ★ 🐞 ✆ inside it said "not". A base rule in `leads-theme.css` puts it
+     * back. Nothing in the components changed, which is exactly why this needs a
+     * check: the next major can take it away again and no code review would see
+     * it.
+     */
+    const icons = [...host.querySelectorAll("button")].filter((b) => !b.disabled);
+    const arrows = icons.filter((b) => getComputedStyle(b).cursor !== "pointer");
+    add(
+      "every icon on a row shows the pointer cursor",
+      icons.length > 0 && arrows.length === 0,
+      `${icons.length} buttons, ${arrows.length} still showing an arrow`,
+    );
+
+    const collecting = host.querySelector('[data-probe="collecting"]');
+    const earlier = host.querySelector('[data-probe="earlier"]');
+
+    add(
+      "a collected row says which batch it is in, and an active one does not",
+      !/collected/i.test(collecting?.textContent ?? "") &&
+        /collected Aug 1/.test(earlier?.textContent ?? ""),
+      "today's work is not labelled as history",
+    );
+
+    /**
+     * The green wash answers "which ones did I pick just now?". If a church
+     * collected last week wore it too, a third of the list would be green and
+     * the question would stop having an answer.
+     */
+    const tinted = (el: Element | null) =>
+      !!el?.querySelector('[class*="lead-tint-goodlead"]');
+    add(
+      "only the batch being collected carries the wash",
+      tinted(collecting) && !tinted(earlier),
+      "an earlier batch shows a line, not a colour",
+    );
+  } finally {
+    root.unmount();
+    host.remove();
+  }
+}
+
+/**
  * A group card, built from a snapshot and put through the real components.
  *
  * NOT scraped from `/leads/groups/<id>`. That page is client-rendered, so its
@@ -100,7 +219,10 @@ async function auditGroupCard(add: Add) {
   const host = document.createElement("div");
   host.style.position = "fixed";
   host.style.left = "-10000px";
-  host.style.width = "880px";
+  // Wide enough for all four tracks. At 880px the sheet collapses to two
+  // columns by design, and the spread check below would be measuring the
+  // breakpoint rather than the layout.
+  host.style.width = "1600px";
   (document.querySelector("[data-lead-root]") ?? document.body).appendChild(host);
 
   const root = createRoot(host);
@@ -108,11 +230,34 @@ async function auditGroupCard(add: Add) {
     flushSync(() => {
       root.render(
         <>
-          <ChurchCard card={card} stale={false} departed={false} onOp={() => {}} onRemoveChurch={() => {}} />
+          <ChurchCard card={card} index={1} stale={false} departed={false} onOp={() => {}} />
           <ExportBar count={1} acknowledged onAcknowledge={() => {}} />
         </>,
       );
     });
+
+    /**
+     * THE COMPLAINT THIS LAYOUT EXISTS TO ANSWER.
+     *
+     * The review page used to be one 880px column of full-height cards: one
+     * church was a screen and a half, and nothing lined up between them, so
+     * spotting the bad one meant reading all twenty in full. Four aligned
+     * columns are what make a wrong quote look wrong.
+     *
+     * Asserted on the resolved grid rather than on the class string, because
+     * "the template mentions four tracks" and "four tracks are laid out" are
+     * different claims, and a stray `grid-cols-1` further down the string would
+     * satisfy only the first.
+     */
+    const sheet = host.querySelector("[data-church] > .grid") as HTMLElement | null;
+    const tracks = sheet
+      ? getComputedStyle(sheet).gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length
+      : 0;
+    add(
+      "the review sheet spreads across four columns, not down one",
+      tracks === 4,
+      sheet ? `${tracks} tracks at 1600px` : "no sheet grid found on the card",
+    );
 
     /**
      * INVARIANT 3, finally checked where it matters.
@@ -171,10 +316,19 @@ async function auditGroupCard(add: Add) {
     );
 
     const exportBtn = host.querySelector("[data-group-export]") as HTMLButtonElement | null;
+    // The cursor is part of "inert". The base rule that gave every other button
+    // a pointer sits in `@layer base` precisely so `cursor-not-allowed` keeps
+    // beating it here — unlayered, it would have quietly made a dead button look
+    // live, which is the one thing this check exists to prevent.
+    const exportCursor = exportBtn ? getComputedStyle(exportBtn).cursor : "";
     add(
       "the group export button is inert even when acknowledged",
-      !!exportBtn && exportBtn.disabled && !exportBtn.getAttribute("href"),
-      exportBtn ? (exportBtn.disabled ? "disabled, no href" : "THE BUTTON IS LIVE") : "not found",
+      !!exportBtn && exportBtn.disabled && !exportBtn.getAttribute("href") && exportCursor !== "pointer",
+      exportBtn
+        ? exportBtn.disabled
+          ? `disabled, no href, cursor: ${exportCursor}`
+          : "THE BUTTON IS LIVE"
+        : "not found",
     );
 
     // A new visual design is the likeliest place for a bare white plate to
@@ -415,7 +569,8 @@ export function AuditRunner() {
         : "hover draws an inset outline and nothing else",
     );
 
-    // ── export groups, rendered for real ──
+    // ── the row and the group card, rendered for real ──
+    await auditRow(add);
     await auditGroupCard(add);
 
     return out;

@@ -1,8 +1,12 @@
 import "server-only";
 import { list, put, del, get } from "@vercel/blob";
-import { fresherGroup } from "@/lib/leads/engine/group.ts";
-import { isSafeGroupId } from "@/lib/leads/engine/group-types.ts";
-import type { ExportGroup, ExportGroupSummary } from "@/lib/leads/engine/group-types.ts";
+import { fresherGroup, makeExportGroupId, membershipFrom } from "@/lib/leads/engine/group.ts";
+import { GROUP_SCHEMA_VERSION, isSafeGroupId } from "@/lib/leads/engine/group-types.ts";
+import type {
+  ExportGroup,
+  ExportGroupSummary,
+  Membership,
+} from "@/lib/leads/engine/group-types.ts";
 
 /**
  * Export groups on Vercel Blob — one blob per group, under the owning user.
@@ -159,6 +163,9 @@ export function summarize(g: ExportGroup): ExportGroupSummary {
   return {
     id: g.id,
     name: g.name,
+    // Groups written before batches existed carry no status. They are open —
+    // nothing has ever been exported, because the export does not exist yet.
+    status: g.status ?? "open",
     count: g.entries.length,
     createdAt: g.createdAt,
     updatedAt: g.updatedAt,
@@ -253,6 +260,99 @@ export async function listGroups(userId: string): Promise<ExportGroupSummary[]> 
     /* best effort */
   }
   return summaries;
+}
+
+/* ------------------------------------------------------------------ *
+ * The open batch
+ * ------------------------------------------------------------------ */
+
+/** `Aug 2` — the batch is named for the day it was started, and renameable. */
+function batchName(now: Date): string {
+  return now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/**
+ * The batch ✆ collects into, created on demand.
+ *
+ * A person never makes a group: they start collecting, and the group is what
+ * that turns out to have been. So the first click on an empty console lands
+ * here, and the newest open batch — or a fresh one — comes back.
+ *
+ * Find-or-create is not atomic, and cannot be on a store with no
+ * compare-and-swap. The write-through cache above closes the realistic window
+ * (two clicks in the same process), and the fallback if two ever did race is two
+ * open batches, which the picker shows and a person can merge or delete. That is
+ * strictly better than blocking a click on a lock that cannot exist.
+ */
+export async function openGroup(userId: string, now = new Date()): Promise<ExportGroup> {
+  const summaries = await listGroups(userId);
+  const existing = summaries.find((s) => s.status === "open");
+  if (existing) {
+    const g = await readGroup(userId, existing.id);
+    if (g) return g;
+  }
+  return startBatch(userId, batchName(now), now);
+}
+
+/**
+ * Begin a new batch, closing whatever was being collected into.
+ *
+ * ONE open batch is an invariant, not a coincidence: ✆ has to know where a
+ * church goes without asking. Creating a second open batch would make that
+ * question ambiguous and the answer arbitrary (whichever the summary index
+ * happened to list first).
+ *
+ * The previous batch is `closed`, never `exported` — nothing was sent.
+ */
+export async function startBatch(
+  userId: string,
+  name: string,
+  now = new Date(),
+): Promise<ExportGroup> {
+  const iso = now.toISOString();
+
+  for (const s of await listGroups(userId)) {
+    if (s.status !== "open") continue;
+    const prev = await readGroup(userId, s.id);
+    if (prev) {
+      await writeGroup(userId, {
+        ...prev,
+        status: "closed",
+        closedAt: iso,
+        updatedAt: iso,
+        rev: (prev.rev ?? 0) + 1,
+      });
+    }
+  }
+
+  const group: ExportGroup = {
+    schema: GROUP_SCHEMA_VERSION,
+    id: makeExportGroupId(name, now.getTime().toString(36).slice(-5)),
+    userId,
+    name,
+    status: "open",
+    createdAt: iso,
+    updatedAt: iso,
+    rev: 0,
+    entries: [],
+  };
+  await writeGroup(userId, group);
+  return group;
+}
+
+/**
+ * Which batches each collected church is in — IDS ONLY.
+ *
+ * The console fetches this on every load, and one group is ~210 KB, so the
+ * payload must be proportional to what has been collected rather than to the
+ * corpus. Nothing from a snapshot — no name, no quote, no contact — belongs
+ * here; there is a test asserting exactly that, because this is the one group
+ * response that is not behind a deliberate click.
+ */
+export async function membership(userId: string): Promise<Membership> {
+  const summaries = await listGroups(userId);
+  const groups = await Promise.all(summaries.map((s) => readGroup(userId, s.id)));
+  return membershipFrom(groups.filter((g): g is ExportGroup => g !== null));
 }
 
 /** Remove a group's blob. No-op if it is already gone. */

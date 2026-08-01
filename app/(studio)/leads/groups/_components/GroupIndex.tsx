@@ -19,12 +19,16 @@ export function GroupIndex() {
       </nav>
 
       <h1 className="font-serif text-[32px] leading-tight font-semibold tracking-tight text-lead-ink">
-        Export groups
+        Batches
       </h1>
       <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-lead-ink2">
-        A group is a batch of churches frozen at the moment you added them, with your
-        corrections on top. Editing a church here changes only this group — the
-        console and every other group are untouched.
+        A batch is the churches you collected with ✆, frozen as they were when you
+        collected them, with your corrections on top. Editing a church here changes
+        only this batch — the console and every other batch are untouched.
+      </p>
+      <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-lead-ink2">
+        You do not need to make one: pressing ✆ starts today&rsquo;s. Naming one here
+        starts a fresh batch and finishes whatever you were collecting into.
       </p>
 
       <form
@@ -42,8 +46,8 @@ export function GroupIndex() {
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="New group name"
-          aria-label="New group name"
+          placeholder="Name a new batch"
+          aria-label="Name a new batch"
           className="w-[280px] rounded-lg border border-lead-line bg-lead-panel px-3 py-2 text-[13.5px] text-lead-ink"
         />
         <button
@@ -51,7 +55,7 @@ export function GroupIndex() {
           disabled={!name.trim() || busy}
           className="rounded-lg bg-lead-brand px-4 py-2 font-mono text-xs text-white disabled:opacity-45"
         >
-          Create
+          Start it
         </button>
       </form>
 
@@ -70,8 +74,20 @@ export function GroupIndex() {
             className="flex items-center gap-4 rounded-xl border border-lead-line bg-lead-panel px-5 py-4"
           >
             <Link href={`/leads/groups/${g.id}`} className="min-w-0 flex-1">
-              <div className="truncate font-serif text-[19px] font-semibold text-lead-ink">
-                {g.name}
+              <div className="flex items-baseline gap-2">
+                <span className="truncate font-serif text-[19px] font-semibold text-lead-ink">
+                  {g.name}
+                </span>
+                {g.status === "open" && (
+                  <span className="shrink-0 rounded-full bg-lead-good/20 px-2 py-0.5 font-mono text-[9px] text-lead-good">
+                    collecting
+                  </span>
+                )}
+                {g.status === "exported" && (
+                  <span className="shrink-0 rounded-full bg-lead-dl/20 px-2 py-0.5 font-mono text-[9px] text-lead-dl">
+                    sent
+                  </span>
+                )}
               </div>
               <div className="mt-0.5 font-mono text-[10px] text-lead-ink2">
                 {g.count} church{g.count === 1 ? "" : "es"} · updated{" "}
