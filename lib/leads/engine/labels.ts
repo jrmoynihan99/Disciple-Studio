@@ -97,6 +97,54 @@ export function recordLabel(label: unknown): string {
     .trim();
 }
 
+/**
+ * THE FOURTH REPAIR — the evidence paragraph, `q5: custom_candidate`, 22 of 134.
+ *
+ * The pipeline writes, verbatim and identically apart from the domain:
+ *
+ *   "The homepage sign-in link points to the church's own domain (flintbc.net),
+ *    not churchcenter.com — a candidate for a custom login/portal. We have not
+ *    opened the page to confirm it is a bespoke tracked system."
+ *
+ * Two problems, and both are about what a salesperson would repeat out loud.
+ *
+ * NAMING ONE COMPETITOR. "not churchcenter.com" describes how the detector
+ * happened to be written, not anything about this church. The church's own
+ * domain stays — that IS the finding, and it is the part worth quoting.
+ *
+ * AN ADMIN LOGIN LOOKS EXACTLY LIKE A MEMBER LOGIN from the outside. A staff
+ * back-office sign-in on the church's own domain trips this detector, and a
+ * church whose only "custom login" is its own admin panel has no member portal
+ * at all — which flips it from a poor lead to a good one. That is the single
+ * most consequential way this finding is wrong, and the record never said so.
+ *
+ * DONE HERE, NOT IN THE DATA. Editing the 22 fixture records would be undone by
+ * the next pipeline drop; this is the same reasoning that put the two label
+ * repairs above in code.
+ *
+ * The strip is scoped to the exact clause. A blanket removal of the domain would
+ * mangle the `generic_cc` records, which name their provider ("…points to
+ * ccaspen.breezechms.com (Breeze), a rigid generic third-party portal…") as the
+ * substance of the finding rather than as an aside.
+ */
+const COMPETITOR_ASIDE = /,\s*not\s+churchcenter\.com\b/gi;
+
+const ADMIN_LOGIN_CAVEAT =
+  "Note that it's possible that an admin login system (rather than a per-member " +
+  "login system) might have been detected instead, in which case, the church " +
+  "should be manually evaluated as having no custom login system.";
+
+/** The evidence paragraph a reader may be shown, repaired per question. */
+export function evidenceText(k: QuestionKey | string, q: unknown): string {
+  const o = (q ?? {}) as { evidence?: unknown; answer?: unknown };
+  const text = String(o.evidence ?? "").replace(COMPETITOR_ASIDE, "").trim();
+  if (!text) return "";
+  // Scoped to the one answer the caveat is about. Appending it to a confirmed
+  // custom login would be hedging a finding we actually stand behind.
+  if (k === "q5" && o.answer === "custom_candidate") return `${text} ${ADMIN_LOGIN_CAVEAT}`;
+  return text;
+}
+
 /** Is this answer's wording a real label, or are we echoing the machine value? */
 export function hasAnswerLabel(k: QuestionKey | string, v: string): boolean {
   return !!(ANSWER_LABEL_PATCH[k]?.[v] ?? ANSWER_LABEL[k]?.[v]);
@@ -160,11 +208,17 @@ export function verdictWord(state: VerdictState, k?: QuestionKey): string {
 /** Short forms for the login tile. */
 export const LOGIN_SHORT: Record<string, string> = {
   custom_confirmed: "Custom ✓",
-  custom_candidate: "Custom?",
+  // "Possible", not "Custom?". The question mark read as "is it custom?" when
+  // the finding is "there is possibly a custom login" — and it sat next to the
+  // one tile whose colour now says likely-bad, so a reader had to resolve a
+  // punctuation mark against a colour to get the meaning.
+  custom_candidate: "Possible",
   generic_cc: "Generic",
   no_login_link: "None",
-  generic_login: "Generic",
-  unknown: "—",
+  // A word, not a dash. An em dash in a value slot reads as "nothing here",
+  // which is indistinguishable from a rendering bug — and the thing it is
+  // actually reporting, that we could not measure this, is a fact worth stating.
+  unknown: "Unknown",
 };
 
 /** What that country calls its subdivision. The dropdown must not offer Canadians a "state". */

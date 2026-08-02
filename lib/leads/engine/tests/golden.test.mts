@@ -37,6 +37,27 @@ import { HAVE_FIXTURE, loadGolden, loadIndex, loadRecord } from "./fixture.mts";
 const QUESTION_KEYS = QMETA.map(([k]) => k as QuestionKey);
 
 /**
+ * WHERE WE HAVE DELIBERATELY STOPPED MATCHING THE REFERENCE.
+ *
+ * Written out here as a literal, INDEPENDENTLY of `COLOR_PATCH` in `color.ts`
+ * and deliberately not imported from it. Importing would make this test say
+ * "the code agrees with itself", which is not a fact about anything. Two
+ * separate statements of intent mean an unannounced recolour still turns the
+ * gate red, and an announced one has to be written down twice — once as
+ * behaviour, once as a decision with a reason.
+ *
+ * `golden-colors.json` stays untouched. It records what the reference `core.js`
+ * does, and it has to keep doing that to be worth running.
+ */
+const DIVERGES: Record<string, string> = {
+  // A confirmed custom login is `bad`, so a possible one is the "likely" grade
+  // of the same finding rather than an unverified signal. The reference says
+  // `unver`, whose wording promises a check that was retired upstream.
+  // 22 of 134 churches. Owner decision.
+  "q5:custom_candidate": "bad2",
+};
+
+/**
  * REFERENCE tuning, no overrides — the exact conditions golden-colors.json was
  * built under.
  *
@@ -75,6 +96,10 @@ describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not pr
    * thrown on the first, so a precedence bug reports its whole blast radius
    * instead of one arbitrary church.
    */
+  /** The reference value, unless this pair is a sanctioned divergence. */
+  const expected = (id: string, k: QuestionKey, view: ChurchView) =>
+    DIVERGES[`${k}:${view.q(k)?.answer}`] ?? golden.churches[id].cells[k];
+
   function checkProjection(label: string, viewFor: (id: string) => ChurchView) {
     describe(label, () => {
       test("every one of the 1,340 cells matches", () => {
@@ -83,7 +108,7 @@ describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not pr
           const view = viewFor(id);
           for (const k of QUESTION_KEYS) {
             const got = colorState(k, view.q(k), ctx);
-            const want = golden.churches[id].cells[k];
+            const want = expected(id, k, view);
             if (got !== want) bad.push(`${id} ${k}: got ${got}, want ${want}`);
           }
         }
@@ -148,6 +173,58 @@ describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not pr
 
   checkProjection("from the full record", (id) => churchFromRecord(loadRecord(id)));
   checkProjection("from the slim index", (id) => churchFromIndex(byId.get(id)!));
+
+  /**
+   * Every sanctioned divergence must actually bite.
+   *
+   * Without this the list is write-only: an entry whose answer value no longer
+   * exists, or which someone quietly reverted in `color.ts`, would sit here
+   * looking like a deliberate decision while changing nothing — and the next
+   * person would read it as documentation of behaviour that is not happening.
+   */
+  test("each declared divergence applies to real churches, and only where declared", () => {
+    for (const [pair, want] of Object.entries(DIVERGES)) {
+      const [k, answer] = pair.split(":") as [QuestionKey, string];
+      const hit = ids.filter((id) => churchFromRecord(loadRecord(id)).q(k)?.answer === answer);
+      assert.ok(hit.length > 0, `${pair} matches no church — the divergence is dead`);
+      for (const id of hit) {
+        const view = churchFromRecord(loadRecord(id));
+        assert.equal(colorState(k, view.q(k), ctx), want, `${id} ${pair}`);
+        assert.notEqual(
+          golden.churches[id].cells[k],
+          want,
+          `${pair} is not a divergence — the reference already says ${want}`,
+        );
+      }
+    }
+  });
+
+  /**
+   * THE REASON THE RECOLOUR IS SAFE, asserted rather than assumed.
+   *
+   * `favorScore` awards full points for `good`, half for `good2`, and nothing
+   * for anything else — so moving an answer between two zero-scoring states
+   * must not move a single church's score. The two favor tests above compare
+   * against the untouched reference table; this states out loud what makes that
+   * still valid, so a future divergence into `good`/`good2` fails HERE, with an
+   * explanation, rather than as 134 mysterious favor mismatches.
+   */
+  test("no divergence moves a church's favor score", () => {
+    const scoring = new Set(["good", "good2"]);
+    for (const [pair, want] of Object.entries(DIVERGES)) {
+      const from = golden.churches[
+        ids.find((id) => {
+          const a = churchFromRecord(loadRecord(id)).q(pair.split(":")[0] as QuestionKey)?.answer;
+          return a === pair.split(":")[1];
+        })!
+      ].cells[pair.split(":")[0]];
+      assert.equal(
+        scoring.has(from) || scoring.has(want),
+        false,
+        `${pair}: ${from} → ${want} crosses the scoring boundary, so favorScore moves`,
+      );
+    }
+  });
 
   /**
    * The two projections must agree with EACH OTHER, not merely with the table.

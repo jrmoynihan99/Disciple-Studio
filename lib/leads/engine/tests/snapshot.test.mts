@@ -12,7 +12,8 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildSnapshot, buildEntry } from "../snapshot.ts";
+import { buildSnapshot, buildEntry, pathwayOf } from "../snapshot.ts";
+import { pathwayIsOrdered } from "../group-types.ts";
 import type { ChurchRecord, IndexRow } from "../types.ts";
 import { HAVE_FIXTURE, loadIndex, loadRecord, loadEdgeCases } from "./fixture.mts";
 
@@ -265,5 +266,146 @@ describe("buildSnapshot sanitises hostile input", () => {
 
   test("a link's label is not accepted as an email address", () => {
     assert.equal(snap.contacts.find((c) => c.name === "A Person")?.email, "");
+  });
+});
+
+/**
+ * The discipleship pathway, as the console's dossier reads it.
+ *
+ * NOT FIXTURE-DRIVEN, and it cannot be: `q1.pathway_steps` is unpopulated on all
+ * 134 records in the current dataset, so a fixture test here would assert an
+ * empty array and pass forever without ever exercising a step. The records below
+ * carry the shape the newer pipeline emits (`discipleship_pathway_steps_json`),
+ * copied field for field.
+ *
+ * What is actually at stake is the numbering. `page_order` means "these headings
+ * appeared in this order in the HTML" and `explicit_sequenced` means "the church
+ * said do this, then this". Printing 1..4 for the first turns a fact about our
+ * scraper into a claim about the church — and it is a claim that gets quoted
+ * back at you in a reply to a cold email.
+ */
+describe("the discipleship pathway", () => {
+  const withSteps = (basis: string | undefined, extra: Record<string, unknown> = {}) =>
+    ({
+      org_id: "pathway_test",
+      q1: {
+        answer: "yes",
+        pathway_name: "First Steps",
+        pathway_order_basis: basis,
+        pathway_source_url: "https://example.org/im-new",
+        pathway_steps: [
+          {
+            ordinal: 1,
+            label: "Attend a Sunday gathering",
+            blurb: "You're invited to worship with us!",
+            category: null,
+            category_raw: "visit",
+            quote: "You're invited to worship with us!",
+            source_url: "https://example.org/im-new",
+            verified: "exact",
+            label_verified: "exact",
+          },
+          {
+            ordinal: 2,
+            label: "Fill out a welcome card",
+            blurb: "",
+            category: "connect",
+            category_raw: "connect",
+            quote: "",
+            source_url: "https://example.org/im-new",
+            verified: "",
+            label_verified: "exact",
+          },
+        ],
+        ...extra,
+      },
+    }) as unknown as ChurchRecord;
+
+  test("the step names come through in the church's own words", () => {
+    const p = pathwayOf(withSteps("explicit_sequenced"));
+    assert.deepEqual(
+      p.steps.map((s) => s.label),
+      ["Attend a Sunday gathering", "Fill out a welcome card"],
+    );
+    assert.equal(p.name, "First Steps");
+  });
+
+  test("only an explicit basis licenses printing a number", () => {
+    assert.equal(pathwayIsOrdered("explicit_numbered"), true);
+    assert.equal(pathwayIsOrdered("explicit_sequenced"), true);
+    assert.equal(
+      pathwayIsOrdered("page_order"),
+      false,
+      "DOM order is our scraper's fact, not the church's claim",
+    );
+    assert.equal(pathwayIsOrdered(null), false, "no stated basis is not a basis");
+    assert.equal(pathwayIsOrdered(undefined), false);
+  });
+
+  test("an unrecognised basis is refused rather than trusted", () => {
+    assert.equal(pathwayOf(withSteps("vibes")).orderBasis, null);
+    assert.equal(pathwayIsOrdered(pathwayOf(withSteps("vibes")).orderBasis), false);
+    assert.equal(pathwayOf(withSteps(undefined)).orderBasis, null);
+  });
+
+  /**
+   * The dossier and the batch review card must not disagree about whether a
+   * church stated an order. They read the same record through the same two
+   * functions precisely so they cannot.
+   */
+  test("ordinals are kept as the page gave them, never renumbered by position", () => {
+    const gappy = withSteps("explicit_numbered", {
+      pathway_steps: [
+        { ordinal: 2, label: "Second" },
+        { ordinal: 5, label: "Fifth" },
+      ],
+    });
+    assert.deepEqual(
+      pathwayOf(gappy).steps.map((s) => s.ordinal),
+      [2, 5],
+      "a gap in the church's own numbering is theirs to have",
+    );
+  });
+
+  test("a step with no ordinal falls back to its position, and ids stay unique", () => {
+    const noOrdinals = withSteps("page_order", {
+      pathway_steps: [{ label: "One" }, { label: "Two" }, { label: "Three" }],
+    });
+    const p = pathwayOf(noOrdinals);
+    assert.deepEqual(p.steps.map((s) => s.ordinal), [1, 2, 3]);
+    assert.equal(new Set(p.steps.map((s) => s.id)).size, 3, "duplicate ids would collide on edit");
+  });
+
+  /** Absence of steps is not absence of a pathway — the name is real on its own. */
+  test("a named pathway with no steps keeps its name", () => {
+    const named = { org_id: "x", q1: { pathway_name: "Growth Track" } } as unknown as ChurchRecord;
+    const p = pathwayOf(named);
+    assert.deepEqual(p.steps, []);
+    assert.equal(p.name, "Growth Track");
+  });
+
+  test("the pathway name falls back to the one next-steps carries", () => {
+    const alt = {
+      org_id: "x",
+      next_steps_by_category: { pathway_name: "ABCD" },
+    } as unknown as ChurchRecord;
+    assert.equal(pathwayOf(alt).name, "ABCD");
+  });
+
+  test("a church with nothing has an empty pathway, not a thrown error", () => {
+    const p = pathwayOf({ org_id: "x" } as unknown as ChurchRecord);
+    assert.deepEqual(p.steps, []);
+    assert.equal(p.name, "");
+    assert.equal(p.finding, null);
+  });
+
+  test("a hostile step URL does not survive into a rendered link", () => {
+    const nasty = withSteps("explicit_numbered", {
+      pathway_steps: [
+        { ordinal: 1, label: "Click me", quote: "Come", source_url: "javascript:alert(1)" },
+      ],
+    });
+    assert.equal(pathwayOf(nasty).steps[0].sourceUrl, "");
+    assert.ok(!JSON.stringify(pathwayOf(nasty)).toLowerCase().includes("javascript:"));
   });
 });

@@ -30,7 +30,7 @@ import type {
   SnapshotContact,
   Voice,
 } from "./group-types.ts";
-import { PATH, isSafeGroupId, pathPrefixFor } from "./group-types.ts";
+import { PATH, isSafeGroupId, pathPrefixFor, pathwayIsOrdered } from "./group-types.ts";
 
 const MAX_FIELD_LEN = 4000;
 const ADDED_ID = /^u_[a-z0-9]{4,32}$/;
@@ -155,8 +155,7 @@ function resolveSteps(entry: GroupEntry): ResolvedStep[] {
 
 function resolvePathwaySteps(entry: GroupEntry): { steps: ResolvedPathwayStep[]; numbered: boolean } {
   const p = entry.snapshot.pathway;
-  const basis = p.orderBasis;
-  const sourceNumbered = basis === "explicit_numbered" || basis === "explicit_sequenced";
+  const sourceNumbered = pathwayIsOrdered(p.orderBasis);
   const added = entry.edits.added.filter((i): i is AddedPathwayStep => i.kind === "pathwayStep");
 
   // Only an explicit basis licenses "Step 1 → Step 4"; `page_order` is DOM order

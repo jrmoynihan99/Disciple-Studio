@@ -125,8 +125,15 @@ function stepsOf(rec: ChurchRecord): SnapshotStep[] {
  * What IS here today is the q1 finding — a cited, quotable discipleship
  * statement on 76 of 134 churches. Rendering "no pathway" and stopping would
  * throw that away on more than half the corpus.
+ *
+ * EXPORTED so the console's dossier reads the pathway through this function and
+ * not through a second reading of `q1`. The comment above is about a top-level
+ * `discipleship_pathway` being a third spelling of one fact; a hand-rolled
+ * `record.q1.pathway_steps.map(...)` in a component is the same mistake wearing
+ * a different hat, and it is the one that drifts silently — the two renderings
+ * disagree only for churches whose data nobody has looked at yet.
  */
-function pathwayOf(rec: ChurchRecord): SnapshotPathway {
+export function pathwayOf(rec: ChurchRecord): SnapshotPathway {
   const q1 = obj(rec.q1);
   const rawBasis = str(q1.pathway_order_basis);
   const orderBasis = (ORDER_BASES.includes(rawBasis) ? rawBasis : null) as

@@ -27,7 +27,7 @@ import { ExportBar } from "./ExportBar";
  * looks wrong next to its neighbours.
  */
 
-const DISCLAIMER_TITLE = "Read this before you send it";
+const DISCLAIMER_TITLE = "WARNING: M";
 
 const COLUMNS = ["Church", "Next steps", "Discipleship", "Contacts"];
 
@@ -200,19 +200,7 @@ export function GroupReview({ id }: { id: string }) {
         <h2 className="font-serif text-[17px] font-semibold text-lead-ink">{DISCLAIMER_TITLE}</h2>
         <div className="mt-2 space-y-2 text-[13.5px] leading-relaxed text-lead-ink2">
           <p>
-            Everything below was extracted by an AI model from each church&rsquo;s own
-            website. It is wrong often enough to matter.
-          </p>
-          <p>
-            A quotation being marked <em>exact</em> only proves the words are somewhere
-            on the page — never that they mean what they appear to here. Page
-            furniture, opening hours and navigation links have all been captured as
-            discipleship steps before now.
-          </p>
-          <p>
-            Read every card. Fix what is wrong, strike out what does not belong.
-            Getting a church&rsquo;s own words wrong in a first approach costs more than
-            not approaching them.
+            A lot of the information here was extracted by LLM models that are <b>prone to making mistakes.</b> Please <b>manually review critical information</b> such as each church&rsquo;s name, slogan, steps, descriptions, contact names, etc and <b>click on them to make changes</b> if necessary.
           </p>
         </div>
       </section>

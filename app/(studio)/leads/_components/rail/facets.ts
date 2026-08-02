@@ -18,12 +18,18 @@ export type FacetGroupKey = "core" | "appweb" | "rest";
 /**
  * Which facets sit in which rail group.
  *
- * q3 appears nowhere: it is retired, and it already had no facet in the
- * reference build (`NO_FACET = new Set(["q1","q3"])`).
+ * Neither q1 nor q3 appears: both are retired, and the reference build gave
+ * neither a facet either (`NO_FACET = new Set(["q1","q3"])`).
  *
- * q1 (Pathway) DOES get one here. It had none before because it rendered
- * nowhere at all; now that it appears in "The rest", "show me churches already
- * thinking in journeys" is a filter a salesperson would actually want.
+ * q1 briefly had one here, on the reasoning that "show me churches already
+ * thinking in journeys" is a filter a salesperson would want. It is back out
+ * with the question. The pathway itself did not go anywhere — it is in Key
+ * findings as its named steps — but a facet over a verdict nobody can see is a
+ * filter whose results cannot be explained by anything on screen.
+ *
+ * This list is only consulted for keys `buildFacets` emits, which come from
+ * `DISPLAY_KEYS`; an entry for a retired question would be dead rather than
+ * harmful. It is removed anyway, so the two lists cannot tell different stories.
  */
 const GROUP_OF: Record<string, FacetGroupKey> = {
   q2: "core",
@@ -34,7 +40,6 @@ const GROUP_OF: Record<string, FacetGroupKey> = {
   q7_platform: "appweb",
   q8: "appweb",
   q8_platform: "appweb",
-  q1: "rest",
   q4: "rest",
   q6: "rest",
   q9: "rest",

@@ -6,6 +6,8 @@ import { colorState } from "@/lib/leads/engine/color";
 import { favFmt } from "@/lib/leads/engine/favor";
 import { answerLabel, QTITLE, recordLabel, verdictWord } from "@/lib/leads/engine/labels";
 import { staffPhrase } from "@/lib/leads/engine/staff";
+import { pathwayIsOrdered } from "@/lib/leads/engine/group-types";
+import { pathwayOf } from "@/lib/leads/engine/snapshot";
 import { stepsSummaryState } from "@/lib/leads/engine/steps";
 import {
   APP_WEB_KEYS,
@@ -69,7 +71,7 @@ function Card({
       </summary>
       <div className="px-3.5 pb-4">
         {children}
-        {q && <EvidenceBody q={q} />}
+        {q && <EvidenceBody q={q} qKey={qKey} />}
       </div>
     </details>
   );
@@ -176,7 +178,11 @@ export function Dossier({
     return () => window.removeEventListener("keydown", onKey);
   }, [siteUrl]);
 
-  // "The rest" scores over its five rows: good = 1, good2 = 1/2.
+  // Read once here rather than inside the card, so the header's count and the
+  // body's list are the same number by construction.
+  const pathwaySteps = record ? pathwayOf(record).steps.length : 0;
+
+  // "The rest" scores over its four rows: good = 1, good2 = 1/2.
   const restScore = view
     ? REST_KEYS.reduce((n, k) => {
         const s = colorState(k, view.q(k), ctx);
@@ -341,6 +347,37 @@ export function Dossier({
               >
                 <StepsDetail view={view} />
               </Card>
+              {/* ── Discipleship ──
+                  Promoted out of "the rest", where it used to be a yes/no
+                  verdict on whether a pathway existed. The named stages are the
+                  thing worth having: "they call it Growth Track and step two is
+                  Baptism" is something a salesperson can open a call with, where
+                  "has organized discipleship pathway: yes" is not.
+
+                  Deliberately shaped like the Next steps card above it — same
+                  kicker, same category tiles, same serif-on-a-rule quote — so a
+                  reader comparing what a church offers against the order it puts
+                  things in does not have to learn two layouts.
+
+                  No `q` and no `qKey`, so no evidence panel: everything this
+                  card knows is already in its body, and the retired verdict is
+                  not something to resurrect underneath it. */}
+              <Card
+                kicker="Discipleship"
+                finding={
+                  pathwaySteps > 0
+                    ? `${pathwaySteps} discipleship step${pathwaySteps === 1 ? "" : "s"}`
+                    : "None identified"
+                }
+                // Green when a church is already thinking in stages — a fit
+                // signal, the same reading the retired question had. Grey at
+                // zero: "none identified" covers both "we never collected it"
+                // and "there are none", and grey is the colour that already
+                // means exactly that much.
+                state={pathwaySteps > 0 ? "good" : "unk"}
+              >
+                <PathwayDetail record={record} />
+              </Card>
               <Card
                 kicker="Custom login"
                 // `qKey` is REQUIRED here, not decorative. Without it the card
@@ -373,14 +410,14 @@ export function Dossier({
               ))}
             </Section>
 
-            {/* ── THE REST — five rows, scored x/5 ──
+            {/* ── THE REST — four rows, scored x/4 ──
                 Rows are numbered 1..N linearly and that number is a POSITION,
                 NOT AN IDENTITY. No "Q1".."Q10" string appears anywhere. */}
             <Section
               title="The rest — lighter-touch signals"
               right={
                 <span
-                  // 5/5 IS UNREACHABLE FOR MOST CHURCHES, ON PURPOSE. Campuses
+                  // 4/4 IS UNREACHABLE FOR MOST CHURCHES, ON PURPOSE. Campuses
                   // is `unknown` for 80% of the corpus, because only ~2,000 of
                   // 15,275 churches publish a locations page and the pipeline
                   // abstains rather than inferring single-site. An unmeasured
@@ -388,7 +425,7 @@ export function Dossier({
                   // two churches incomparable — worse than a ceiling nobody
                   // reaches. The tooltip says so, so the gap reads as a fact
                   // about the data rather than a broken meter.
-                  title="Favorable lighter-touch signals — green = 1, light green = ½. A signal we never measured scores 0, so most churches cannot reach 5."
+                  title="Favorable lighter-touch signals — green = 1, light green = ½. A signal we never measured scores 0, so most churches cannot reach 4."
                   className="font-mono text-[11px] normal-case text-lead-ink2"
                 >
                   <b className="font-serif text-[15px] font-semibold text-lead-good">
@@ -402,24 +439,14 @@ export function Dossier({
                 <Card
                   key={k}
                   kicker={`${i + 1} · ${QTITLE[k]}`}
+                  qKey={k}
                   finding={
                     recordLabel(record[k]?.label) ||
                     answerLabel(k, view.q(k)?.answer ?? "unknown")
                   }
                   state={colorState(k, view.q(k), ctx)}
                   q={record[k]}
-                >
-                  {/* Pathway reads OPPOSITE to its four neighbours: they are
-                      all "the church lacks it, so there is something to sell",
-                      where a green here means the church ALREADY HAS an
-                      organized pathway — favourable because it signals fit. */}
-                  {k === "q1" && (
-                    <p className="mb-2 rounded-md bg-lead-panel2 px-2.5 py-1.5 text-[11px] italic text-lead-ink2">
-                      Green here means the church <b>already has</b> a pathway — a fit
-                      signal, not a gap to sell into.
-                    </p>
-                  )}
-                </Card>
+                />
               ))}
             </Section>
 
@@ -438,6 +465,125 @@ export function Dossier({
 }
 
 /** Per-category own-terms and quotes — the point of the whole structure. */
+/**
+ * The discipleship pathway, step by step.
+ *
+ * The sibling of `StepsDetail` below, and deliberately shaped like it — same
+ * card, same uppercase kicker, same serif-on-a-rule quote — because a reader
+ * comparing "what they offer" against "the order they put it in" should not have
+ * to learn two layouts to do it.
+ *
+ * THREE THINGS HERE ARE NOT INTERCHANGEABLE, and collapsing any two of them
+ * would assert something we did not measure:
+ *
+ *  · steps we captured, in the church's own order;
+ *  · a pathway NAME with no steps — the site calls its programme something, and
+ *    that is a real fact even when the stages were never enumerated;
+ *  · nothing at all.
+ *
+ * Data note, so nobody reads the empty state as a bug: `q1.pathway_steps` is a
+ * forward contract (INDEX-CONTRACT §3.1) and is unpopulated on all 134 records
+ * in the current dataset. The console's rule is that a claim must not appear
+ * before its data has, so this renders what is there and says so when nothing
+ * is.
+ */
+export function PathwayDetail({ record }: { record: ChurchRecord }) {
+  const pathway = pathwayOf(record);
+  const steps = pathway.steps;
+
+  if (steps.length === 0) {
+    // ONE LINE, and not the header's words again. The card already says "None
+    // identified"; repeating it here would spend a second row saying nothing,
+    // on every church, in a section built for scanning. What this line adds is
+    // the pathway's NAME where we have one — real data on 7 of 134, and the
+    // difference between "we know nothing" and "we know what they call it".
+    return (
+      <p className="text-[12.5px] italic text-lead-ink2">
+        {pathway.name ? (
+          <>
+            No steps collected · the site calls its pathway{" "}
+            <span className="font-serif text-lead-ink">“{pathway.name}”</span>
+          </>
+        ) : (
+          "No discipleship steps were collected for this church."
+        )}
+      </p>
+    );
+  }
+
+  // A number is only printed when the church's own page put one there — the same
+  // call the batch review card makes, from the same function, so the two can
+  // never disagree about whether a church stated an order.
+  const numbered = pathwayIsOrdered(pathway.orderBasis);
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {pathway.name && (
+        <p className="text-[12.5px] leading-snug text-lead-ink2">
+          The site calls this{" "}
+          <span className="font-serif italic text-lead-ink">“{pathway.name}”</span>.
+        </p>
+      )}
+
+      <ol className="flex flex-col gap-1.5">
+        {steps.map((s) => (
+          <li
+            key={s.id}
+            className="rounded-md border border-lead-line bg-lead-panel2 px-2.5 py-1.5"
+          >
+            <span className="flex items-baseline gap-1.5">
+              {numbered && (
+                <span className="shrink-0 font-mono text-[10px] font-bold text-lead-brand tabular-nums">
+                  {s.ordinal}.
+                </span>
+              )}
+              {/* The step's name as the church wrote it. `label_verified` proves
+                  those words are ON the page — never that they are the step's
+                  name — so it is not shown as a badge here. Reading it as a
+                  quality mark is exactly the misuse the type comment warns of. */}
+              <span className="font-mono text-[10px] font-bold tracking-wider text-lead-brand uppercase">
+                {s.label || "(unnamed step)"}
+              </span>
+            </span>
+
+            {/* Their own word for the stage when it differs from the category we
+                filed it under — "ConnectTR", "Growth Track". Verbatim, and the
+                thing that makes a sales call sound informed. */}
+            {s.categoryRaw && s.categoryRaw !== s.category && (
+              <span className="mt-1 ml-1 inline-block rounded border border-lead-line bg-lead-bg px-2 py-0.5 text-xs text-lead-ink">
+                {s.categoryRaw}
+              </span>
+            )}
+
+            {s.blurb && !s.quote && (
+              <p className="mt-1 text-[12px] leading-snug text-lead-ink2">{s.blurb}</p>
+            )}
+
+            {s.quote && (
+              <blockquote className="mt-1.5 border-l-2 border-l-lead-line py-0.5 pl-2.5 font-serif text-[13px] leading-[1.5] text-lead-ink">
+                “{s.quote}”
+                {s.verified && (
+                  <span className="ml-1.5 font-mono text-[10px] text-lead-ink2">
+                    verified {s.verified}
+                  </span>
+                )}
+                {s.sourceUrl && (
+                  <span className="mt-1 block">
+                    <SafeLink
+                      href={s.sourceUrl}
+                      className="text-[10px] break-all text-lead-link hover:underline"
+                    />
+                  </span>
+                )}
+              </blockquote>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function StepsDetail({ view }: { view: ReturnType<typeof churchFromRecord> }) {
   const s = view.steps;
 

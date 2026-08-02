@@ -143,6 +143,23 @@ export interface SnapshotStep {
  */
 export type PathwayOrderBasis = "explicit_numbered" | "explicit_sequenced" | "page_order";
 
+/**
+ * May we print a step number?
+ *
+ * ONE FUNCTION, because three surfaces ask this question — the batch review
+ * card, the console's dossier, and anything an export grows later — and the
+ * failure mode of a second copy is invisible. It does not throw or look broken;
+ * it just starts telling one reader that a church says "do this first" when the
+ * only thing we know is that a heading appeared above another heading in the
+ * HTML. That is a claim a cold email gets quoted back on.
+ *
+ * `null` (the field is absent) is NOT numbered. Absence of a stated basis is not
+ * a basis.
+ */
+export function pathwayIsOrdered(basis: PathwayOrderBasis | null | undefined): boolean {
+  return basis === "explicit_numbered" || basis === "explicit_sequenced";
+}
+
 export interface SnapshotPathwayStep {
   id: string;
   ordinal: number;

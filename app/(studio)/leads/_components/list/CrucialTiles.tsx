@@ -79,7 +79,9 @@ export function CrucialTiles({ view, ctx }: { view: ChurchView; ctx: EngineCtx }
 
       <Tile state={colorState("q5", q5, ctx)} label="Custom login">
         <span className="text-xs font-bold text-lead-ink">
-          {LOGIN_SHORT[q5?.answer ?? "unknown"] ?? "—"}
+          {/* An answer we have no short form for is as unmeasured, to a reader,
+              as one we never got — so it reads the same rather than as a dash. */}
+          {LOGIN_SHORT[q5?.answer ?? "unknown"] ?? "Unknown"}
         </span>
       </Tile>
 

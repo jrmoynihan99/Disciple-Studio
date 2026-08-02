@@ -37,6 +37,36 @@ function ruleState(k: string, a: string): VerdictState | null {
 }
 
 /**
+ * OWNER DECISIONS THAT DELIBERATELY DIVERGE FROM THE GENERATED TABLE.
+ *
+ * `COLOR_DEFAULTS` comes out of `vocab.generated.ts`, which is written by
+ * `scripts/leads-gen-vocab.mts` from the pipeline's own vocab — editing it by
+ * hand would be overwritten by the next regeneration, and worse, it would make
+ * `golden-colors.json` lie: that table is the M0 gate proving this port
+ * reproduces the reference `core.js`, so a hand-edit there stops being evidence
+ * of anything.
+ *
+ * A patch layer keeps the two claims apart. The generated table says what the
+ * reference does; this says where we have since decided otherwise, and why.
+ * `golden.test.mts` carries its own independent copy of this list, so changing
+ * one without the other fails the build.
+ *
+ * Same shape and same reasoning as `ANSWER_LABEL_PATCH` in `labels.ts`.
+ */
+export const COLOR_PATCH: Record<string, Record<string, VerdictState>> = {
+  // A CONFIRMED custom login is already `bad`. A possible one is therefore the
+  // "likely" grade of the same finding — not an unverified signal that someone
+  // could go and resolve. It was `unver`, whose own verdict word for this
+  // question is "Can't confirm", because the confirming step was retired
+  // upstream: slate promised a check that nobody can perform.
+  q5: { custom_candidate: "bad2" },
+};
+
+function patchState(k: string, a: string): VerdictState | null {
+  return COLOR_PATCH[k]?.[a] ?? null;
+}
+
+/**
  * The user's own mapping for this (question, answer) pair.
  *
  * Lives in its own layer consulted FIRST — not merged into COLOR_DEFAULTS —
@@ -99,13 +129,19 @@ export function colorState(
   if (uc) return uc;
   if (a == null) return "unk";
 
-  // 2. The static table. q1, q5, q7, q8 are fully table-driven.
+  // 2. Our own decisions, ABOVE the generated table and BELOW the user's. A
+  //    recolour in the rail must still be able to clear one, or a product
+  //    decision becomes something nobody on the team can disagree with.
+  const patched = patchState(k, a);
+  if (patched) return patched;
+
+  // 3. The static table. q1, q5, q7, q8 are fully table-driven.
   const fixed = ruleState(k, a);
   if (fixed) return fixed;
 
   if (a === "unknown") return "unk";
 
-  // 3. q3 combines TWO axes: concrete next steps (a FIT signal) and a convenient
+  // 4. q3 combines TWO axes: concrete next steps (a FIT signal) and a convenient
   //    way to act (an OPPORTUNITY signal). Both must look good for the cell to
   //    read green — many steps AND no way to act is the best lead; no steps AND
   //    a form is no lead at all.
@@ -121,12 +157,13 @@ export function colorState(
     return t >= 3.5 ? "good" : t >= 2.5 ? "good2" : t >= 1.5 ? "warn" : "bad";
   }
 
-  // 4. A record may NAME its own cell, and that ALWAYS wins over an inference
+  // 5. A record may NAME its own cell, and that ALWAYS wins over an inference
   //    drawn from `opportunity` or a sub-signal rollup. q4/q6 use it for the
   //    confirmed Church-Center-module case: the module being enabled is a known
   //    fact, so the church has that feature, even though the page was never
-  //    rendered. Only GENUINE unknowns (q8 `likely_yes`, q5 `custom_candidate`)
-  //    keep the slate `unver` "needs a check".
+  //    rendered. A genuine unknown (q8 `likely_yes`) keeps the slate `unver`
+  //    "needs a check". q5 `custom_candidate` used to as well; it is now
+  //    patched to `bad2` above, because its check cannot be performed.
   //
   //    This is why `cell` is in the slim index: omit it and the list paints a
   //    different colour from the dossier for the same church.
@@ -141,7 +178,7 @@ export function colorState(
     return staffCountState(q.count, ctx.favor);
   }
 
-  // 5. q9/q10 band on the COUNT, not on how well we knew the answer. They used
+  // 6. q9/q10 band on the COUNT, not on how well we knew the answer. They used
   //    to be green for "cited", which scored a church for publishing its service
   //    times rather than for being big. A bigger operation is more favor.
   if (k === "q9") {
@@ -159,7 +196,7 @@ export function colorState(
     return "unk";
   }
 
-  // 6. Fallback. In practice only q6 reaches this — see `adapt.ts`.
+  // 7. Fallback. In practice only q6 reaches this — see `adapt.ts`.
   if (q.opportunity === true) return "good"; // lacks the feature = something to sell
   if (q.opportunity === false) return "bad"; // already has it = not a lead
   return "unk";

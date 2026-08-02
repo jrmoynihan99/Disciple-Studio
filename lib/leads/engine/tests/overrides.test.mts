@@ -101,3 +101,82 @@ describe("user colour overrides", { skip: !HAVE_FIXTURE && "fixture not present"
     assert.equal(favorScore(view, ctx), favorScore(view, plain));
   });
 });
+
+/**
+ * The product-decision layer, between the user's overrides and the generated
+ * table.
+ *
+ * `COLOR_DEFAULTS` records what the reference `core.js` does and is regenerated
+ * from the pipeline's vocab, so a decision to paint something differently cannot
+ * live there — it would be overwritten, and it would make `golden-colors.json`
+ * stop being evidence that this port is faithful. It lives in `COLOR_PATCH`
+ * instead, and these are the two properties that make that safe: it must beat
+ * the table, and it must still lose to a human.
+ */
+describe("owner colour patches", { skip: !HAVE_FIXTURE && "fixture not present" }, () => {
+  const rows = loadIndex();
+  const plain = ctxWith({}, rows);
+  const candidate = rows.find((r) => r.q5?.a === "custom_candidate")!;
+
+  test("the fixture has a church with a possible custom login", () => {
+    assert.ok(candidate, "need a custom_candidate church");
+  });
+
+  /**
+   * The whole point of the change. A CONFIRMED custom login is `bad`; a possible
+   * one is the "likely" grade of the same finding. It used to be `unver`, whose
+   * wording ("Needs a check" / "Can't confirm") promised a render check that was
+   * retired upstream — slate was telling ~1 church in 6 to go and do something
+   * nobody can do.
+   */
+  test("a possible custom login is light red, not slate", () => {
+    const view = churchFromIndex(candidate);
+    assert.equal(colorState("q5", view.q("q5"), plain), "bad2");
+  });
+
+  /** The patch must not leak into its neighbours in the same table. */
+  test("the other login answers are exactly where they were", () => {
+    const want: Record<string, string> = {
+      no_login_link: "good",
+      generic_cc: "good2",
+      unknown: "unk",
+    };
+    for (const [answer, state] of Object.entries(want)) {
+      const row = rows.find((r) => r.q5?.a === answer);
+      if (!row) continue;
+      assert.equal(colorState("q5", churchFromIndex(row).q("q5"), plain), state, answer);
+    }
+  });
+
+  /**
+   * A PATCH IS A DEFAULT, NOT A DECREE. The rail lets anyone recolour any
+   * (question, answer) pair, and that has to keep working for the pairs we have
+   * an opinion about — otherwise a product decision becomes the one thing on
+   * this screen a user is not allowed to disagree with.
+   */
+  test("a user override still wins over the patch", () => {
+    const view = churchFromIndex(candidate);
+    const mine = ctxWith({ q5: { custom_candidate: "good" } }, rows);
+    assert.equal(colorState("q5", view.q("q5"), mine), "good");
+  });
+
+  /** And clearing it falls back to the patch, not past it to the raw table. */
+  test("clearing the override returns to the patched colour, not the reference one", () => {
+    const view = churchFromIndex(candidate);
+    assert.equal(colorState("q5", view.q("q5"), ctxWith({ q5: {} }, rows)), "bad2");
+  });
+
+  /**
+   * `favorScore` awards full points for `good`, half for `good2`, and nothing
+   * for anything else — so a move between two zero-scoring states must not touch
+   * a single church's score. Asserted here per-church as well as in the golden
+   * table, because it is the reason the golden favor rows could stay untouched.
+   */
+  test("the recolour moves no church's favor score", () => {
+    for (const row of rows.filter((r) => r.q5?.a === "custom_candidate")) {
+      const view = churchFromIndex(row);
+      const asWas = ctxWith({ q5: { custom_candidate: "unver" } }, rows);
+      assert.equal(favorScore(view, plain), favorScore(view, asWas), row.id);
+    }
+  });
+});

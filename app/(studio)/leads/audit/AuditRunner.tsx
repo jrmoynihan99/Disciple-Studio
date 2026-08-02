@@ -139,6 +139,171 @@ async function auditRow(add: Add) {
 }
 
 /**
+ * The discipleship pathway in the dossier.
+ *
+ * THIS ONE CANNOT BE DRIVEN OFF THE DATASET. `q1.pathway_steps` is unpopulated
+ * on all 134 records, so every church renders the empty state and a check that
+ * walked the corpus would pass without a single step ever being drawn. The
+ * records here carry the shape the newer pipeline emits.
+ *
+ * The claim under test is the one that is wrong-but-plausible: a number beside a
+ * step means the CHURCH said do this first. When the basis is `page_order` all
+ * we know is that one heading came before another in the HTML, and printing
+ * "1. 2. 3." there converts a fact about our scraper into a claim about a real
+ * congregation — quoted back at you in a reply to a cold email.
+ */
+async function auditPathway(add: Add) {
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const { PathwayDetail } = await import("../_components/dossier/Dossier");
+
+  const steps = [
+    { ordinal: 1, label: "Attend a Sunday gathering", quote: "", source_url: "" },
+    { ordinal: 2, label: "Fill out a welcome card", quote: "", source_url: "" },
+  ];
+  const rec = (basis: string | undefined, extra: Record<string, unknown> = {}) =>
+    ({
+      org_id: "audit_pathway",
+      q1: { pathway_name: "First Steps", pathway_order_basis: basis, pathway_steps: steps, ...extra },
+    }) as unknown as ChurchRecord;
+
+  const host = document.createElement("div");
+  host.style.position = "fixed";
+  host.style.left = "-10000px";
+  host.style.width = "420px";
+  (document.querySelector("[data-lead-root]") ?? document.body).appendChild(host);
+
+  const root = createRoot(host);
+  try {
+    flushSync(() => {
+      root.render(
+        <>
+          <div data-probe="ordered">
+            <PathwayDetail record={rec("explicit_sequenced")} />
+          </div>
+          <div data-probe="page-order">
+            <PathwayDetail record={rec("page_order")} />
+          </div>
+          <div data-probe="none">
+            <PathwayDetail record={rec(undefined, { pathway_steps: [] })} />
+          </div>
+        </>,
+      );
+    });
+
+    const text = (p: string) =>
+      (host.querySelector(`[data-probe="${p}"]`)?.textContent ?? "").replace(/\s+/g, " ");
+
+    const named = /Attend a Sunday gathering/.test(text("ordered")) &&
+      /Fill out a welcome card/.test(text("ordered"));
+    add(
+      "the dossier lists the discipleship steps by name",
+      named,
+      named ? "both step names rendered" : `got: ${text("ordered").slice(0, 80)}`,
+    );
+
+    // `1.` and `2.` are printed only in the ordered probe. Matching on the
+    // ordinal glyph rather than on a class, so restyling cannot fake a pass.
+    const ordinalsShown = /\b1\.\s*Attend/.test(text("ordered"));
+    const ordinalsHidden = !/\b1\.\s*Attend/.test(text("page-order"));
+    add(
+      "a step is numbered only when the church's own page numbered it",
+      ordinalsShown && ordinalsHidden,
+      `stated order: ${ordinalsShown ? "numbered" : "NOT numbered"} · ` +
+        `page order: ${ordinalsHidden ? "unnumbered" : "NUMBERED — invents a sequence"}`,
+    );
+
+    // A church with a named programme and no captured stages must still report
+    // the name. "No pathway" would be false, and silence would be worse — the
+    // card header already says "None identified", so a body that added nothing
+    // would leave the one fact we do hold unsaid.
+    const empty = text("none");
+    add(
+      "a pathway with no captured steps still reports its name",
+      /First Steps/.test(empty) && /no steps collected/i.test(empty),
+      empty.slice(0, 90) || "(rendered nothing)",
+    );
+  } finally {
+    root.unmount();
+    host.remove();
+  }
+}
+
+/**
+ * An expanded card may never open onto nothing.
+ *
+ * `EvidenceBody` is a stack of conditional blocks, and for 35 of 134 churches
+ * the login question satisfies none of them: no evidence string, no quote, no
+ * source URL, no sub-signals. It used to render an empty `<div>` — and the card
+ * still expanded, because the caller gates on the question object existing
+ * rather than on it having anything to say. A control that opens onto padding is
+ * indistinguishable from one whose content failed to load.
+ *
+ * Driven off REAL RECORDS, not fabricated ones: the point is that no church in
+ * the corpus produces an empty body, and only the corpus can say that.
+ */
+async function auditEmptyEvidence(add: Add) {
+  const { createRoot } = await import("react-dom/client");
+  const { flushSync } = await import("react-dom");
+  const { EvidenceBody } = await import("../_components/dossier/Evidence");
+  const { DISPLAY_KEYS } = await import("@/lib/leads/engine/types");
+
+  const rows: IndexRow[] = await fetch("/api/leads/index").then((r) => r.json());
+  // A church whose login answer is `unknown` — the shape that produced the bug.
+  const blank =
+    rows.find((r) => (r.q5?.a ?? "unknown") === "unknown") ?? rows[0];
+  const record: ChurchRecord = await fetch(`/api/leads/church/${blank.id}`).then((r) => r.json());
+
+  const host = document.createElement("div");
+  host.style.position = "fixed";
+  host.style.left = "-10000px";
+  host.style.width = "420px";
+  (document.querySelector("[data-lead-root]") ?? document.body).appendChild(host);
+
+  const root = createRoot(host);
+  try {
+    flushSync(() => {
+      root.render(
+        <>
+          {DISPLAY_KEYS.map((k) => {
+            const q = record[k];
+            return q ? (
+              <div key={k} data-probe-q={k}>
+                <EvidenceBody q={q} qKey={k} />
+              </div>
+            ) : null;
+          })}
+        </>,
+      );
+    });
+
+    const empty = [...host.querySelectorAll("[data-probe-q]")].filter(
+      (el) => !(el.textContent ?? "").trim(),
+    );
+    add(
+      "no expanded card opens onto an empty panel",
+      empty.length === 0,
+      empty.length
+        ? `${empty.map((e) => e.getAttribute("data-probe-q")).join(", ")} rendered nothing`
+        : `every question on ${blank.id} says something`,
+    );
+
+    // The unmeasured wording must be reserved for actually-unmeasured
+    // questions. Told about an answered one, it would invent a gap in our data.
+    const login = host.querySelector('[data-probe-q="q5"]')?.textContent ?? "";
+    const unknown = (record.q5 as { answer?: string } | undefined)?.answer === "unknown";
+    add(
+      "an unmeasured question says so, and an answered one does not",
+      unknown ? /adequate data/i.test(login) : !/adequate data/i.test(login),
+      `${blank.id} q5 = ${(record.q5 as { answer?: string } | undefined)?.answer ?? "(absent)"}`,
+    );
+  } finally {
+    root.unmount();
+    host.remove();
+  }
+}
+
+/**
  * A group card, built from a snapshot and put through the real components.
  *
  * NOT scraped from `/leads/groups/<id>`. That page is client-rendered, so its
@@ -571,6 +736,8 @@ export function AuditRunner() {
 
     // ── the row and the group card, rendered for real ──
     await auditRow(add);
+    await auditPathway(add);
+    await auditEmptyEvidence(add);
     await auditGroupCard(add);
 
     return out;

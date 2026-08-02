@@ -64,6 +64,13 @@ export const QMETA = VOCAB.QMETA;
  * The questions that RENDER, in order.
  *
  * Excluded, and each for its own reason:
+ *   q1  (Organized Discipleship Pathway) — retired by owner decision. What
+ *       replaced it is the discipleship pathway's ACTUAL STEPS, promoted into
+ *       Key findings: a list of named stages is worth more to a salesperson than
+ *       a yes/no verdict about whether one exists. `record.q1` STAYS — it is
+ *       where INDEX-CONTRACT §3.1 puts `pathway_steps`, `pathway_name` and the
+ *       cited finding, and `pathwayOf()` reads all three. The colour logic stays
+ *       ported and golden-tested, exactly as q3 and q12 are.
  *   q3  (Concrete Next Steps) — retired by owner decision. Its data still ships
  *       in the record and its colour logic is still ported and golden-tested,
  *       exactly as q12 is; it simply has no surface. Note the Next Steps tile,
@@ -73,15 +80,16 @@ export const QMETA = VOCAB.QMETA;
  *       built. In the record, out of the index.
  */
 export const DISPLAY_KEYS = [
-  "q1", "q2", "q4", "q5", "q6", "q7", "q8", "q9", "q10",
+  "q2", "q4", "q5", "q6", "q7", "q8", "q9", "q10",
 ] as const satisfies readonly QuestionKey[];
 
 export type DisplayKey = (typeof DISPLAY_KEYS)[number];
 
 /**
- * KEY FINDINGS — the crucial fields, highest scrutiny. Next steps sits between
- * q2 and q5 on the card but is not a question key; it comes from
- * `next_steps_by_category`.
+ * KEY FINDINGS — the crucial fields, highest scrutiny. Two of the four cards in
+ * that section are NOT question keys: Next steps comes from
+ * `next_steps_by_category` and Discipleship from `pathwayOf()`, so the section
+ * is hand-written rather than mapped over this list.
  */
 export const CRUCIAL_KEYS = ["q2", "q5"] as const;
 
@@ -89,15 +97,16 @@ export const CRUCIAL_KEYS = ["q2", "q5"] as const;
 export const APP_WEB_KEYS = ["q8", "q7"] as const;
 
 /**
- * THE REST — LIGHTER-TOUCH SIGNALS, scored x/5.
+ * THE REST — LIGHTER-TOUCH SIGNALS, scored x/4.
  *
- * Pathway (q1) leads this section following the owner's decision to surface it —
- * it renders nowhere in the reference build. Note it reads OPPOSITE to its four
- * neighbours: they are all "the church lacks it, so there is something to sell",
- * where a green Pathway means the church ALREADY has an organized pathway, which
- * is favourable because it signals fit. Same green, different reason.
+ * Four, not five: Pathway (q1) led this section until the owner retired it. It
+ * was the one entry here that read OPPOSITE to its neighbours — they are all
+ * "the church lacks it, so there is something to sell", where a green Pathway
+ * meant the church already HAD one — and that inversion needed a note under the
+ * card to be readable at all. The discipleship pathway now appears in Key
+ * findings as its actual named steps, which is the fact a salesperson can use.
  */
-export const REST_KEYS = ["q1", "q4", "q6", "q9", "q10"] as const;
+export const REST_KEYS = ["q4", "q6", "q9", "q10"] as const;
 
 export type RestKey = (typeof REST_KEYS)[number];
 
