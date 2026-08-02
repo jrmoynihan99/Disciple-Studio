@@ -509,6 +509,28 @@ export const PATH = {
     `contacts.${id}.${field}`,
 } as const;
 
+/**
+ * THE ORDER A CHURCH IS READ IN, AND THE FULL LIST — no field is ever omitted.
+ *
+ * The review page used to drop a block when there was nothing in it, so a church
+ * with no pathway simply rendered shorter than its neighbours. That is the exact
+ * failure the page exists to prevent: an absence read as a shorter card rather
+ * than as a missing fact, and the eye has nothing to catch on while skimming.
+ *
+ * Every pass renders all five, in this order, on every church, and tags each
+ * block `data-field="<id>"`. `/leads/audit` asserts both the presence and the
+ * order, which is why this lives in the engine rather than in a component: a
+ * constant a test reads is a constant a redesign cannot quietly shorten.
+ *
+ * `name` and `slogan` are the identity header rather than rows in the stream —
+ * they are still fields, still always rendered, still in this order. `website`
+ * used to be one and is not any more: it collapsed into the Visit button, which
+ * is the same control the console uses and is the only outbound link on a card.
+ */
+export const REVIEW_FIELDS = ["name", "slogan", "steps", "pathway", "contacts"] as const;
+
+export type ReviewField = (typeof REVIEW_FIELDS)[number];
+
 /** Every field path belonging to one item, for pruning on hard delete. */
 export function pathPrefixFor(itemId: string): string[] {
   return [`steps.${itemId}.`, `pathway.${itemId}.`, `contacts.${itemId}.`];

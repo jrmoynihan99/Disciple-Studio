@@ -338,7 +338,7 @@ async function auditEmptyEvidence(add: Add) {
 async function auditGroupCard(add: Add) {
   const { createRoot } = await import("react-dom/client");
   const { flushSync } = await import("react-dom");
-  const { ChurchCard } = await import("../groups/_components/ChurchCard");
+  const { ChurchCard } = await import("../groups/_components/church/parts");
   const { ExportBar } = await import("../groups/_components/ExportBar");
   const { buildSnapshot } = await import("@/lib/leads/engine/snapshot");
   const { resolve, applyOp } = await import("@/lib/leads/engine/group");
@@ -404,10 +404,11 @@ async function auditGroupCard(add: Add) {
   const host = document.createElement("div");
   host.style.position = "fixed";
   host.style.left = "-10000px";
-  // Wide enough for all four tracks. At 880px the sheet collapses to two
-  // columns by design, and the spread check below would be measuring the
-  // breakpoint rather than the layout.
-  host.style.width = "1600px";
+  // Wide enough that nothing is at a stacking breakpoint. The card reads
+  // downward now, so width matters far less than it did to the old four-track
+  // sheet — but a 300px host would put the label gutter into its single-column
+  // fallback and the checks below would be measuring the breakpoint.
+  host.style.width = "1200px";
   (document.querySelector("[data-lead-root]") ?? document.body).appendChild(host);
 
   const root = createRoot(host);
@@ -415,7 +416,18 @@ async function auditGroupCard(add: Add) {
     flushSync(() => {
       root.render(
         <>
-          <ChurchCard card={card} index={1} stale={false} departed={false} onOp={() => {}} />
+          {/* Pass "a" because the checks below are on `church/parts.tsx`, which
+              all three passes render through — the passes only change what one
+              item looks like. If a pass ever grows markup of its own, this needs
+              to become a loop over `PASS_ORDER`. */}
+          <ChurchCard
+            card={card}
+            index={1}
+            stale={false}
+            departed={false}
+            onOp={() => {}}
+            pass="a"
+          />
           <ExportBar count={1} acknowledged onAcknowledge={() => {}} />
         </>,
       );
@@ -424,46 +436,57 @@ async function auditGroupCard(add: Add) {
     /**
      * THE COMPLAINT THIS LAYOUT EXISTS TO ANSWER.
      *
-     * The review page used to be one 880px column of full-height cards: one
-     * church was a screen and a half, and nothing lined up between them, so
-     * spotting the bad one meant reading all twenty in full. Four aligned
-     * columns are what make a wrong quote look wrong.
+     * A church renders as six labelled fields in one fixed order, empty or not.
+     * The order being constant is the whole skim mechanism: held the same on
+     * every church the fields become a rhythm, and a break in a rhythm is
+     * something you trip over rather than something you have to read for. Drop a
+     * block because it happened to be empty — which the old card did — and the
+     * absence shows up only as a card that ended early, which is to say it does
+     * not show up at all.
      *
-     * Asserted on the resolved grid rather than on the class string, because
-     * "the template mentions four tracks" and "four tracks are laid out" are
-     * different claims, and a stray `grid-cols-1` further down the string would
-     * satisfy only the first.
+     * Asserted against the engine's own constant, and on the RENDERED order
+     * rather than on the source, because "the component mentions six fields" and
+     * "six fields are laid out in this order" are different claims.
+     *
+     * This replaced a check that `[data-church] > .grid` resolved to exactly
+     * four tracks. That check defended the previous layout's shape; this one
+     * defends the invariant the new one rests on, which the track count never
+     * did.
      */
-    const sheet = host.querySelector("[data-church] > .grid") as HTMLElement | null;
-    const tracks = sheet
-      ? getComputedStyle(sheet).gridTemplateColumns.trim().split(/\s+/).filter(Boolean).length
-      : 0;
+    const rendered = [...host.querySelectorAll("[data-church] [data-field]")].map((el) =>
+      el.getAttribute("data-field"),
+    );
+    const expected = [...type.REVIEW_FIELDS];
     add(
-      "the review sheet spreads across four columns, not down one",
-      tracks === 4,
-      sheet ? `${tracks} tracks at 1600px` : "no sheet grid found on the card",
+      "a church renders every field, in the one order, empty or not",
+      rendered.length === expected.length && rendered.every((f, i) => f === expected[i]),
+      rendered.length ? rendered.join(" · ") : "no [data-field] blocks found on the card",
     );
 
     /**
-     * INVARIANT 3, finally checked where it matters.
+     * ONE WAY OUT, AND IT IS THE CHURCH'S OWN SITE.
      *
-     * The existing quote sweep walks record JSON and inherits `source_url` from
-     * ANY ancestor, so an edited quote stored beside the pipeline's original URL
-     * passes it green. This asks the rendered page instead: every quote either
-     * shows a link, or says it is no longer a quotation.
+     * Quotes used to carry a per-page citation each. Owner's call to drop them —
+     * at eight steps a church it was more lines of citation than of content. The
+     * cost is real (a reviewer gets the site, not the page) and this is the
+     * check that keeps the remaining claim honest: if there is exactly one link
+     * on a card and it is the Visit button in the identity band, then nothing on
+     * the page can be pointing somewhere it did not come from.
+     *
+     * The failure this replaces is worth remembering. The ORIGINAL quote sweep
+     * walked record JSON and inherited `source_url` from any ancestor, so an
+     * edited quote stored beside the pipeline's URL passed it green — which is
+     * why these checks read the rendered DOM and not the data.
      */
     const quotes = [...host.querySelectorAll("[data-quote]")];
-    const unattributed = quotes.filter((q) => {
-      const block = q.closest("div");
-      const line = block?.parentElement?.querySelector("[data-attribution]");
-      if (!line) return true;
-      const kind = line.getAttribute("data-attribution");
-      return kind === "cited" ? !line.querySelector("[data-source]") : !kind;
-    });
+    const strayLinks = [...host.querySelectorAll("[data-church] a[href]")].filter(
+      (a) => !a.closest("[data-identity]"),
+    );
+    const sources = host.querySelectorAll("[data-church] [data-source]").length;
     add(
-      "every rendered quote is attributed or marked as no longer verbatim",
-      quotes.length > 0 && unattributed.length === 0,
-      `${quotes.length} quotes rendered, ${unattributed.length} unattributed`,
+      "a card links out exactly once, from the identity band, and nowhere else",
+      quotes.length > 0 && strayLinks.length === 0 && sources === 0,
+      `${quotes.length} quotes, ${strayLinks.length} links outside the header, ${sources} source lines`,
     );
 
     const edited = [...host.querySelectorAll('[data-attribution="edited"]')];

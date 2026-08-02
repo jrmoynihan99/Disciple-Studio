@@ -22,6 +22,8 @@ export function EditableText({
   placeholder,
   className,
   emptyClassName,
+  editingClassName,
+  restingClassName,
   ariaLabel,
   disabled,
 }: {
@@ -33,6 +35,17 @@ export function EditableText({
   /** Styling for the EMPTY state only. Defaults to the muted placeholder look;
    *  pass this where an absent value is something the reviewer must act on. */
   emptyClassName?: string;
+  /**
+   * The open field's chrome, and the resting button's hover, as two overrides.
+   *
+   * The review page renders this component in three different design languages,
+   * and the defaults below are console tokens — an `--lead-*` border on a page
+   * painted in `--fg`/`--surface` is the one place a skin would leak. Everything
+   * that is BEHAVIOUR (the buffer, the commit-on-blur, the padding that is the
+   * click target) is deliberately not overridable.
+   */
+  editingClassName?: string;
+  restingClassName?: string;
   ariaLabel: string;
   disabled?: boolean;
 }) {
@@ -71,8 +84,8 @@ export function EditableText({
    * target, and this is a control you hit with a mouse on a line of text.
    */
   const shared =
-    "w-full rounded-md border border-lead-brand bg-lead-bg px-2 py-1 text-inherit " +
-    "font-[inherit] leading-[inherit] text-lead-ink outline-none";
+    "w-full px-2 py-1 text-inherit font-[inherit] leading-[inherit] outline-none " +
+    (editingClassName ?? "rounded-md border border-lead-brand bg-lead-bg text-lead-ink");
 
   if (editing && !disabled) {
     return multiline ? (
@@ -125,9 +138,9 @@ export function EditableText({
       // ordinary and should not shout — while a missing church NAME or SLOGAN is
       // the reviewer's job to fix, and `opacity-60` was quietly draining the
       // colour out of the treatment that says so.
-      className={`w-full cursor-text rounded-md px-2 py-1 text-left transition-colors hover:bg-lead-panel2 ${
-        value ? "" : (emptyClassName ?? "text-lead-ink2 italic opacity-60")
-      } ${className ?? ""}`}
+      className={`w-full cursor-text rounded-md px-2 py-1 text-left transition-colors ${
+        restingClassName ?? "hover:bg-lead-panel2"
+      } ${value ? "" : (emptyClassName ?? "text-lead-ink2 italic opacity-60")} ${className ?? ""}`}
     >
       {value || placeholder || "—"}
     </button>

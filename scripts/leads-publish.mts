@@ -199,13 +199,20 @@ async function existingKeys(bucket: string, prefix: string): Promise<Set<string>
   return out;
 }
 
+/**
+ * `&amp;` LAST, or `&amp;lt;` decodes twice and comes back as `<`.
+ *
+ * This script runs under plain node, outside the Next module graph, so it cannot
+ * import `lib/r2.ts` (which is `server-only`). The duplication is deliberate;
+ * keep the two in step.
+ */
 function decodeXml(s: string): string {
   return s
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
 }
 
 console.log(`leads:publish — ${PACK}\n              → ${BUCKET_DATA} + ${BUCKET_LOGOS}\n`);

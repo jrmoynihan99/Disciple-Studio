@@ -3,13 +3,16 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { resolve, staleEntries, departedEntries } from "@/lib/leads/engine/group";
+import type { GroupOp, ResolvedCard } from "@/lib/leads/engine/group-types";
 import { useGroup } from "@/lib/leads/client/useGroups";
 import { useDataset } from "@/lib/leads/client/useDataset";
-import { ChurchCard, SHEET_COLS } from "./ChurchCard";
+import { ChurchCard } from "./church/parts";
+import { SKIN } from "./church/skin";
+import { PASSES, PASS_ORDER, type Pass } from "./church/passes";
 import { EditableText } from "./EditableText";
 import { ExportBar } from "./ExportBar";
-// REVIEW-DESIGN-TEMP — three candidate looks; see DesignSwitch.tsx.
-import { DesignSwitch, useReviewDesign } from "./DesignSwitch";
+// REVIEW-PASS-TEMP — three treatments of the evidence; see PassSwitch.tsx.
+import { PassSwitch, useReviewPass } from "./PassSwitch";
 
 /**
  * The review page.
@@ -19,53 +22,27 @@ import { DesignSwitch, useReviewDesign } from "./DesignSwitch";
  * default and the warning stays on screen rather than being a dialog that gets
  * clicked away before it is read.
  *
- * A SHEET, NOT A STACK OF CARDS. It used to be an 880px column of full-height
- * cards — one church was a screen and a half, so twenty was thirty screens, and
- * on a wide monitor every pixel past 880 was blank. Worse than the scrolling:
- * with each card a different height, the slogan was somewhere new every time, so
- * the eye had to re-find each field before it could judge it. Four aligned
- * columns put every slogan in one strip and every quote block in another, and a
- * bad one stops being something you read for and starts being something that
- * looks wrong next to its neighbours.
+ * DOWN, NOT ACROSS. This used to be a four-column sheet — a church spread across
+ * the page under a sticky strip naming the columns. The alignment argument for
+ * it was sound (a bad quote looks wrong beside its neighbours) but the shape was
+ * not: every value lived in a 230–300px track, so quotes wrapped at arbitrary
+ * points, contacts shrank to glyphs, and reading a value meant first remembering
+ * which column you were in. It read as a spreadsheet, and a spreadsheet is a
+ * thing you scan for outliers rather than a thing you review.
+ *
+ * A church is now a header you land on — logo, name, slogan, the way out to
+ * their site — and three labelled fields below it. `church/parts.tsx` holds the
+ * rule that makes it skimmable: every church renders every field, in one order,
+ * empty or not.
  */
 
 const DISCLAIMER_TITLE = "WARNING: MANUALLY CHECK BEFORE SENDING";
 
-const COLUMNS = ["Church", "Next steps", "Discipleship", "Contacts"];
-
-/**
- * Names the four columns ONCE, pinned under the console header, instead of
- * repeating three labels in all twenty rows. Built from `SHEET_COLS` so it
- * cannot drift from the columns it is labelling — a header that has drifted is
- * worse than none, because it mislabels instead of failing.
- */
-function ColumnHeads() {
-  return (
-    <div
-      // Hidden below 720px, where the tracks stack one per row and a position in
-      // this strip no longer points at anything. Each column grows its own
-      // heading there instead.
-      className={`${SHEET_COLS} sticky top-[var(--lead-header-h)] z-[3] mb-2 overflow-hidden rounded-lg border border-lead-line max-[720px]:hidden`}
-    >
-      {COLUMNS.map((c, i) => (
-        <div
-          key={c}
-          className={`bg-lead-panel2 px-3.5 py-1.5 font-mono text-[10px] font-bold tracking-[0.14em] text-lead-ink2 uppercase ${
-            i === 0 ? "pl-5" : ""
-          }`}
-        >
-          {c}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function GroupReview({ id }: { id: string }) {
   const { group, loading, error, save, pending, apply, reload } = useGroup(id);
   const { rows } = useDataset();
-  // REVIEW-DESIGN-TEMP
-  const [design, chooseDesign] = useReviewDesign();
+  // REVIEW-PASS-TEMP
+  const [mode, chooseMode] = useReviewPass();
 
   /**
    * The acknowledgement is NOT persisted, on purpose.
@@ -80,10 +57,7 @@ export function GroupReview({ id }: { id: string }) {
   const [ack, setAck] = useState<{ id: string; on: boolean }>({ id, on: false });
   const acknowledged = ack.id === id && ack.on;
 
-  const recByOrg = useMemo(
-    () => new Map(rows.map((r) => [r.id, r.rec ?? ""])),
-    [rows],
-  );
+  const recByOrg = useMemo(() => new Map(rows.map((r) => [r.id, r.rec ?? ""])), [rows]);
 
   const stale = useMemo(
     () => (group && rows.length ? staleEntries(group, recByOrg) : new Set<string>()),
@@ -105,25 +79,23 @@ export function GroupReview({ id }: { id: string }) {
   // looks like it works and quietly costs nineteen re-renders per keystroke.
   const onOp = apply;
 
+  const pass: Pass = mode === "compare" ? "a" : mode;
+
   if (loading) {
     return (
-      <div className="mx-auto max-w-[1760px] px-6 py-16">
-        <div className="h-8 w-64 animate-pulse rounded bg-lead-panel" />
-        <div className="mt-6 h-72 animate-pulse rounded-2xl bg-lead-panel" />
+      <div className={SKIN.page}>
+        <div className={`h-8 w-64 ${SKIN.skeleton}`} />
+        <div className={`mt-6 h-72 ${SKIN.skeleton}`} />
       </div>
     );
   }
 
   if (error || !group) {
     return (
-      <div className="mx-auto max-w-[1760px] px-6 py-20 text-center">
+      <div className={`${SKIN.page} text-center`}>
         <p className="font-serif text-lg text-lead-ink">This group could not be loaded.</p>
-        <p className="mt-2 font-mono text-xs text-lead-ink2">{error || "Not found."}</p>
-        <button
-          type="button"
-          onClick={reload}
-          className="mt-4 rounded-md border border-lead-line px-3 py-1.5 font-mono text-xs text-lead-ink"
-        >
+        <p className={SKIN.meta}>{error || "Not found."}</p>
+        <button type="button" onClick={reload} className={`mt-4 ${SKIN.btn}`}>
           retry
         </button>
       </div>
@@ -131,14 +103,12 @@ export function GroupReview({ id }: { id: string }) {
   }
 
   return (
-    // REVIEW-DESIGN-TEMP — `data-review-design` is what the three token sets in
-    // leads-theme.css key off. Remove the attribute with the block.
-    <div data-review-design={design} className="mx-auto max-w-[1760px] px-6 pt-6 pb-32">
-      <nav className="mb-5 flex items-center gap-3 font-mono text-[11px] text-lead-ink2">
-        <Link href="/leads" className="underline underline-offset-2 hover:text-lead-ink">
+    <div className={SKIN.page}>
+      <nav className={SKIN.nav}>
+        <Link href="/leads" className={SKIN.navLink}>
           ← Console
         </Link>
-        <Link href="/leads/groups" className="underline underline-offset-2 hover:text-lead-ink">
+        <Link href="/leads/groups" className={SKIN.navLink}>
           All groups
         </Link>
         <span className="ml-auto" data-save-state={save}>
@@ -151,30 +121,20 @@ export function GroupReview({ id }: { id: string }) {
 
       <header className="mb-6">
         <div className="flex flex-wrap items-baseline gap-3">
-          <h1 className="font-serif text-[32px] leading-tight font-semibold tracking-tight text-lead-ink">
+          <h1 className={SKIN.h1}>
             <EditableText
               value={group.name}
               onCommit={(name) => onOp({ op: "group.rename", name })}
               ariaLabel="batch name"
+              editingClassName={SKIN.editEditing}
+              restingClassName={SKIN.editResting}
             />
           </h1>
-          {status === "open" && (
-            <span className="rounded-full bg-lead-good/20 px-2 py-0.5 font-mono text-[10px] text-lead-good">
-              collecting
-            </span>
-          )}
-          {status === "closed" && (
-            <span className="rounded-full border border-lead-line px-2 py-0.5 font-mono text-[10px] text-lead-ink2">
-              finished
-            </span>
-          )}
-          {status === "exported" && (
-            <span className="rounded-full bg-lead-dl/20 px-2 py-0.5 font-mono text-[10px] text-lead-dl">
-              sent
-            </span>
-          )}
+          {status === "open" && <span className={SKIN.pillOpen}>collecting</span>}
+          {status === "closed" && <span className={SKIN.pillClosed}>finished</span>}
+          {status === "exported" && <span className={SKIN.pillSent}>sent</span>}
         </div>
-        <p className="mt-1.5 font-mono text-[11px] text-lead-ink2">
+        <p className={SKIN.meta}>
           {group.entries.length} church{group.entries.length === 1 ? "" : "es"}
           {edits > 0 && ` · ${edits} edit${edits === 1 ? "" : "s"}`}
           {removals > 0 && ` · ${removals} struck out`}
@@ -182,8 +142,7 @@ export function GroupReview({ id }: { id: string }) {
               churches the current publish still carries, so a batch holding two
               that have since left the dataset reads 0 there and N here. Without
               this line the difference looks like one of them is broken; with it,
-              it is one fact stated twice. The cards carry the per-church banner
-              already. */}
+              it is one fact stated twice. */}
           {departed.size > 0 &&
             ` · ${departed.size} no longer in the dataset (kept — this is the only copy)`}
           {status === "open" && (
@@ -193,7 +152,7 @@ export function GroupReview({ id }: { id: string }) {
                 type="button"
                 onClick={() => onOp({ op: "group.close" })}
                 title="Stop collecting into this batch. Nothing is sent."
-                className="underline underline-offset-2 hover:text-lead-ink"
+                className={SKIN.metaLink}
               >
                 finish collecting
               </button>
@@ -207,52 +166,77 @@ export function GroupReview({ id }: { id: string }) {
           click inside a day, and a thing you click without reading is worse than
           no warning at all, because it looks like consent.
 
-          `w-fit max-w-[78ch]` INSIDE a 1760px page. The cap is a reading measure
-          — a paragraph run to 1760px is close to unreadable, and this is the one
-          block on the page whose whole purpose is to be read. `w-fit` is what
-          stops it also being a MINIMUM: as a plain block it stretched to the
-          full 78ch whatever it contained.
-
-          THE COPY IS SHORT ON PURPOSE. `w-fit` does nothing while the text wraps
-          past the cap anyway, and more importantly a warning nobody finishes is
-          a warning nobody read. Three lines that get read beat six that do
-          not. */}
-      <section className="mb-6 w-fit max-w-[78ch] rounded-xl border border-lead-warn/50 bg-lead-warn/[0.07] px-5 py-4">
-        <h2 className="font-serif text-[17px] font-semibold text-lead-ink">{DISCLAIMER_TITLE}</h2>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-lead-ink2">
+          THE COPY IS SHORT ON PURPOSE. A warning nobody finishes is a warning
+          nobody read; three lines that get read beat six that do not. */}
+      <section className={SKIN.warnBox}>
+        <h2 className={SKIN.warnTitle}>{DISCLAIMER_TITLE}</h2>
+        <p className={SKIN.warnBody}>
           Names, slogans, steps and contacts were extracted by a model that makes
           mistakes. <b>Click any line to fix it</b> before you send.
         </p>
       </section>
 
       {group.entries.length === 0 ? (
-        <p className="py-16 text-center font-serif text-[17px] italic text-lead-ink2">
+        <p className={SKIN.emptyBatch}>
           This batch is empty. Press ✆ on a church in the console to collect it.
         </p>
+      ) : mode === "compare" ? (
+        /* REVIEW-PASS-TEMP */
+        <CompareStrip card={cards[0]} onOp={onOp} />
       ) : (
-        <>
-          <ColumnHeads />
-          {cards.map((card, i) => (
-            <ChurchCard
-              key={card.orgId}
-              card={card}
-              index={i + 1}
-              stale={stale.has(card.orgId)}
-              departed={departed.has(card.orgId)}
-              onOp={onOp}
-            />
-          ))}
-        </>
+        cards.map((card, i) => (
+          <ChurchCard
+            key={card.orgId}
+            card={card}
+            index={i + 1}
+            stale={stale.has(card.orgId)}
+            departed={departed.has(card.orgId)}
+            onOp={onOp}
+            pass={pass}
+          />
+        ))
       )}
-
-      {/* REVIEW-DESIGN-TEMP */}
-      <DesignSwitch design={design} onChoose={chooseDesign} />
 
       <ExportBar
         count={group.entries.length}
         acknowledged={acknowledged}
         onAcknowledge={(on) => setAck({ id, on })}
+        skin={SKIN.exportBar}
       />
+
+      {/* REVIEW-PASS-TEMP */}
+      <PassSwitch mode={mode} onChoose={chooseMode} />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   REVIEW-PASS-TEMP — Compare
+   ──────────────────────────────────────────────────────────────────────────
+   ONE CHURCH, THREE TIMES. Switching between whole pages to compare treatments
+   makes you compare a memory against a screen, and a memory of a layout is
+   mostly a memory of how you felt about it. Three renderings of the same church
+   in one scroll is the difference between "I think I prefer the second one" and
+   "the second one, but with the first one's alignment".
+
+   The first church in the batch, deliberately, rather than a fabricated one:
+   what is being judged is how a treatment copes with the data you actually
+   have, including its gaps.
+   ══════════════════════════════════════════════════════════════════════════ */
+function CompareStrip({ card, onOp }: { card: ResolvedCard; onOp: (op: GroupOp) => void }) {
+  return (
+    <div className="space-y-10">
+      {PASS_ORDER.map((p) => (
+        <section key={p}>
+          <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-lead-brand pb-1.5 font-mono text-[11px]">
+            <b className="text-lead-ink">
+              {p.toUpperCase()} · {PASSES[p].title}
+            </b>
+            <span className="text-lead-ink2">{PASSES[p].hint}</span>
+          </div>
+          <ChurchCard card={card} index={1} stale={false} departed={false} onOp={onOp} pass={p} />
+        </section>
+      ))}
     </div>
   );
 }

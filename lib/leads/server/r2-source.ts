@@ -34,71 +34,16 @@ import "server-only";
  * 257 objects instead of 14,511, and a CDN URL stays valid across publishes.
  */
 
-import { AwsClient } from "aws4fetch";
 import published from "@/data/leads/published.json";
 import type { ChurchRecord, IndexRow } from "@/lib/leads/engine/types";
 import type { AssetKind } from "@/lib/leads/pack/read.ts";
 import { shardOf } from "@/lib/leads/pack/read.ts";
+import { r2Env, r2Get } from "@/lib/r2.ts";
 import { gunzipSync } from "node:zlib";
-
-const ENV = [
-  "R2_ACCOUNT_ID",
-  "R2_BUCKET_DATA",
-  "R2_BUCKET_LOGOS",
-  "R2_ACCESS_KEY_ID",
-  "R2_SECRET_ACCESS_KEY",
-] as const;
 
 /** `org_id` and asset names become URL path segments, so they are checked. */
 const SAFE_ID = /^[A-Za-z0-9_]+$/;
 const SAFE_ASSET = /^[A-Za-z0-9._-]+$/;
-
-/**
- * Names the missing thing.
- *
- * The ways a deployment can be wrong here are "nobody set the credentials",
- * "nobody ran the publish" and "somebody published to a different account", and
- * before this they produced, respectively, a stack trace, a blank console and a
- * bare 404. All three now say which variable or which command is at fault.
- *
- * Read lazily rather than at module load: a build must not fail because the
- * build machine has no credentials, only a request that actually needs them.
- */
-function env() {
-  const missing = ENV.filter((k) => !process.env[k]?.trim());
-  if (missing.length) {
-    throw new Error(
-      `leads: R2 is not configured — missing ${missing.join(", ")}. ` +
-        `See data/leads/README.md.`,
-    );
-  }
-  return {
-    account: process.env.R2_ACCOUNT_ID!.trim(),
-    data: process.env.R2_BUCKET_DATA!.trim(),
-    logos: process.env.R2_BUCKET_LOGOS!.trim(),
-    keyId: process.env.R2_ACCESS_KEY_ID!.trim(),
-    secret: process.env.R2_SECRET_ACCESS_KEY!.trim(),
-  };
-}
-
-let client: AwsClient | null = null;
-
-function s3(): { r2: AwsClient; base: string; data: string; logos: string } {
-  const e = env();
-  // `region: "auto"` is what R2 expects; SigV4 still requires one to sign with.
-  client ??= new AwsClient({
-    accessKeyId: e.keyId,
-    secretAccessKey: e.secret,
-    service: "s3",
-    region: "auto",
-  });
-  return {
-    r2: client,
-    base: `https://${e.account}.r2.cloudflarestorage.com`,
-    data: e.data,
-    logos: e.logos,
-  };
-}
 
 function publishId(): string {
   const id = published.publish_id;
@@ -112,16 +57,6 @@ function publishId(): string {
   return id;
 }
 
-async function fetchKey(bucket: string, key: string): Promise<Buffer | null> {
-  const { r2, base } = s3();
-  const res = await r2.fetch(`${base}/${bucket}/${key}`);
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    throw new Error(`leads: R2 ${res.status} reading ${bucket}/${key}`);
-  }
-  return Buffer.from(await res.arrayBuffer());
-}
-
 /**
  * A missing key in the DATA bucket is a broken publish, not a missing church.
  *
@@ -131,8 +66,8 @@ async function fetchKey(bucket: string, key: string): Promise<Buffer | null> {
  * churches matched" and gets investigated as a filter bug.
  */
 async function requireKey(key: string): Promise<Buffer> {
-  const { data } = s3();
-  const bytes = await fetchKey(data, key);
+  const { data } = r2Env();
+  const bytes = await r2Get(data, key);
   if (!bytes) {
     throw new Error(
       `leads: ${data}/${key} is not in this R2 bucket. The deployment names publish ` +
@@ -189,7 +124,7 @@ async function loadShard(key: string): Promise<Map<string, ChurchRecord> | null>
     return hit;
   }
 
-  const gz = await fetchKey(s3().data, `${publishId()}/records/${key}.ndjson.gz`);
+  const gz = await r2Get(r2Env().data, `${publishId()}/records/${key}.ndjson.gz`);
   if (!gz) return null;
 
   const out = new Map<string, ChurchRecord>();
@@ -226,7 +161,7 @@ export async function r2Record(orgId: string): Promise<ChurchRecord | null> {
 export async function r2Asset(kind: AssetKind, name: string): Promise<Buffer | null> {
   if (!SAFE_ASSET.test(name) || name.includes("..")) return null;
   try {
-    return await fetchKey(s3().logos, `${kind}/${name}`);
+    return await r2Get(r2Env().logos, `${kind}/${name}`);
   } catch {
     return null;
   }
