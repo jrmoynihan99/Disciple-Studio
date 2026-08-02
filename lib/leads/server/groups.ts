@@ -1,6 +1,6 @@
 import "server-only";
 import { r2Delete, r2Env, r2Get, r2List, r2Put } from "@/lib/r2.ts";
-import { makeExportGroupId, membershipFrom } from "@/lib/leads/engine/group.ts";
+import { makeExportGroupId, membershipFrom, nextBatchName } from "@/lib/leads/engine/group.ts";
 import { GROUP_SCHEMA_VERSION, isSafeGroupId } from "@/lib/leads/engine/group-types.ts";
 import type {
   ExportGroup,
@@ -232,9 +232,15 @@ export async function listGroups(userId: string): Promise<ExportGroupSummary[]> 
  * The open batch
  * ------------------------------------------------------------------ */
 
-/** `Aug 2` — the batch is named for the day it was started, and renameable. */
-function batchName(now: Date): string {
-  return now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+/**
+ * `Aug 2`, or `Aug 2 · 2` when that day already has one. Renameable either way.
+ * The rule is `nextBatchName` in the engine, where it is pure and tested.
+ */
+async function batchName(userId: string, now: Date): Promise<string> {
+  return nextBatchName(
+    (await listGroups(userId)).map((s) => s.name),
+    now,
+  );
 }
 
 /**
@@ -257,7 +263,8 @@ export async function openGroup(userId: string, now = new Date()): Promise<Expor
     const g = await readGroup(userId, existing.id);
     if (g) return g;
   }
-  return startBatch(userId, batchName(now), now);
+  // "" — `startBatch` applies the naming rule, so there is one caller of it.
+  return startBatch(userId, "", now);
 }
 
 /**
@@ -272,10 +279,12 @@ export async function openGroup(userId: string, now = new Date()): Promise<Expor
  */
 export async function startBatch(
   userId: string,
+  /** Empty means "name it for me" — the same rule ✆ uses. See `nextBatchName`. */
   name: string,
   now = new Date(),
 ): Promise<ExportGroup> {
   const iso = now.toISOString();
+  const finalName = name.trim() || (await batchName(userId, now));
 
   for (const s of await listGroups(userId)) {
     if (s.status !== "open") continue;
@@ -293,9 +302,9 @@ export async function startBatch(
 
   const group: ExportGroup = {
     schema: GROUP_SCHEMA_VERSION,
-    id: makeExportGroupId(name, now.getTime().toString(36).slice(-5)),
+    id: makeExportGroupId(finalName, now.getTime().toString(36).slice(-5)),
     userId,
-    name,
+    name: finalName,
     status: "open",
     createdAt: iso,
     updatedAt: iso,
@@ -304,6 +313,67 @@ export async function startBatch(
   };
   await writeGroup(userId, group);
   return group;
+}
+
+/**
+ * Point ✆ at an existing batch.
+ *
+ * THERE IS NO SEPARATE "SELECTED BATCH", AND THAT IS THE DESIGN.
+ *
+ * The switcher needs a notion of which batch you are collecting into, and the
+ * obvious implementation is a stored selection per browser. That would be a
+ * SECOND source of truth beside `status: "open"`, and the two would disagree the
+ * first time a batch was closed in another tab — a console cheerfully collecting
+ * into a batch the server considers finished.
+ *
+ * So switching is just moving the one open batch, and `membershipFrom` keeps
+ * deriving `openGroupId` exactly as it did. Three behaviours the owner asked for
+ * fall out of that rather than needing code:
+ *
+ *   · finishing a batch leaves NOTHING open, so the tray reads 0 and the next ✆
+ *     starts a fresh one;
+ *   · the same is automatically true of an EXPORTED batch, whenever the export
+ *     button becomes real — `exported` is not `open`;
+ *   · a second tab sees the switch on its next membership read.
+ *
+ * An exported batch can never be re-opened. It has been sent; collecting more
+ * churches into it would make its own record of what went out a lie.
+ */
+export async function reopenGroup(userId: string, groupId: string): Promise<ExportGroup> {
+  const target = await readGroup(userId, groupId);
+  if (!target) throw new Error(`groups: no batch named ${groupId}`);
+  if ((target.status ?? "open") === "exported") {
+    throw new Error("That batch has already been sent, so nothing more can be collected into it.");
+  }
+
+  const iso = new Date().toISOString();
+  for (const s of await listGroups(userId)) {
+    if (s.id === groupId || s.status !== "open") continue;
+    const prev = await readGroup(userId, s.id);
+    if (prev) {
+      await writeGroup(userId, {
+        ...prev,
+        status: "closed",
+        closedAt: iso,
+        updatedAt: iso,
+        rev: (prev.rev ?? 0) + 1,
+      });
+    }
+  }
+
+  // Written even when it is already open: the write is what lifts it to the top
+  // of the `updatedAt`-sorted index, and `membershipFrom` takes the FIRST open
+  // batch it sees. Skipping it would leave the switch silently ineffective in the
+  // one case where two are open at once.
+  const next: ExportGroup = {
+    ...target,
+    status: "open",
+    closedAt: undefined,
+    updatedAt: iso,
+    rev: (target.rev ?? 0) + 1,
+  };
+  await writeGroup(userId, next);
+  return next;
 }
 
 /**

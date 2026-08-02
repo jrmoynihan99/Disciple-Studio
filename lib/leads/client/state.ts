@@ -106,22 +106,47 @@ export function isDownloaded(s: LeadState, id: OrgId): boolean {
 }
 
 /**
- * issue > collecting > exported > star.
+ * EVERY state the row is in, in precedence order — issue > collecting > exported
+ * > star.
  *
- * `collecting` outranks `exported` ON PURPOSE, and for the same reason the old
- * good-lead tint did: collecting an already-exported church again is a real
- * action, and if `exported` won, the click would produce no visible change and
- * read as a dead control.
+ * THE PRECEDENCE STILL DECIDES THE WASH; IT NO LONGER DECIDES WHAT IS VISIBLE.
  *
- * A church in an EARLIER batch gets no tint. It is not part of today's work; it
- * says so on its own line and sinks to the bottom of the list instead.
+ * `rowTint` returned one winner, and the wash it named painted the whole row —
+ * so a church that was starred AND flagged AND collected looked exactly like one
+ * that was only flagged. The marks were not in conflict; the renderer was just
+ * picking. A reviewer starring a row that already had an issue saw nothing change
+ * and reasonably read the click as lost.
+ *
+ * So the winner keeps the background — one row, one dominant colour, which is
+ * what makes the list skimmable — and the FULL list is what the edge rail draws,
+ * one band per state. Amber over red over green stay legible as three bands where
+ * three blended washes would have averaged into a muddy brown that means nothing.
+ *
+ * A church in an EARLIER batch is still in no state at all. It is not part of the
+ * current batch; it says so on its own line and sinks to the bottom instead.
+ */
+export function rowTints(
+  s: LeadState,
+  id: OrgId,
+  collect: CollectView = NOT_COLLECTED,
+): RowTint[] {
+  const out: RowTint[] = [];
+  if (isMarked(s, "issue", id)) out.push("issue");
+  if (collect.collecting) out.push("collecting");
+  if (isDownloaded(s, id)) out.push("exported");
+  if (isMarked(s, "star", id)) out.push("star");
+  return out;
+}
+
+/**
+ * The dominant state, which is what tints the row background.
+ *
+ * Kept as its own export because it is the thing the audit measures and the
+ * precedence tests pin — `rowTints()[0]` by construction, so the two can never
+ * disagree about which one wins.
  */
 export function rowTint(s: LeadState, id: OrgId, collect: CollectView = NOT_COLLECTED): RowTint | null {
-  if (isMarked(s, "issue", id)) return "issue";
-  if (collect.collecting) return "collecting";
-  if (isDownloaded(s, id)) return "exported";
-  if (isMarked(s, "star", id)) return "star";
-  return null;
+  return rowTints(s, id, collect)[0] ?? null;
 }
 
 export function countMarked(s: LeadState, kind: MarkKind): number {

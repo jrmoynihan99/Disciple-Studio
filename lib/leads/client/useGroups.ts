@@ -210,7 +210,12 @@ function storeFor(id: string): GroupStore {
 
 export interface GroupHandle extends GroupSnapshot {
   apply: (op: GroupOp) => void;
-  flush: () => void;
+  /**
+   * AWAITABLE, so a caller that is about to reload the page can wait for the
+   * write instead of guessing at a delay. Nothing forces you to await it — the
+   * autosave path still fires and forgets.
+   */
+  flush: () => Promise<void>;
   reload: () => void;
 }
 
@@ -218,7 +223,7 @@ export function useGroup(id: string): GroupHandle {
   const s = storeFor(id);
   const snap = useSyncExternalStore(s.subscribe, s.getSnapshot, s.getServerSnapshot);
   const apply = useCallback((op: GroupOp) => s.apply(op), [s]);
-  const flush = useCallback(() => void s.flush(), [s]);
+  const flush = useCallback(() => s.flush(), [s]);
   const reload = useCallback(() => void s.load(), [s]);
   return useMemo(() => ({ ...snap, apply, flush, reload }), [snap, apply, flush, reload]);
 }
@@ -238,6 +243,8 @@ export interface GroupListHandle {
     ids: string[],
   ) => Promise<{ added: string[]; skipped: { id: string; reason: string }[] } | null>;
   remove: (groupId: string) => Promise<boolean>;
+  /** Make this the batch ✆ collects into. `false` if it has already been sent. */
+  switchTo: (groupId: string) => Promise<boolean>;
 }
 
 interface ListSnapshot {
@@ -375,9 +382,37 @@ export function useGroupList(): GroupListHandle {
     [s],
   );
 
+  /**
+   * Point ✆ at an existing batch.
+   *
+   * BOTH stores are reloaded, in that order. The list is what the picker draws;
+   * membership is what `openGroupId` and the tray count come from, and it is
+   * derived server-side from the same batches — so refreshing one and not the
+   * other leaves the rail naming a batch the picker no longer highlights.
+   */
+  const switchTo = useCallback(
+    async (groupId: string): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/leads/groups/${groupId}/open`, { method: "POST" });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null;
+          s.fail(body?.error ?? "Could not switch to that batch.");
+          return false;
+        }
+        await s.reload();
+        await getMembershipStore().reload();
+        return true;
+      } catch {
+        s.fail("Could not reach the server.");
+        return false;
+      }
+    },
+    [s],
+  );
+
   return useMemo(
-    () => ({ ...snap, reload, create, addChurches, remove }),
-    [snap, reload, create, addChurches, remove],
+    () => ({ ...snap, reload, create, addChurches, remove, switchTo }),
+    [snap, reload, create, addChurches, remove, switchTo],
   );
 }
 

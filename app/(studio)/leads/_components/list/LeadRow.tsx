@@ -22,14 +22,78 @@ const TINT_CLASS: Record<RowTint, string> = {
   star: "lead-tint-star",
 };
 
+/**
+ * The edge rail's band per state — SOLID, where the wash is 13–26%.
+ *
+ * The wash has to sit under 14px text and stay readable, which is what keeps it
+ * pale; a 4px band carries no text and can therefore be the actual colour. That
+ * is the whole reason a second channel exists rather than the row simply blending
+ * its washes: three transparent washes stacked average out to a muddy brown that
+ * names none of the three.
+ */
+const BAND_CLASS: Record<RowTint, string> = {
+  issue: "bg-lead-bad",
+  collecting: "bg-lead-good",
+  exported: "bg-lead-dl",
+  star: "bg-lead-warn",
+};
+
+const BAND_LABEL: Record<RowTint, string> = {
+  issue: "issue flagged",
+  collecting: "in this batch",
+  exported: "already sent",
+  star: "starred",
+};
+
+/**
+ * One band per state the row is in, stacked down the left edge.
+ *
+ * `title` rather than a legend: four colours is under the count where a key would
+ * earn its space, and the bands sit beside the very controls that set them — the
+ * ★ that made the amber one is 6px to the right of it.
+ */
+function TintRail({ tintKey }: { tintKey: string }) {
+  const tints = tintKey ? (tintKey.split(" ") as RowTint[]) : [];
+  if (tints.length === 0) return null;
+  return (
+    <span
+      aria-hidden
+      title={tints.map((t) => BAND_LABEL[t]).join(" · ")}
+      // Inside the row's own 14px left padding, so it never crowds the ★/🐞 rail,
+      // and radius-matched to `ROW_CLASS`'s `rounded-lg` so it does not square off
+      // a rounded corner.
+      className="absolute inset-y-0 left-0 z-[1] flex w-[4px] flex-col overflow-hidden rounded-l-lg"
+    >
+      {tints.map((t) => (
+        <span key={t} className={`flex-1 ${BAND_CLASS[t]}`} />
+      ))}
+    </span>
+  );
+}
+
 interface Props {
   row: IndexRow;
   view: ChurchView;
   ctx: EngineCtx;
   score: number;
   base: number;
+  /** The dominant state — the row's background wash. `rowTints()[0]`. */
   tint: RowTint | null;
-  marks: { star: boolean; issue: boolean; downloaded: boolean };
+  /**
+   * EVERY state the row is in, drawn as bands down the left edge. `tint` alone
+   * could not say "starred AND flagged", and a click that changes nothing on
+   * screen reads as a click that was lost.
+   *
+   * A SPACE-JOINED STRING, NOT AN ARRAY, and that is about `memo()` rather than
+   * about taste. A fresh array every render compares unequal by identity, so it
+   * defeated the memo on all ~120 visible rows — one star click re-rendered every
+   * logo tile, verdict grid and contact row on screen. A string compares by value.
+   */
+  tintKey: string;
+  /** Primitives for the same reason — an object literal is a new object. */
+  star: boolean;
+  issue: boolean;
+  downloaded: boolean;
   /** In the batch currently being collected into. */
   collecting: boolean;
   /** Its name, for the ✆ tooltip. */
@@ -38,8 +102,7 @@ interface Props {
   earlier: readonly MembershipRef[];
   onOpen: (id: string) => void;
   onToggleMark: (kind: MarkKind, id: string) => void;
-  /** `shift` extends from the last one, the way a file list does. */
-  onToggleCollect: (id: string, shift: boolean) => void;
+  onToggleCollect: (id: string) => void;
 }
 
 function MarkButton({
@@ -131,7 +194,10 @@ function LeadRowInner({
   score,
   base,
   tint,
-  marks,
+  tintKey,
+  star,
+  issue,
+  downloaded,
   collecting,
   batchName,
   earlier,
@@ -150,6 +216,7 @@ function LeadRowInner({
       onClick={() => onOpen(row.id)}
       className={`${ROW_CLASS} ${tint ? TINT_CLASS[tint] : ""}`}
     >
+      <TintRail tintKey={tintKey} />
       {/* ── marks ──
           Star and issue in a boxed rail; the green telephone BELOW the box in
           its own control, deliberately separated because it is the one mark
@@ -160,16 +227,16 @@ function LeadRowInner({
         <div className="flex flex-col items-center gap-2.5 rounded-xl border border-lead-line bg-lead-panel px-[5px] py-2.5">
           <MarkButton
             glyph="★"
-            on={marks.star}
-            label={marks.star ? "Starred" : "Star this church"}
+            on={star}
+            label={star ? "Starred" : "Star this church"}
             onClick={() => onToggleMark("star", row.id)}
             activeClass="text-lead-warn"
             size="text-[22px]"
           />
           <MarkButton
             glyph="🐞"
-            on={marks.issue}
-            label={marks.issue ? "Issue flagged" : "Flag a data issue"}
+            on={issue}
+            label={issue ? "Issue flagged" : "Flag a data issue"}
             onClick={() => onToggleMark("issue", row.id)}
             // Muted by OPACITY, not by `grayscale`. Every other mark is muted by
             // ink colour, which a colour emoji cannot take — and greyscaling it
@@ -201,20 +268,22 @@ function LeadRowInner({
             described as "the export queue" — but nothing ever wrote the export
             log, so that queue was a mark pretending to be a destination.
 
-            Shift-click extends from the last one, which is why there is no
-            checkbox any more: one control, both gestures. */}
+            ONE CLICK, ONE CHURCH. It briefly carried a shift-click range as well,
+            which is why the checkbox went; the range is gone now too, by owner's
+            decision — see `onToggleCollect` in `LeadConsole`. There is still only
+            one control here, and now it does only one thing. */}
         <button
           type="button"
           title={
             collecting
               ? `In ${batchName || "this batch"} — click to take it out`
-              : "Collect into the current batch · shift-click for a range"
+              : "Collect into the current batch"
           }
           aria-label={collecting ? "Remove from the batch" : "Collect into the batch"}
           aria-pressed={collecting}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleCollect(row.id, e.shiftKey);
+            onToggleCollect(row.id);
           }}
           className={`lead-glyph flex items-center justify-center rounded-xl border px-1 py-1.5 text-2xl leading-none transition-colors ${
             collecting
@@ -294,7 +363,7 @@ function LeadRowInner({
           you can set yourself stops being evidence." It is the only defence
           against contacting the same church twice. `pointer-events-none` also
           keeps it out of the row's own click target. */}
-      {marks.downloaded && (
+      {downloaded && (
         <span
           title="already exported"
           className="pointer-events-none absolute top-2 right-2.5 z-[2] text-[17px] leading-none text-lead-dl"

@@ -17,7 +17,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { demoteCollected } from "../filter.ts";
-import { applyOp, membershipFrom, sanitizeOp } from "../group.ts";
+import { applyOp, membershipFrom, nextBatchName, sanitizeOp } from "../group.ts";
 import {
   EMPTY_MEMBERSHIP,
   collectingCount,
@@ -279,5 +279,46 @@ describe("the collecting counter, across a republish", () => {
   test("every entry departing reads zero, not the stored count", () => {
     const allGone = membershipFrom([group("aug-2", "Aug 2", "open", ["x", "y"])]);
     assert.equal(collectingCount(allGone, present), 0);
+  });
+});
+
+/**
+ * Automatic batch names, after batches stopped being one-a-day.
+ *
+ * `openGroup` used to guarantee uniqueness for free: it found the open batch or
+ * made one, so a second `Aug 2` could not exist. Finishing a batch and collecting
+ * again now makes another the same afternoon, and two rows reading `Aug 2` in a
+ * picker whose whole job is telling them apart is the failure that introduces.
+ */
+describe("automatic batch names", () => {
+  const aug2 = new Date("2026-08-02T15:00:00Z");
+
+  test("the first batch of the day is just the date", () => {
+    assert.equal(nextBatchName([], aug2), "Aug 2");
+  });
+
+  test("a second batch the same day gets a counter, and it keeps counting", () => {
+    assert.equal(nextBatchName(["Aug 2"], aug2), "Aug 2 · 2");
+    assert.equal(nextBatchName(["Aug 2", "Aug 2 · 2"], aug2), "Aug 2 · 3");
+  });
+
+  /** Yesterday's batches must not push today's name to `· 2`. */
+  test("only the same day's names are counted against", () => {
+    assert.equal(nextBatchName(["Aug 1", "Aug 1 · 2", "Jul 30"], aug2), "Aug 2");
+  });
+
+  /**
+   * The number is DERIVED, never stored — so renaming `Aug 2` to something else
+   * frees it up again. A stored counter would have to be migrated and would drift
+   * the first time a batch was deleted.
+   */
+  test("a renamed batch gives its name back", () => {
+    assert.equal(nextBatchName(["Charlotte", "Aug 2 · 2"], aug2), "Aug 2");
+  });
+
+  test("a hand-typed name is never silently reused", () => {
+    const names = ["Aug 2", "Aug 2 · 2", "Aug 2 · 3"];
+    const next = nextBatchName(names, aug2);
+    assert.ok(!names.includes(next), `${next} collides with an existing batch`);
   });
 });

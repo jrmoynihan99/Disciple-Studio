@@ -133,6 +133,10 @@ export const SKIN = {
   btnSmall:
     "inline-flex h-7 items-center gap-1 rounded-md border border-lead-line bg-lead-panel px-2 " +
     "font-mono text-[10.5px] text-lead-ink2 transition-colors hover:border-lead-ink2 hover:text-lead-ink",
+  /** The per-item ✕. Same footprint as `btnSmall`, so nothing reflows on hover. */
+  btnSmallDanger:
+    "inline-flex h-7 items-center gap-1 rounded-md border border-lead-bad/60 bg-lead-bad/[0.10] px-2 " +
+    "font-mono text-[10.5px] text-lead-bad transition-colors hover:border-lead-bad hover:bg-lead-bad/20",
 
   /* ── one field ──
      THE LABEL IS A HEADER NOW, NOT A GUTTER. It used to sit in a 124px left
@@ -172,20 +176,59 @@ export const SKIN = {
   itemRight: "min-w-0 px-3.5 py-2.5 max-[900px]:pt-0",
   itemTitle: "text-[16px] leading-snug font-semibold text-lead-brand",
   quote: "font-serif text-[14px] leading-relaxed text-lead-ink",
+  /**
+   * The prompt shown where no quotation was captured.
+   *
+   * Deliberately NOT `EMPTY_TEXT`'s amber-and-ring treatment, which means "the
+   * reviewer has to fill this in". A missing quote is a measured absence, not an
+   * assignment — most steps will never have one and never need one. It reads as
+   * quiet mono prose exactly as it did when it was a dead `<p>`; the only thing
+   * that changed is that you can now click it.
+   */
+  quoteEmpty: "font-mono text-[11px] leading-relaxed text-lead-ink2 not-italic",
 
   /**
-   * The connector between two steps the church itself put in order.
+   * The connector between two items, in BOTH evidence lists.
    *
-   * ONLY rendered when `pathway.numbered` — see `pathwayIsOrdered()`. An arrow
-   * makes exactly the claim a step number makes ("they said do this one first"),
-   * and where the order came from DOM position rather than the church's own
-   * numbering that claim is not ours. Next steps never get one: a category list
-   * has no first.
+   * IT NO LONGER CLAIMS THE CHURCH CHOSE THE ORDER, and that is the whole reason
+   * it may now be drawn everywhere. It used to appear only where
+   * `pathwayIsOrdered(orderBasis)` held, because an arrow made the same assertion
+   * a step number makes — "they said do this one first" — and next steps got none
+   * at all, a category list having no first. The effect on screen was arrows that
+   * came and went between churches for a reason no reviewer could see, which is
+   * how it read: as a rendering fault.
+   *
+   * Owner's call, and the trade is explicit. The arrow is now punctuation — read
+   * downward, these belong to one list — drawn `aria-hidden` so it says nothing to
+   * a screen reader. THE ORDER CLAIM DID NOT MOVE HERE; it lives where it can
+   * still be checked, in `<ol>` vs `<ul>` (see `Numbered` in `parts.tsx`), which
+   * is the one carrier that survives restyling.
    */
-  arrow: "flex justify-center py-0.5 font-mono text-[13px] leading-none text-lead-brand/50",
+  arrow: "flex justify-center py-1 font-mono text-[13px] leading-none text-lead-brand/45",
+
+  /**
+   * ── the discipleship programme header ──
+   *
+   * NOT AN ITEM. The pathway's name and the sentence describing it used to render
+   * through `Claim` inside an `itemShell`, which made the programme look like a
+   * ninth step sitting above the eight real ones — same border, same two-column
+   * split, same brand-ink title. A reviewer skimming could not tell the container
+   * from its contents.
+   *
+   * So it is built the other way round from a step on every axis that carries: it
+   * runs the FULL WIDTH rather than splitting into title/quote columns, the name
+   * is the church's own in serif INK rather than a 16px brand-blue label, and the
+   * block is brand-tinted where a step is a plain panel. The steps below it keep
+   * matching next steps exactly, which is still right — those two ARE comparable
+   * lists, and that was never the thing that read wrong.
+   */
+  pathwayHead:
+    "rounded-lg border border-lead-brand/35 bg-lead-brand/[0.05] px-4 py-3",
+  pathwayCaption: "font-mono text-[10px] font-bold tracking-[0.14em] text-lead-brand uppercase",
+  pathwayName: "mt-1 font-serif text-[21px] leading-snug font-semibold text-lead-ink",
+  pathwayFinding: "font-serif text-[15px] leading-relaxed text-lead-ink",
 
   /* ── shared item bits ── */
-  ordinal: "font-mono text-[12px] font-bold text-lead-brand tabular-nums",
   rank: "font-mono text-[11px] text-lead-ink2 tabular-nums",
   rankFirst: "font-mono text-[11px] font-bold text-lead-brand tabular-nums",
   kindLabel: H,

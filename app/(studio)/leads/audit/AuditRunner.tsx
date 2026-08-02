@@ -91,7 +91,9 @@ async function auditRow(add: Add) {
     ctx,
     score: 3,
     base: 9,
-    marks: { star: false, issue: false, downloaded: false },
+    star: false,
+    issue: false,
+    downloaded: false,
     onOpen: () => {},
     onToggleMark: () => {},
     onToggleCollect: () => {},
@@ -102,15 +104,37 @@ async function auditRow(add: Add) {
       root.render(
         <>
           <div data-probe="collecting">
-            <LeadRow {...props} tint="collecting" collecting batchName="Aug 2" earlier={[]} />
+            <LeadRow
+              {...props}
+              tint="collecting"
+              tintKey="collecting"
+              collecting
+              batchName="Aug 2"
+              earlier={[]}
+            />
           </div>
           <div data-probe="earlier">
             <LeadRow
               {...props}
               tint={null}
+              tintKey=""
               collecting={false}
               batchName="Aug 2"
               earlier={[{ id: "aug-1", name: "Aug 1", status: "exported" }]}
+            />
+          </div>
+          {/* Three states at once — the case the single-winner tint could not
+              render. Checked below on the BANDS, not on the wash. */}
+          <div data-probe="combined">
+            <LeadRow
+              {...props}
+              tint="issue"
+              tintKey="issue collecting star"
+              collecting
+              star
+              issue
+              batchName="Aug 2"
+              earlier={[]}
             />
           </div>
         </>,
@@ -129,8 +153,8 @@ async function auditRow(add: Add) {
     const collect = host.querySelectorAll('[aria-pressed][aria-label*="batch" i]');
     add(
       "a row has exactly one way to collect a church",
-      boxes.length === 0 && collect.length === 2,
-      `${boxes.length} checkboxes, ${collect.length} collect controls across 2 rows`,
+      boxes.length === 0 && collect.length === 3,
+      `${boxes.length} checkboxes, ${collect.length} collect controls across 3 rows`,
     );
 
     /**
@@ -173,6 +197,30 @@ async function auditRow(add: Add) {
       "only the batch being collected carries the wash",
       tinted(collecting) && !tinted(earlier),
       "an earlier batch shows a line, not a colour",
+    );
+
+    /**
+     * A ROW IN THREE STATES SHOWS THREE, NOT ONE.
+     *
+     * The wash can only ever name the winner — one background, one colour — so
+     * starring a row that already carried an issue used to change nothing on
+     * screen, which reads as a click that was lost. The edge rail is the second
+     * channel that fixes it, and this is the check that stops a redesign
+     * collapsing it back to the winner.
+     *
+     * Counted on the RENDERED bands and their computed colours, not on a prop:
+     * three `<span>`s that all resolved to the same ink would pass a count-only
+     * check while looking exactly like the bug.
+     */
+    const bands = [
+      ...(host.querySelectorAll('[data-probe="combined"] [aria-hidden] > span') ?? []),
+    ].filter((el) => (el as HTMLElement).className.includes("bg-lead-"));
+    const inks = new Set(bands.map((el) => getComputedStyle(el).backgroundColor));
+    add(
+      "a row that is starred, flagged and collected shows all three",
+      bands.length === 3 && inks.size === 3,
+      `${bands.length} bands in ${inks.size} distinct colours` +
+        (bands.length === 3 && inks.size === 3 ? "" : " — states are hiding each other"),
     );
   } finally {
     root.unmount();
@@ -458,7 +506,14 @@ async function auditGroupCard(add: Add) {
     flushSync(() => {
       root.render(
         <>
-          <ChurchCard card={card} index={1} stale={false} departed={false} onOp={() => {}} />
+          <ChurchCard
+            card={card}
+            index={1}
+            stale={false}
+            departed={false}
+            onOp={() => {}}
+            onRemoveChurch={() => {}}
+          />
           <ExportBar count={1} acknowledged onAcknowledge={() => {}} />
         </>,
       );

@@ -13,14 +13,16 @@ import { defaultFavorModel, favorBase } from "@/lib/leads/engine/favor";
 import type { EngineCtx, VerdictState } from "@/lib/leads/engine/types";
 import { useDataset } from "@/lib/leads/client/useDataset";
 import { useLeadState } from "@/lib/leads/client/useLeadState";
-import { isDownloaded, isMarked, rowTint, type MarkKind } from "@/lib/leads/client/state";
+import { isDownloaded, isMarked, rowTints, type MarkKind } from "@/lib/leads/client/state";
 import { useGroupList, useMembership } from "@/lib/leads/client/useGroups";
 import {
   collectingCount as countCollecting,
   earlierBatches,
   isCollecting,
+  type MembershipRef,
 } from "@/lib/leads/engine/group-types";
 import { Rail } from "./rail/Rail";
+import { BatchSwitcher } from "./rail/BatchSwitcher";
 import { Deck } from "./deck/Deck";
 import { LeadRow } from "./list/LeadRow";
 import { LegacyMarks } from "./LegacyMarks";
@@ -29,6 +31,16 @@ import { SlideOver } from "./SlideOver";
 import { useTheme } from "@/lib/leads/client/theme";
 
 const PAGE = 60;
+
+/**
+ * ONE frozen empty array for every row that is in no earlier batch — which is
+ * almost all of them.
+ *
+ * `[]` written inline is a new array each render, and `memo(LeadRow)` compares by
+ * identity: a fresh empty array is enough on its own to re-render every visible
+ * row on every keystroke.
+ */
+const NO_BATCHES: readonly MembershipRef[] = [];
 
 /**
  * Where you were, kept across a route change.
@@ -62,14 +74,34 @@ export function LeadConsole() {
   const headerRef = useRef<HTMLElement>(null);
 
   const groupList = useGroupList();
-  const { membership, collect, toggle: toggleCollect } = useMembership();
-  /** The anchor for shift-click on ✆ — a range extends from the last one. */
-  const anchorRef = useRef<string | null>(null);
+  const { membership, collect, toggle: toggleCollect, reload: reloadMembership } =
+    useMembership();
 
   const openBatch = useMemo(
     () => groupList.groups.find((g) => g.id === membership.openGroupId) ?? null,
     [groupList.groups, membership.openGroupId],
   );
+
+  /**
+   * REFETCH THE BATCH STATE ON ARRIVAL.
+   *
+   * Both stores fetch once per tab and then live in module scope, which is what
+   * makes coming back from a batch instant — and also what made the rail wrong
+   * after it: rename a batch, finish it, or remove a church on the review page,
+   * come back here, and the tray still showed the state from the first load. The
+   * cached snapshot paints immediately and this corrects it.
+   *
+   * The corpus is NOT refetched with them. It is 2.6 MB and immutable under its
+   * publish id — `useDataset` polls for a new publish separately and offers a
+   * reload rather than pulling it behind your back mid-scroll.
+   */
+  useEffect(() => {
+    void groupList.reload();
+    reloadMembership();
+    // Mount only. `groupList` is a fresh object each render, so a dependency on it
+    // would refetch forever.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   /**
    * Publish the header's height as `--lead-header-h`.
    *
@@ -149,10 +181,36 @@ export function LeadConsole() {
     [state.config.colors, state.config.favor, rows],
   );
 
+  /**
+   * The earlier-batch refs per church, computed ONCE per membership change.
+   *
+   * `earlierBatches()` builds a fresh array on every call, and it was being called
+   * inline in the row loop — so all ~120 visible rows got a new `earlier` prop on
+   * every render and `memo(LeadRow)` never hit. Starring one church re-rendered
+   * every logo tile, verdict grid and contact row on screen, which is the clunk.
+   *
+   * Keyed off `membership`, which only changes when something is actually
+   * collected, and iterating `byOrg` — the churches in a batch, not the corpus.
+   */
+  const earlierByOrg = useMemo(() => {
+    const out = new Map<string, MembershipRef[]>();
+    for (const id of Object.keys(membership.byOrg)) {
+      const refs = earlierBatches(membership, id);
+      if (refs.length) out.set(id, refs);
+    }
+    return out;
+  }, [membership]);
+
   /** In a batch OTHER than the one being collected into — so it sinks. */
-  const isEarlier = useCallback(
-    (id: string) => earlierBatches(membership, id).length > 0,
-    [membership],
+  const isEarlier = useCallback((id: string) => earlierByOrg.has(id), [earlierByOrg]);
+
+  /**
+   * Stable, for the same `memo()` reason as `earlierByOrg` — an inline arrow in
+   * the row loop is a new function on every render, and one new prop is enough.
+   */
+  const onToggleMark = useCallback(
+    (kind: MarkKind, id: string) => mutate({ type: "mark.toggle", kind, orgId: id }),
+    [mutate],
   );
 
   const isMarkedFor = useCallback(
@@ -277,31 +335,51 @@ export function LeadConsole() {
   );
 
   /**
-   * ✆ — collect, or collect a range.
+   * ✆ — collect one church.
    *
-   * Shift extends from the last one over the CURRENTLY VISIBLE list, the way a
-   * file manager does, so "filter to Charlotte, click the first, shift-click the
-   * twentieth" collects exactly what is on screen and nothing filtered out. One
-   * control, both gestures — which is why the checkbox is gone.
+   * SHIFT-CLICK IS GONE, by owner's decision, and the reasoning is worth keeping.
+   * It extended from an anchor over the visible list, the way a file manager
+   * does, and it was the fastest way to fill a batch. It was also the fastest way
+   * to fill the WRONG batch: one modifier key on the only control that writes to
+   * the server collected up to sixty churches in a gesture whose undo is sixty
+   * more clicks — and the rail's own copy had to teach it, which is a gesture
+   * nobody discovers and everybody triggers by accident.
+   *
+   * `collect(ids[])` — the bulk path — stays on the store. It is what the legacy
+   * ✆ migration bar uses, and it is a deliberate action with a count in front of
+   * it rather than a modifier on a click.
    */
-  const onToggleCollect = useCallback(
-    (id: string, shift: boolean) => {
-      const anchor = anchorRef.current;
-      if (shift && anchor && anchor !== id) {
-        const shown = visible.slice(0, limit).map((v) => v.id);
-        const a = shown.indexOf(anchor);
-        const b = shown.indexOf(id);
-        if (a >= 0 && b >= 0) {
-          collect(shown.slice(Math.min(a, b), Math.max(a, b) + 1));
-          anchorRef.current = id;
-          return;
-        }
-      }
-      toggleCollect(id);
-      anchorRef.current = id;
+  const onToggleCollect = useCallback((id: string) => toggleCollect(id), [toggleCollect]);
+
+  /* ── the batch picker ── */
+  const [switching, setSwitching] = useState(false);
+  const { switchTo, create: createBatch, reload: reloadGroups } = groupList;
+
+  const onPickBatch = useCallback(
+    async (id: string) => {
+      if (await switchTo(id)) setSwitching(false);
+      // Left OPEN on failure, deliberately: the dialog is where the reason is
+      // shown, and closing it would take the explanation with it.
     },
-    [visible, limit, collect, toggleCollect],
+    [switchTo],
   );
+
+  /**
+   * A new batch from the picker.
+   *
+   * `create("")` rather than prompting for a name — the server names it, using
+   * the same `nextBatchName` rule ✆ uses, so a batch made here and one made by
+   * collecting are indistinguishable afterwards. Naming is a rename on the review
+   * page, where there is room for it and something to look at while you decide.
+   */
+  const onCreateBatch = useCallback(async () => {
+    const id = await createBatch("");
+    if (!id) return;
+    await switchTo(id);
+    await reloadGroups();
+    reloadMembership();
+    setSwitching(false);
+  }, [createBatch, switchTo, reloadGroups, reloadMembership]);
 
   if (error) {
     return (
@@ -379,6 +457,7 @@ export function LeadConsole() {
           groups={groupList.groups}
           openBatch={openBatch}
           collecting={collectingCount}
+          onSwitchBatch={() => setSwitching(true)}
           onResetFilters={() => setFilters(defaultFilters())}
           onRecolour={onRecolour}
           onFavorChange={(favor) => mutate({ type: "config.favor.set", favor })}
@@ -409,6 +488,13 @@ export function LeadConsole() {
             <div className="mt-2">
               {visible.slice(0, limit).map((v) => {
                 const row = rowById.get(v.id)!;
+                // One call, two consumers: the wash takes the winner and the edge
+                // rail takes the whole set, so they can never disagree about which
+                // state is dominant.
+                const tints = rowTints(state, v.id, {
+                  collecting: isCollecting(membership, v.id),
+                  earlier: isEarlier(v.id),
+                });
                 return (
                   <LeadRow
                     key={v.id}
@@ -417,22 +503,16 @@ export function LeadConsole() {
                     ctx={ctx}
                     score={scores.get(v.id) ?? 0}
                     base={baseDenom}
-                    tint={rowTint(state, v.id, {
-                      collecting: isCollecting(membership, v.id),
-                      earlier: isEarlier(v.id),
-                    })}
-                    marks={{
-                      star: isMarked(state, "star", v.id),
-                      issue: isMarked(state, "issue", v.id),
-                      downloaded: isDownloaded(state, v.id),
-                    }}
+                    tint={tints[0] ?? null}
+                    tintKey={tints.join(" ")}
+                    star={isMarked(state, "star", v.id)}
+                    issue={isMarked(state, "issue", v.id)}
+                    downloaded={isDownloaded(state, v.id)}
                     collecting={isCollecting(membership, v.id)}
                     batchName={openBatch?.name ?? ""}
-                    earlier={earlierBatches(membership, v.id)}
+                    earlier={earlierByOrg.get(v.id) ?? NO_BATCHES}
                     onOpen={setOpenId}
-                    onToggleMark={(kind: MarkKind, id) =>
-                      mutate({ type: "mark.toggle", kind, orgId: id })
-                    }
+                    onToggleMark={onToggleMark}
                     onToggleCollect={onToggleCollect}
                   />
                 );
@@ -454,6 +534,19 @@ export function LeadConsole() {
           )}
         </main>
       </div>
+
+      {/* Mounted here rather than inside the rail: it changes which batch the
+          WHOLE console collects into, and it has to refresh both the group list
+          and membership — the two stores this component already owns. */}
+      <BatchSwitcher
+        open={switching}
+        groups={groupList.groups}
+        currentId={membership.openGroupId}
+        error={groupList.error}
+        onPick={onPickBatch}
+        onCreate={onCreateBatch}
+        onClose={() => setSwitching(false)}
+      />
 
       {openId && (
         // SlideOver is deliberately UNKEYED and Dossier is keyed. React keeps

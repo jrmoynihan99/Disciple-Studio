@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useGroupList } from "@/lib/leads/client/useGroups";
 import { SKIN } from "./church/skin";
+import { ConfirmDialog } from "../../_components/ConfirmDialog";
 
 /**
  * The list of export groups.
@@ -14,9 +15,27 @@ import { SKIN } from "./church/skin";
  * underline, one a button — after only one of them was restyled.
  */
 export function GroupIndex() {
-  const { groups, loading, error, create, remove } = useGroupList();
+  const { groups, loading, error, create, remove, reload } = useGroupList();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+
+  /**
+   * REFETCH ON ARRIVAL, because the store only fetches once per tab.
+   *
+   * `/leads` and `/leads/groups` are sibling client routes, so moving between
+   * them unmounts the component but NOT the module-scope store — deliberately,
+   * since that is what makes going back instant. The cost is that the second
+   * visit renders whatever was true on the first: collect three churches, come
+   * here, and the batch you just filled still reads 0.
+   *
+   * A mount-time reload keeps the instant paint (the cached snapshot renders
+   * immediately) and corrects it a moment later, which is the behaviour a person
+   * expects from following a link.
+   */
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   return (
     <div className="mx-auto max-w-[880px] px-6 pt-6 pb-24">
@@ -32,9 +51,16 @@ export function GroupIndex() {
         collected them, with your corrections on top. Editing a church here changes
         only this batch — the console and every other batch are untouched.
       </p>
+      {/* MATCHES WHAT ✆ ACTUALLY DOES NOW. This said "pressing ✆ starts
+          today's", which was true while there was one batch a day and became
+          false the moment finishing one and collecting again made another the
+          same afternoon. The console's rail says the same thing in the same
+          words — two descriptions of one rule is how they drift apart. */}
       <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-lead-ink2">
-        You do not need to make one: pressing ✆ starts today&rsquo;s. Naming one here
-        starts a fresh batch and finishes whatever you were collecting into.
+        You never have to make one. ✆ adds churches to whichever batch is being
+        collected into, and creates one if none is — which is what finishing or
+        sending a batch leaves behind. Use <b>Switch</b> in the console to collect
+        into a different one, or name a fresh batch here.
       </p>
 
       <form
@@ -111,16 +137,42 @@ export function GroupIndex() {
             </Link>
             <button
               type="button"
-              onClick={() => {
-                if (confirm(`Delete "${g.name}" and every correction in it?`)) void remove(g.id);
-              }}
-              className="font-mono text-[11px] text-lead-ink2 hover:text-lead-bad"
+              onClick={() => setPendingDelete({ id: g.id, name: g.name })}
+              // Red at rest. Deleting a batch destroys every frozen snapshot and
+              // every correction in it, and it sat here in the same muted ink as
+              // the neutral controls beside it.
+              className="rounded-md border border-lead-bad/60 bg-lead-bad/[0.07] px-2.5 py-1.5 font-mono text-[11px] text-lead-bad transition-colors hover:border-lead-bad hover:bg-lead-bad/[0.15]"
             >
               delete
             </button>
           </div>
         ))}
       </div>
+
+      {/* `window.confirm()` used to do this job. It is blocking, unstyleable, and
+          on some browsers carries a "prevent this page from creating more
+          dialogs" checkbox that silently disables every later confirmation —
+          which would turn the one guard on an irreversible action into nothing at
+          all, without telling anybody. */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this batch?"
+        body={
+          <>
+            <strong className="text-lead-ink">{pendingDelete?.name}</strong> and every
+            correction in it will be destroyed. The frozen snapshots go with it, and
+            for any church that has since left the dataset this is the only copy we
+            hold. This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete batch"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          const target = pendingDelete;
+          setPendingDelete(null);
+          if (target) void remove(target.id);
+        }}
+      />
     </div>
   );
 }

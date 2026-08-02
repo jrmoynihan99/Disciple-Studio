@@ -106,6 +106,7 @@ export function Rail({
   groups,
   openBatch,
   collecting,
+  onSwitchBatch,
   onResetFilters,
   onRecolour,
   onFavorChange,
@@ -127,6 +128,9 @@ export function Rail({
   /** The batch ✆ collects into, or null before the first church of the day. */
   openBatch: ExportGroupSummary | null;
   collecting: number;
+  /** Opens the picker. The dialog itself lives in `LeadConsole`, which owns the
+   *  group list and the membership store it has to refresh. */
+  onSwitchBatch: () => void;
   onResetFilters: () => void;
   /** A recolour is shared team config, not a filter — it goes to the state layer. */
   onRecolour: (q: string, answer: string, state: VerdictState | null) => void;
@@ -221,6 +225,23 @@ export function Rail({
             <br />
             in this batch
           </div>
+
+          {/* ── the switcher ──
+              Beside the count rather than under it, because it answers the
+              question the count provokes: "…in WHICH batch?". It is shown even
+              with nothing open — that is when you are most likely to want an
+              earlier one back rather than a new one. */}
+          <button
+            type="button"
+            onClick={onSwitchBatch}
+            title="Choose which batch ✆ collects into, or start a new one"
+            className="mb-0.5 ml-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-lg border border-lead-line bg-lead-bg px-2 font-mono text-[10px] text-lead-ink2 transition-colors hover:border-lead-brand hover:text-lead-brand"
+          >
+            Switch
+            <span aria-hidden className="text-[11px] leading-none">
+              ⇅
+            </span>
+          </button>
         </div>
 
         {collecting > 0 && openBatch ? (
@@ -231,11 +252,34 @@ export function Rail({
             Review these {collecting} →
           </Link>
         ) : (
-          // Say what the empty state is waiting for. A zero with no explanation
-          // reads as something broken rather than something not started.
+          /**
+           * SAY WHAT ✆ WILL ACTUALLY DO, which is not what this used to say.
+           *
+           * It read "Press ✆ on a church to start today's batch. Shift-click to
+           * take a run of them at once." Both halves were wrong: batches are no
+           * longer per-day, so "today's" named a thing that does not exist, and
+           * shift-click has been removed — a range gesture on the one control
+           * that writes to the server was a way to collect forty churches by
+           * accident, with no undo but forty clicks.
+           *
+           * The two states say different things because they ARE different: with
+           * a batch open, ✆ adds to a named place you can go and look at; with
+           * none — which is what finishing or sending one leaves behind — the
+           * next ✆ makes one, and saying so is the difference between an empty
+           * tray reading as "not started" and reading as "broken".
+           */
           <p className="mt-2 font-mono text-[10px] leading-relaxed text-lead-ink2">
-            Press ✆ on a church to start today&rsquo;s batch. Shift-click to take a
-            run of them at once.
+            {openBatch ? (
+              <>
+                Press ✆ on a church to add it to{" "}
+                <span className="text-lead-ink">{openBatch.name}</span>.
+              </>
+            ) : (
+              <>
+                Press ✆ on a church to start collecting. A new batch is created
+                for you automatically — you never have to make one.
+              </>
+            )}
           </p>
         )}
 

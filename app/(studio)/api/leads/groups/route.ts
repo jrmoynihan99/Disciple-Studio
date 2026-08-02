@@ -46,8 +46,21 @@ export async function POST(req: Request) {
     return bad("Invalid JSON body");
   }
 
+  /**
+   * AN EMPTY NAME IS NOT AN ERROR ANY MORE — it means "you name it".
+   *
+   * This used to 400, on the reasonable theory that a group without a name is a
+   * group nobody can find again. What made it wrong is the picker's `＋ New
+   * batch`: the only thing it could do was open a text prompt before you had
+   * collected anything to name, which is precisely the ceremony `openGroup` was
+   * built to avoid ("a person never makes a group: they start collecting, and the
+   * group is what that turns out to have been").
+   *
+   * So an omitted name falls through to the same `nextBatchName` rule ✆ uses, and
+   * a batch made from the picker is indistinguishable from one made by
+   * collecting. A name that was SUPPLIED is still honoured verbatim.
+   */
   const name = typeof body.name === "string" ? body.name.trim().slice(0, 120) : "";
-  if (!name) return bad("A group needs a name");
 
   // Creating a batch STARTS one: whatever was being collected into is closed, so
   // ✆ never has two places it could put a church.

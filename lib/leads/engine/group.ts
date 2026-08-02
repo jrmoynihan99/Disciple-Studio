@@ -726,6 +726,40 @@ export function sanitizeOp(raw: unknown): GroupOp | null {
   }
 }
 
+/**
+ * The name a batch gets when nobody names it.
+ *
+ * IT USED TO BE THE DATE, FULL STOP, and that was correct while there was one
+ * batch a day: `openGroup` found the open one, so a second `Aug 2` could not
+ * exist. Batches are no longer per-day — finishing one and collecting again makes
+ * another the same afternoon — and two rows both reading `Aug 2` in a picker
+ * whose entire job is telling them apart is the failure that change introduces.
+ *
+ * So: the date, and a counter ONLY when the date is taken. The common case reads
+ * exactly as before.
+ *
+ *   Aug 2 · Aug 2 · 2 · Aug 2 · 3
+ *
+ * COUNTED FROM THE NAMES THAT EXIST, not from a stored sequence. A counter on the
+ * user's record would drift the moment a batch was renamed or deleted, and would
+ * have to be migrated; this cannot, because it is derived every time. It also
+ * means a renamed batch frees its number back up, which is the behaviour somebody
+ * renaming `Aug 2` to `Charlotte` would expect.
+ */
+export function nextBatchName(existing: readonly string[], now: Date): string {
+  const base = now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const taken = new Set(existing.map((n) => n.trim()));
+  if (!taken.has(base)) return base;
+  // The bound is a runaway guard, not a real limit: 999 batches in one day is not
+  // a person collecting churches. Falling through to the clock keeps it unique
+  // rather than looping or colliding.
+  for (let n = 2; n <= 999; n++) {
+    const candidate = `${base} · ${n}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${base} · ${now.toISOString().slice(11, 19)}`;
+}
+
 /** A URL-safe group id from a name plus a short disambiguating suffix. */
 export function makeExportGroupId(name: string, suffix: string): string {
   const base = String(name ?? "")

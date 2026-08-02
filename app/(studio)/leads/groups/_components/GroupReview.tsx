@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { resolve, staleEntries, departedEntries } from "@/lib/leads/engine/group";
 import { useGroup } from "@/lib/leads/client/useGroups";
@@ -35,7 +35,7 @@ import { ExportBar } from "./ExportBar";
 const DISCLAIMER_TITLE = "WARNING: MANUALLY CHECK BEFORE SENDING";
 
 export function GroupReview({ id }: { id: string }) {
-  const { group, loading, error, save, pending, apply, reload } = useGroup(id);
+  const { group, loading, error, save, pending, apply, flush, reload } = useGroup(id);
   const { rows } = useDataset();
 
   /**
@@ -50,6 +50,17 @@ export function GroupReview({ id }: { id: string }) {
    */
   const [ack, setAck] = useState<{ id: string; on: boolean }>({ id, on: false });
   const acknowledged = ack.id === id && ack.on;
+
+  /**
+   * REFETCH ON ARRIVAL. `storeFor(id)` loads once and then lives in module scope
+   * for the rest of the tab, so returning to a batch renders the copy from the
+   * first visit — including one edited in another tab, or one whose churches you
+   * changed in the console since. Same reasoning as `GroupIndex`; the cached
+   * snapshot still paints instantly, it is just no longer the last word.
+   */
+  useEffect(() => {
+    reload();
+  }, [id, reload]);
 
   const recByOrg = useMemo(() => new Map(rows.map((r) => [r.id, r.rec ?? ""])), [rows]);
 
@@ -72,6 +83,31 @@ export function GroupReview({ id }: { id: string }) {
   // `memo()` on ChurchCard a no-op — which is exactly the kind of thing that
   // looks like it works and quietly costs nineteen re-renders per keystroke.
   const onOp = apply;
+
+  /**
+   * Removing a church is the one op that redraws the whole page, so it lands on
+   * the server before the page is redrawn.
+   *
+   * The card renumbers below the gap, the header count changes, and the export
+   * bar is now about to send a different list. All of that follows from the store
+   * on its own — but the flush is debounced by design, so between the click and
+   * the save there is a window where the page shows N-1 churches beside a "3
+   * changes pending". Awaiting the flush closes it, and `useCallback` keeps the
+   * prop identity stable so twenty memoised cards do not re-render for it.
+   *
+   * The reload happens EVEN IF THE SAVE FAILED, deliberately: the reload then
+   * shows the batch as the server actually holds it — with the church still in
+   * it — which is the truth. Redrawing a removal we could not persist would be
+   * the lie.
+   */
+  const onRemoveChurch = useCallback(
+    async (orgId: string) => {
+      apply({ op: "church.remove", orgId });
+      await flush();
+      window.location.reload();
+    },
+    [apply, flush],
+  );
 
   if (loading) {
     return (
@@ -163,8 +199,8 @@ export function GroupReview({ id }: { id: string }) {
       <section className={SKIN.warnBox}>
         <h2 className={SKIN.warnTitle}>{DISCLAIMER_TITLE}</h2>
         <p className={SKIN.warnBody}>
-          Names, slogans, steps and contacts were extracted by a model that makes
-          mistakes. <b>Click any line to fix it</b> before you send.
+          <b>Names, slogans, steps and contacts were extracted by LLM models that can make
+          mistakes.</b> This tool <b>does not</b> guarantee complete accuracy on data. Please review each church and <b>click any line to fix faulty details</b> before you send.
         </p>
       </section>
 
@@ -181,6 +217,7 @@ export function GroupReview({ id }: { id: string }) {
             stale={stale.has(card.orgId)}
             departed={departed.has(card.orgId)}
             onOp={onOp}
+            onRemoveChurch={onRemoveChurch}
           />
         ))
       )}

@@ -18,6 +18,7 @@ import type {
 import { newAddedId } from "@/lib/leads/client/useGroups";
 import { SafeLink } from "../../../_components/SafeLink";
 import { Chevron } from "../../../_components/Chevron";
+import { ConfirmDialog } from "../../../_components/ConfirmDialog";
 import { AttributionLine } from "../Attribution";
 import { EditableText } from "../EditableText";
 import { EMPTY_TEXT, EMPTY_VALUE, SKIN } from "./skin";
@@ -83,6 +84,7 @@ const COPY = {
   noName: "Couldn't find name",
   noSlogan: "Couldn't find slogan",
   noQuote: "no quotation captured",
+  noPathwayName: "Couldn't find a name for it",
   stepsNotRead:
     "Next-step pages were never read for this church. This is not a list of what they lack.",
   stepsNoneFound: "We read their next-step pages and found none named.",
@@ -132,22 +134,70 @@ function stripQuotes(s: string): string {
 
 const quoted = (s: string) => (s ? `“${s}”` : "");
 
+/** What a confirmation is about to do, handed up to the card that owns the dialog. */
+export interface PendingRemoval {
+  title: string;
+  body: React.ReactNode;
+  confirmLabel: string;
+  run: () => void;
+}
+
 interface Ops {
   set: (path: string, base: string) => (value: string) => void;
   revert: (path: string) => () => void;
-  suppress: (itemId: string) => () => void;
   restore: (itemId: string) => () => void;
-  del: (itemId: string) => () => void;
+  /**
+   * THE ONE WAY TO TAKE AN ITEM OFF A CARD, and it always asks first.
+   *
+   * It also decides the verb, which used to be decided twice — once by the call
+   * site picking `onSuppress` vs `onDelete`, and again by `SuppressShell` reading
+   * `provenance` to choose the tooltip. Two readings of one fact is how they end
+   * up disagreeing; there is one now, here.
+   */
+  remove: (item: { noun: string; name: string; provenance: "source" | "user"; id: string }) => () => void;
   add: (item: AddedItem) => void;
 }
 
-function opsFor(orgId: string, onOp: (op: GroupOp) => void): Ops {
+function opsFor(
+  orgId: string,
+  onOp: (op: GroupOp) => void,
+  ask: (p: PendingRemoval) => void,
+): Ops {
   return {
     set: (path, base) => (value) => onOp({ op: "field.set", orgId, path, value, base }),
     revert: (path) => () => onOp({ op: "field.revert", orgId, path }),
-    suppress: (itemId) => () => onOp({ op: "item.suppress", orgId, itemId }),
     restore: (itemId) => () => onOp({ op: "item.restore", orgId, itemId }),
-    del: (itemId) => () => onOp({ op: "item.remove", orgId, itemId }),
+    remove: ({ noun, name, provenance, id }) => () => {
+      const named = name.trim() ? `“${name.trim()}”` : `this ${noun}`;
+      // THE TWO CASES SAY DIFFERENT THINGS BECAUSE THEY ARE DIFFERENT ACTIONS.
+      // Striking out is a judgement that stays on the card wearing a `put back`;
+      // deleting something a person typed has nothing behind it to restore.
+      ask(
+        provenance === "source"
+          ? {
+              title: `Strike out ${noun}?`,
+              body: (
+                <>
+                  {named} will stay on the card, struck through, and will not be
+                  sent. You can put it back at any time.
+                </>
+              ),
+              confirmLabel: "Strike out",
+              run: () => onOp({ op: "item.suppress", orgId, itemId: id }),
+            }
+          : {
+              title: `Delete ${noun}?`,
+              body: (
+                <>
+                  {named} was added by hand, so there is nothing behind it to
+                  restore. This cannot be undone.
+                </>
+              ),
+              confirmLabel: "Delete",
+              run: () => onOp({ op: "item.remove", orgId, itemId: id }),
+            },
+      );
+    },
     add: (item) => onOp({ op: "item.add", orgId, item }),
   };
 }
@@ -216,16 +266,20 @@ function Flags({ flags }: { flags: CardFlag[] }) {
 function SuppressShell({
   suppressed,
   provenance,
-  onSuppress,
+  onRemove,
   onRestore,
-  onDelete,
   children,
 }: {
   suppressed: boolean;
   provenance: "source" | "user";
-  onSuppress: () => void;
+  /**
+   * ALREADY WRAPPED IN A CONFIRMATION by the caller, and already resolved to the
+   * right verb — strike out for something the pipeline found, hard delete for
+   * something a person typed. This component draws the control and knows nothing
+   * about which of the two it is firing.
+   */
+  onRemove: () => void;
   onRestore: () => void;
-  onDelete: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -262,21 +316,27 @@ function SuppressShell({
         }`}
       >
         {suppressed ? (
-          // KEEPS ITS WORDS — the audit checks for the literal text.
+          // KEEPS ITS WORDS — the audit checks for the literal text. Stays in the
+          // neutral skin on purpose: the way OUT of a destructive action is not
+          // itself destructive, and painting it red would say the opposite.
           <button type="button" onClick={onRestore} className={SKIN.btnSmall}>
             put back
           </button>
         ) : (
           <button
             type="button"
-            onClick={provenance === "source" ? onSuppress : onDelete}
+            onClick={onRemove}
             aria-label={provenance === "source" ? "Remove" : "Delete"}
             title={
               provenance === "source"
                 ? "Strike this out. It stays here so you can put it back."
                 : "Delete. You wrote this, so there is nothing to put back."
             }
-            className={SKIN.btnSmall}
+            // RED, and the reason is that this is the only control in the cluster
+            // that takes something away. It shares its corner with `put back`, and
+            // in one neutral skin the two were the same button wearing different
+            // words.
+            className={SKIN.btnSmallDanger}
           >
             ✕
           </button>
@@ -300,17 +360,20 @@ function SuppressShell({
 function Quote({
   voice,
   ariaLabel,
+  className = SKIN.quote,
   onCommit,
   onRevert,
 }: {
   voice: Voice;
   ariaLabel: string;
+  /** The discipleship finding sets its own size; everything else takes the default. */
+  className?: string;
   onCommit: (next: string) => void;
   onRevert: () => void;
 }) {
   return (
     <div>
-      <div data-quote className={SKIN.quote}>
+      <div data-quote className={className}>
         <EditableText
           value={quoted(voice.text)}
           onCommit={(next) => onCommit(stripQuotes(next))}
@@ -326,9 +389,25 @@ function Quote({
 }
 
 /**
- * ONE CLAIM ABOUT A CHURCH — a Title, optionally numbered, optionally quoted.
- * Both evidence fields render through this, so a reviewer comparing "what they
- * offer" against "the order they put it in" reads one shape rather than two.
+ * The connector between two items in an evidence list. PUNCTUATION, NOT A CLAIM —
+ * see `SKIN.arrow`, which carries the reasoning and the trade. `aria-hidden`
+ * because `<ol>`/`<ul>` is what actually tells a screen reader whether these have
+ * an order.
+ */
+function StepArrow() {
+  return (
+    <div aria-hidden className={SKIN.arrow}>
+      ↓
+    </div>
+  );
+}
+
+/**
+ * ONE CLAIM ABOUT A CHURCH — a Title and, usually, the sentence it came from.
+ * Both evidence LISTS render through this, so a reviewer comparing "what they
+ * offer" against "the order they put it in" reads one shape rather than two. The
+ * discipleship programme's own name and description do NOT — see `PathwayHead`,
+ * which is the container, not one of the contents.
  *
  * TITLE LEFT AND BIG, QUOTE RIGHT. The title used to be 13px in the body colour
  * with its quote underneath, which made eight steps one grey block with no entry
@@ -341,12 +420,13 @@ function Quote({
  * the only writable field. `stepTitle()` in `group.ts` now picks between them
  * once, and this renders the result.
  *
- * THE ORDINAL IS NOT AN INDEX. It is printed only when the church's own page put
- * a number there; DOM order is not a sequence, and `resolvePathwaySteps` owns that
- * rule. Next steps pass `null` and always will — a category list has no first.
+ * NO ORDINAL. Pathway steps used to print `1.` `2.` wherever the church's own page
+ * had numbered them. Owner's call to drop it: on a card whose job is "is this
+ * sentence true", a number is a second thing to check that nobody was checking.
+ * `ResolvedPathwayStep.ordinal` is still computed and still tested — it is the
+ * data, and `numbered` still decides `<ol>` vs `<ul>` — it is simply not drawn.
  */
 function Claim({
-  ordinal,
   label,
   quote,
   labelAriaLabel,
@@ -356,7 +436,6 @@ function Claim({
   onQuoteCommit,
   onQuoteRevert,
 }: {
-  ordinal: number | null;
   label: Voice;
   quote: Voice | null;
   labelAriaLabel: string;
@@ -369,17 +448,14 @@ function Claim({
   return (
     <div className={SKIN.itemRow}>
       <div className={SKIN.itemLeft}>
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          {ordinal != null && <span className={`shrink-0 ${SKIN.ordinal}`}>{ordinal}.</span>}
-          <div className={`min-w-0 flex-1 ${SKIN.itemTitle}`}>
-            <EditableText
-              value={label.text}
-              onCommit={onLabelCommit}
-              ariaLabel={labelAriaLabel}
-              editingClassName={SKIN.editEditing}
-              restingClassName={SKIN.editResting}
-            />
-          </div>
+        <div className={`min-w-0 ${SKIN.itemTitle}`}>
+          <EditableText
+            value={label.text}
+            onCommit={onLabelCommit}
+            ariaLabel={labelAriaLabel}
+            editingClassName={SKIN.editEditing}
+            restingClassName={SKIN.editResting}
+          />
         </div>
         <Provenance voice={label} onRevert={onLabelRevert} />
       </div>
@@ -393,10 +469,33 @@ function Claim({
             onRevert={onQuoteRevert}
           />
         ) : (
-          // The right cell is never blank. An empty column reads as a rendering
-          // fault; "we hold this category but captured no sentence for it" is a
-          // fact, and a short one.
-          <p className={`${SKIN.absent} opacity-70`}>{COPY.noQuote}</p>
+          /**
+           * THE ABSENCE IS A PROMPT, NOT A FULL STOP.
+           *
+           * This was dead prose: "no quotation captured" in muted ink, with the
+           * only way to supply one being to delete the whole step and re-add it
+           * through the ＋ form. Every other value on this card is one click from
+           * editable, and a reviewer who knows the sentence — they have the
+           * church's site open in the next tab, via the Visit button — had nowhere
+           * to put it.
+           *
+           * It stays a real answer when untouched: the placeholder still says we
+           * captured nothing, so an empty cell never reads as a rendering fault.
+           * Typing into it commits down the SAME path an edit does, so it resolves
+           * to `edited` and announces itself as not the church's words.
+           */
+          <div data-quote className={SKIN.quote}>
+            <EditableText
+              value=""
+              onCommit={(next) => onQuoteCommit(stripQuotes(next))}
+              multiline
+              ariaLabel={quoteAriaLabel}
+              placeholder={COPY.noQuote}
+              emptyClassName={SKIN.quoteEmpty}
+              editingClassName={SKIN.editEditing}
+              restingClassName={SKIN.editResting}
+            />
+          </div>
         )}
       </div>
     </div>
@@ -406,11 +505,18 @@ function Claim({
 /**
  * `<ol>` ONLY WHEN THE SOURCE LICENSED A SEQUENCE.
  *
- * On screen these render identically — the ordinals are printed by `Claim`, not
- * by list markers. To a screen reader they are different claims: "ordered list of
- * 4" says these steps have an order, and where the pathway's basis was page
- * position rather than the church's own numbering, that is a claim we are not
- * entitled to make. `resolvePathwaySteps` decides; this obeys.
+ * NOW THE ONLY PLACE THAT CLAIM LIVES. It used to be one of three carriers — the
+ * printed ordinal, the connecting arrow, and the list element — and the first two
+ * are gone by owner's decision: the ordinals are not drawn at all, and the arrow
+ * is drawn between every pair in both lists, so neither can distinguish a pathway
+ * the church numbered from one we read off page order.
+ *
+ * On screen ordered and unordered are therefore identical. To a screen reader they
+ * are still different claims: "ordered list of 4" says these steps have an order,
+ * and where the pathway's basis was page position that is a claim we are not
+ * entitled to make. `resolvePathwaySteps` decides; this obeys. Losing it would
+ * leave the distinction with nowhere to be true, so it does not get "simplified"
+ * away for rendering the same box.
  */
 function Numbered({
   numbered,
@@ -588,31 +694,37 @@ function StepsBody({
       {!card.stepsLooked && <Absent>{COPY.stepsNotRead}</Absent>}
       {card.stepsLooked && card.steps.length === 0 && <Absent>{COPY.stepsNoneFound}</Absent>}
 
-      <div className={SKIN.list}>
-        {card.steps.map((s: ResolvedStep) => (
-          <SuppressShell
-            key={s.id}
-            suppressed={s.suppressed}
-            provenance={s.provenance}
-            onSuppress={ops.suppress(s.id)}
-            onRestore={ops.restore(s.id)}
-            onDelete={ops.del(s.id)}
-          >
-            {/* A category list has no first, so no ordinal and no arrows. */}
-            <Claim
-              ordinal={null}
-              label={s.label}
-              quote={s.quote}
-              labelAriaLabel="step title"
-              quoteAriaLabel="step quote"
-              onLabelCommit={ops.set(PATH.step(s.id, "label"), s.label.text)}
-              onLabelRevert={ops.revert(PATH.step(s.id, "label"))}
-              onQuoteCommit={ops.set(PATH.step(s.id, "quote"), s.quote?.text ?? "")}
-              onQuoteRevert={ops.revert(PATH.step(s.id, "quote"))}
-            />
-          </SuppressShell>
+      {/* `<ul>`: a category list genuinely has no first, and that has not changed
+          — only the arrow has, which no longer says otherwise. See `SKIN.arrow`. */}
+      <ul className={SKIN.list}>
+        {card.steps.map((s: ResolvedStep, i) => (
+          <li key={s.id}>
+            {i > 0 && <StepArrow />}
+            <SuppressShell
+              suppressed={s.suppressed}
+              provenance={s.provenance}
+              onRemove={ops.remove({
+                noun: "this step",
+                name: s.label.text,
+                provenance: s.provenance,
+                id: s.id,
+              })}
+              onRestore={ops.restore(s.id)}
+            >
+              <Claim
+                label={s.label}
+                quote={s.quote}
+                labelAriaLabel="step title"
+                quoteAriaLabel="step quote"
+                onLabelCommit={ops.set(PATH.step(s.id, "label"), s.label.text)}
+                onLabelRevert={ops.revert(PATH.step(s.id, "label"))}
+                onQuoteCommit={ops.set(PATH.step(s.id, "quote"), s.quote?.text ?? "")}
+                onQuoteRevert={ops.revert(PATH.step(s.id, "quote"))}
+              />
+            </SuppressShell>
+          </li>
         ))}
-      </div>
+      </ul>
 
       {adding ? (
         <AddForm
@@ -656,50 +768,53 @@ function PathwayBody({
       {!card.pathway.finding && !card.pathway.name && <Absent>{COPY.pathwayNothing}</Absent>}
       {card.pathway.name && steps.length === 0 && <Absent>{COPY.pathwayNoSteps}</Absent>}
 
-      {/* THE FINDING IS A CLAIM LIKE ANY OTHER. It used to float above the list as
-          a bare quote in no container, with the pathway's name in a prose sentence
-          above that — two shapes this field had and next steps did not, which is
-          most of why the two never looked alike. The name is the claim's title;
-          the finding is its quote. */}
+      {/* THE PROGRAMME IS THE CONTAINER, NOT ONE OF THE CONTENTS — see
+          `SKIN.pathwayHead`. This rendered through `Claim` inside an `itemShell`
+          until now, which drew the church's discipleship programme as a ninth step
+          sitting above the eight real ones. */}
       {card.pathway.finding && (
-        <div className={SKIN.itemShell}>
-          <Claim
-            ordinal={null}
-            label={{ text: card.pathway.name, attribution: { kind: "uncited", note: "" } }}
-            quote={card.pathway.finding}
-            labelAriaLabel="pathway name"
-            quoteAriaLabel="discipleship finding"
-            onLabelCommit={ops.set(PATH.finding("label"), card.pathway.name)}
-            onLabelRevert={ops.revert(PATH.finding("label"))}
-            onQuoteCommit={ops.set(PATH.finding("quote"), card.pathway.finding.text)}
-            onQuoteRevert={ops.revert(PATH.finding("quote"))}
-          />
+        <div className={SKIN.pathwayHead}>
+          <p className={SKIN.pathwayCaption}>Their Discipleship Pathway</p>
+          <div className={SKIN.pathwayName}>
+            <EditableText
+              value={card.pathway.name}
+              onCommit={ops.set(PATH.finding("label"), card.pathway.name)}
+              ariaLabel="pathway name"
+              placeholder={COPY.noPathwayName}
+              emptyClassName={EMPTY_TEXT}
+              editingClassName={SKIN.editEditing}
+              restingClassName={SKIN.editResting}
+            />
+          </div>
+          <div className="mt-1.5">
+            <Quote
+              voice={card.pathway.finding}
+              ariaLabel="discipleship finding"
+              className={SKIN.pathwayFinding}
+              onCommit={ops.set(PATH.finding("quote"), card.pathway.finding.text)}
+              onRevert={ops.revert(PATH.finding("quote"))}
+            />
+          </div>
         </div>
       )}
 
       {steps.length > 0 && (
-        <Numbered numbered={card.pathway.numbered} className={`mt-2 ${SKIN.list}`}>
+        <Numbered numbered={card.pathway.numbered} className={`mt-3 ${SKIN.list}`}>
           {steps.map((s: ResolvedPathwayStep, i) => (
             <li key={s.id}>
-              {/* THE ARROW IS THE SAME CLAIM A NUMBER IS. It says the church told
-                  us to do this one before that one, so it renders only where they
-                  did — `pathway.numbered` is `pathwayIsOrdered(orderBasis)`, and
-                  where the basis was DOM position there is no arrow and no
-                  ordinal. Between items, never before the first. */}
-              {i > 0 && card.pathway.numbered && (
-                <div aria-hidden className={SKIN.arrow}>
-                  ↓
-                </div>
-              )}
+              {i > 0 && <StepArrow />}
               <SuppressShell
                 suppressed={s.suppressed}
                 provenance={s.provenance}
-                onSuppress={ops.suppress(s.id)}
+                onRemove={ops.remove({
+                  noun: "this discipleship step",
+                  name: s.label.text,
+                  provenance: s.provenance,
+                  id: s.id,
+                })}
                 onRestore={ops.restore(s.id)}
-                onDelete={ops.del(s.id)}
               >
                 <Claim
-                  ordinal={s.ordinal}
                   label={s.label}
                   quote={s.quote}
                   labelAriaLabel="pathway step title"
@@ -780,9 +895,16 @@ function ContactsBody({
               key={c.id}
               suppressed={c.suppressed}
               provenance={c.provenance}
-              onSuppress={ops.suppress(c.id)}
+              onRemove={ops.remove({
+                noun: "this contact",
+                // Whatever identifies them on screen — a church address row has no
+                // name, and "Delete this contact?" naming nothing is a dialog that
+                // cannot be checked against what you clicked.
+                name: c.name || c.email || c.value,
+                provenance: c.provenance,
+                id: c.id,
+              })}
               onRestore={ops.restore(c.id)}
-              onDelete={ops.del(c.id)}
             >
               {/* WHO ON THE LEFT, HOW TO REACH THEM ON THE RIGHT — the same split
                   as a claim, on purpose. A reviewer moving from steps to contacts
@@ -912,20 +1034,40 @@ export interface ChurchCardProps {
   index: number;
   stale: boolean;
   departed: boolean;
-  /**
-   * The ONLY callback. It used to take an `onRemoveChurch` beside it, which every
-   * caller supplied as a fresh inline closure — enough on its own to make the
-   * `memo()` below do nothing. The card already knows its own `orgId`.
-   */
   onOp: (op: GroupOp) => void;
+  /**
+   * Removing a church is not just another op, which is why it is not sent through
+   * `onOp`. It is the one action that has to LAND before the page redraws, so the
+   * owner of the save queue performs it — see `GroupReview`.
+   *
+   * This prop existed once before and was removed because every caller passed a
+   * fresh inline closure, which silently made the `memo()` below a no-op. It is
+   * back on the condition that killed it: `GroupReview` memoises it, so twenty
+   * cards do not re-render because one of them can be deleted.
+   */
+  onRemoveChurch: (orgId: string) => void;
 }
 
-function ChurchCardInner({ card, index, stale, departed, onOp }: ChurchCardProps) {
+function ChurchCardInner({
+  card,
+  index,
+  stale,
+  departed,
+  onOp,
+  onRemoveChurch,
+}: ChurchCardProps) {
   const [addingStep, setAddingStep] = useState(false);
   const [addingPathway, setAddingPathway] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
 
-  const ops = opsFor(card.orgId, onOp);
+  /**
+   * ONE DIALOG PER CARD, holding whichever removal was asked for.
+   *
+   * Per-card rather than per-item: forty items each owning a `<dialog>` is forty
+   * elements in the top layer waiting to be opened, and only one can ever be.
+   */
+  const [pending, setPending] = useState<PendingRemoval | null>(null);
+  const ops = opsFor(card.orgId, onOp, setPending);
   const plate = PLATE_CLASS[logoPlate(card.logo?.theme)];
   const touched = card.editedCount > 0 || card.suppressedCount > 0;
   const liveSteps = card.steps.filter((s) => !s.suppressed).length;
@@ -1032,7 +1174,40 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: ChurchCardProps
 
         <button
           type="button"
-          onClick={() => onOp({ op: "church.remove", orgId: card.orgId })}
+          onClick={() =>
+            setPending({
+              title: "Remove this church from the batch?",
+              /**
+               * NAMES WHAT IS LOST, not what the button does.
+               *
+               * A batch entry is a frozen snapshot plus every correction typed
+               * into it, and there is no `put back` for a church — this is the
+               * one irreversible control on the page. For a church that has since
+               * left the dataset the card says so itself: it is the only copy we
+               * hold, so removing it does not send you back to the console, it
+               * sends you nowhere.
+               */
+              body: (
+                <>
+                  <strong className="text-lead-ink">{card.name.text || card.orgId}</strong> will be
+                  taken out of this batch
+                  {card.editedCount + card.suppressedCount > 0 ? (
+                    <>
+                      , along with the {card.editedCount + card.suppressedCount} change
+                      {card.editedCount + card.suppressedCount === 1 ? "" : "s"} you made to it
+                    </>
+                  ) : null}
+                  . {departed
+                    ? "This church has left the dataset, so this card is the only copy we hold — it cannot be collected again."
+                    : "You can collect it again from the console."}
+                </>
+              ),
+              confirmLabel: "Remove church",
+              // Saves, then reloads. `GroupReview` owns both halves because it
+              // owns the save queue — see `onRemoveChurch` there.
+              run: () => onRemoveChurch(card.orgId),
+            })
+          }
           title="Remove this church from the batch"
           className={SKIN.btnDanger}
         >
@@ -1055,6 +1230,23 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: ChurchCardProps
           <div className={SKIN.value}>{bodies[id]}</div>
         </details>
       ))}
+
+      {/* Mounted always, `open` driven by state — see `ConfirmDialog`, which has
+          to call `showModal()` on a node React already put in the tree. */}
+      <ConfirmDialog
+        open={pending !== null}
+        title={pending?.title ?? ""}
+        body={pending?.body ?? null}
+        confirmLabel={pending?.confirmLabel ?? "Confirm"}
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          // Close FIRST. `run` may reload the page, and a `<dialog>` left open
+          // across a navigation is a modal that reappears over the fresh page.
+          const go = pending?.run;
+          setPending(null);
+          go?.();
+        }}
+      />
     </article>
   );
 }
