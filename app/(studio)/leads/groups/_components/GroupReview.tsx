@@ -27,7 +27,7 @@ import { ExportBar } from "./ExportBar";
  * looks wrong next to its neighbours.
  */
 
-const DISCLAIMER_TITLE = "WARNING: M";
+const DISCLAIMER_TITLE = "WARNING: MANUALLY CHECK BEFORE SENDING";
 
 const COLUMNS = ["Church", "Next steps", "Discipleship", "Contacts"];
 
@@ -172,14 +172,6 @@ export function GroupReview({ id }: { id: string }) {
           {group.entries.length} church{group.entries.length === 1 ? "" : "es"}
           {edits > 0 && ` · ${edits} edit${edits === 1 ? "" : "s"}`}
           {removals > 0 && ` · ${removals} struck out`}
-          {/* THE COUNTERS HAVE TO ADD UP. The console's rail counts only churches
-              the current publish still carries, so a batch holding two churches
-              that have since left the dataset reads 0 there and N here. Without
-              this line the difference looks like one of them is broken; with it,
-              it is the same fact stated twice. The cards themselves already carry
-              the per-church banner. */}
-          {departed.size > 0 &&
-            ` · ${departed.size} no longer in the dataset (kept — this is the only copy)`}
           {status === "open" && (
             <>
               {" · "}
@@ -208,7 +200,7 @@ export function GroupReview({ id }: { id: string }) {
         <h2 className="font-serif text-[17px] font-semibold text-lead-ink">{DISCLAIMER_TITLE}</h2>
         <div className="mt-2 space-y-2 text-[13.5px] leading-relaxed text-lead-ink2">
           <p>
-            A lot of the information here was extracted by LLM models that are <b>prone to making mistakes.</b> Please <b>manually review critical information</b> such as each church&rsquo;s name, slogan, steps, descriptions, contact names, etc and <b>click on them to make changes</b> if necessary.
+            A lot of the information here was extracted by LLM models that are <b>prone to making mistakes.</b> Please <b>manually review critical information</b> such as each church's name, slogan, steps, descriptions, contact names, etc and <b>click on them to make changes</b> if necessary.
           </p>
         </div>
       </section>
