@@ -40,10 +40,25 @@ import {
 
 export type DatasetSource = "pack" | "r2";
 
+/**
+ * A VALUE WE DO NOT RECOGNISE IS AN ERROR, NOT A SHRUG.
+ *
+ * This used to fall through to the default on anything it did not understand,
+ * which is the wrong shape of failure: someone sets `LEADS_DATASET_SOURCE` to
+ * check what production will do, gets the local pack instead, and the console
+ * looks perfectly correct while testing the wrong thing entirely. A typo, a
+ * stray quote a loader did not strip, or `R2` in capitals would all have done
+ * it. Surrounding quotes are tolerated because .env files routinely carry them;
+ * anything else says so.
+ */
 function chooseSource(): DatasetSource {
-  const forced = process.env.LEADS_DATASET_SOURCE;
-  if (forced === "r2" || forced === "pack") return forced;
-  return havePack() ? "pack" : "r2";
+  const raw = (process.env.LEADS_DATASET_SOURCE ?? "").trim().replace(/^(['"])(.*)\1$/, "$2");
+  if (!raw) return havePack() ? "pack" : "r2";
+  if (raw === "r2" || raw === "pack") return raw;
+  throw new Error(
+    `leads: LEADS_DATASET_SOURCE is "${raw}" — expected "r2" or "pack". ` +
+      `Unset it to read the local pack when one exists and R2 otherwise.`,
+  );
 }
 
 export const SOURCE: DatasetSource = chooseSource();
