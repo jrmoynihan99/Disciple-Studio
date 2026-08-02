@@ -14,7 +14,7 @@
  * `Attribution`. Conventions drift; this codebase has already lost one that way.
  */
 
-import type { StepState } from "./types.ts";
+import type { StepState, VerdictState } from "./types.ts";
 
 /** Bumped when a stored group can no longer be read by `resolve()` as written. */
 export const GROUP_SCHEMA_VERSION = 1;
@@ -231,6 +231,26 @@ export function pathwayKnowledge(input: {
   if (input.present || (input.stepCount ?? 0) > 0) return "has";
   return input.status === "model_says_no" ? "none" : "unknown";
 }
+
+/**
+ * The colour each state paints, in ONE place.
+ *
+ * The list tile, the dossier card and the facet swatch all show this, and a
+ * swatch that disagrees with the rows it filters to is the specific bug the
+ * "one source of truth for (question, answer) -> colour" rule exists for.
+ */
+export const PATHWAY_STATE: Record<PathwayKnowledge, VerdictState> = {
+  has: "good",
+  none: "bad",
+  unknown: "unk",
+};
+
+/** How each state reads in a facet dropdown, where there is no room to explain. */
+export const PATHWAY_FACET_LABEL: Record<PathwayKnowledge, string> = {
+  has: "Has a pathway",
+  none: "No pathway published",
+  unknown: "Not checked",
+};
 
 export type ContactKind = "person" | "churchEmail" | "phone" | "social";
 

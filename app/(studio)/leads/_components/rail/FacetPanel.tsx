@@ -8,7 +8,7 @@ import { answerLabel, VERDICT_WORD } from "@/lib/leads/engine/labels";
 import { facetCounts, optionState } from "@/lib/leads/engine/filter";
 import { fillClass } from "../verdict";
 import { Chevron } from "../Chevron";
-import { facetValues, type FacetDef } from "./facets";
+import { facetValues, facetValueLabel, type FacetDef } from "./facets";
 
 /**
  * One facet: a collapsed bar showing its name and the current selection, and on
@@ -73,14 +73,10 @@ export function FacetPanel({
           {values.map((v) => {
             const { state, mixed } = optionState(facet.key, v, allViews, ctx);
             const on = selected.includes(v);
+            // `facetValueLabel` owns the per-facet wording; a fact with no
+            // entry there shows its raw value, and everything else is an answer.
             const label =
-              facet.key === "steps"
-                ? `${v} / 8`
-                : facet.key === "q2"
-                  ? `${v} paid`
-                  : facet.isFact
-                    ? v
-                    : answerLabel(facet.key, v);
+              facetValueLabel(facet.key, v) || (facet.isFact ? v : answerLabel(facet.key, v));
 
             return (
               <div key={v} className="relative">

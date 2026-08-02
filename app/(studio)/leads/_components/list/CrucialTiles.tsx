@@ -3,6 +3,7 @@
 import type { ChurchView } from "@/lib/leads/engine/adapt";
 import type { EngineCtx, StepCategory, VerdictState } from "@/lib/leads/engine/types";
 import type { PathwayKnowledge } from "@/lib/leads/engine/group-types";
+import { backendIsKind, backendName } from "@/lib/leads/engine/backend";
 import { colorState } from "@/lib/leads/engine/color";
 import { staffText } from "@/lib/leads/engine/staff";
 import { stepsSummaryState } from "@/lib/leads/engine/steps";
@@ -90,6 +91,11 @@ export function CrucialTiles({ view, ctx }: { view: ChurchView; ctx: EngineCtx }
   const steps = view.steps;
   const stepsState = stepsSummaryState(steps);
 
+  // The ChMS name, or "" — `backendIsKind` is the same test the ChMS facet and
+  // the favor point use, so the tile, the filter and the score never disagree
+  // about whether a church runs one.
+  const chms = backendIsKind(view.backend, "chms") ? backendName(view.backend) : "";
+
   // Silent gap tiles: shown ONLY when the church LACKS the thing (an
   // opportunity), absent otherwise.
   const noCustomSite = q7?.answer === "cc_default";
@@ -112,6 +118,29 @@ export function CrucialTiles({ view, ctx }: { view: ChurchView; ctx: EngineCtx }
               as one we never got — so it reads the same rather than as a dash. */}
           {LOGIN_SHORT[q5?.answer ?? "unknown"] ?? "Unknown"}
         </span>
+      </Tile>
+
+      {/* ── ChMS ──
+          The platform line under the church's name already contains this, but
+          buried: "WordPress · Church Center" gives no clue which of the two is
+          the site builder and which is the management system, and it says
+          nothing at all for the 1,359 churches where we detected neither.
+
+          "NOT DETECTED", NOT "NONE". Detection is single-valued — a church on
+          Breeze that also runs Givelify may surface only Givelify — so the
+          absence of a ChMS here is a fact about our scrape, not about the
+          church, and the tile has to say the one it can stand behind. It is grey
+          for the same reason. */}
+      <Tile
+        state={chms ? "good" : "unk"}
+        label="ChMS"
+        title={
+          chms
+            ? `Runs ${chms}`
+            : "No church management system was detected — not proof there is none"
+        }
+      >
+        <span className="text-xs font-bold text-lead-ink">{chms || "Not detected"}</span>
       </Tile>
 
       <Tile

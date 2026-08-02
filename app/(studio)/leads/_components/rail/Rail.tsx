@@ -75,6 +75,7 @@ function Select({
 export function Rail({
   views,
   narrowed,
+  narrowedFor,
   ctx,
   filters,
   setFilters,
@@ -88,6 +89,13 @@ export function Rail({
 }: {
   views: readonly ChurchView[];
   narrowed: readonly ChurchView[];
+  /**
+   * Per-facet count sets, for facets that have a selection: the corpus filtered
+   * by every OTHER facet, with this one's own choices lifted. Options inside a
+   * facet are OR'd, so a facet counting against its own selection would report 0
+   * for every option the user did not pick.
+   */
+  narrowedFor: ReadonlyMap<string, readonly ChurchView[]>;
   ctx: EngineCtx;
   filters: LeadFilters;
   setFilters: (f: LeadFilters) => void;
@@ -286,7 +294,11 @@ export function Rail({
       <FavorTuning ctx={ctx} filters={filters} setFilters={set} onFavorChange={onFavorChange} />
 
       {/* ── facets ── */}
-      {(["core", "appweb", "rest"] as const).map((g) => (
+      {/* `stack` sits between the website/app questions and the lighter-touch
+          ones: it is about the software a church already runs, which is the
+          closest thing here to "what would we be replacing", so it belongs
+          beside the app and website verdicts rather than down in "the rest". */}
+      {(["core", "appweb", "stack", "rest"] as const).map((g) => (
         <section key={g} className="mt-4">
           <h4 className="mb-2 border-b border-lead-line pb-1.5 font-mono text-[10px] font-bold tracking-widest text-lead-ink2 uppercase">
             {GROUP_LABEL[g]}
@@ -315,7 +327,7 @@ export function Rail({
             <FacetPanel
               key={f.key}
               facet={f}
-              views={narrowed}
+              views={narrowedFor.get(f.key) ?? narrowed}
               allViews={views}
               ctx={ctx}
               selected={filters.qsel[f.key] ?? []}

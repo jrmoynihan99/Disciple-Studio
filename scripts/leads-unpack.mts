@@ -131,24 +131,20 @@ if (index.length !== manifest.n_churches) {
  * itself.
  */
 const needRec = index.filter((r) => !r.rec);
-if (needRec.length) {
-  let filled = 0;
-  for (const row of needRec) {
-    const sha = manifest.records[row.id];
-    if (sha) {
-      row.rec = sha;
-      filled++;
-    }
+let recFilled = 0;
+for (const row of needRec) {
+  const sha = manifest.records[row.id];
+  if (sha) {
+    row.rec = sha;
+    recFilled++;
   }
+}
+if (needRec.length) {
   console.log(
-    `  ! index rows had no 'rec' sha (${needRec.length}); backfilled ${filled} from MANIFEST.` +
+    `  ! index rows had no 'rec' sha (${needRec.length}); backfilled ${recFilled} from MANIFEST.` +
       `\n    Staleness detection depends on it — ask upstream to project it into index.json.`,
   );
-  write("index.json", JSON.stringify(index));
-} else {
-  write("index.json", indexBytes);
 }
-console.log(`  index.json          ${index.length} rows`);
 
 /* -------------------------------------------------------------------- records */
 
@@ -194,6 +190,11 @@ const orphan = index.filter((r) => !seen.has(r.id)).length;
 if (orphan) die(`${orphan} index rows have no record`);
 
 console.log(`  records/            ${written} files · sha256 verified`);
+
+
+// Written after the records only because `rec` is patched into these rows above.
+write("index.json", recFilled ? JSON.stringify(index) : indexBytes);
+console.log(`  index.json          ${index.length} rows`);
 
 /* ------------------------------------------------------------------ logo thumbs */
 

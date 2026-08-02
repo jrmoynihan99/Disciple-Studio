@@ -26,6 +26,10 @@
  */
 
 import type { FavorModel, VerdictState } from "@/lib/leads/engine/types";
+// Relative with the extension, not `@/…`: this is a VALUE import, so it survives
+// to runtime, and `node --test` resolves no path alias. The type-only import
+// above is erased and can keep the alias.
+import { TUNING_DEFAULTS } from "../engine/favor.ts";
 
 export type OrgId = string;
 
@@ -190,7 +194,29 @@ export function hydrate(raw: unknown, userId: string): LeadState {
     lastExportedAt: {},
     // At one user, team === mine. The Blob layer folds other users in here.
     team: base.team,
-    config: { ...base.config, ...saved.config },
+    config: { ...base.config, ...saved.config, favor: hydrateFavor(saved.config?.favor) },
+  };
+}
+
+/**
+ * A stored favor model, with any term added since it was saved filled in.
+ *
+ * `pathwayPts` is new, so a model saved before it existed carries no key and
+ * would score `+undefined || 0` — a silent zero. The symptom is the worst kind:
+ * the tuning panel shows a slider at 1, the denominator reads 8.5, and every
+ * church still scores as though the pathway were worth nothing, for anyone who
+ * had ever opened the panel before today.
+ *
+ * Filled from `TUNING_DEFAULTS` rather than a literal so there is one place the
+ * shipped weights live. Only ABSENT keys are filled — a user who deliberately
+ * set it to 0 keeps their 0, because `??` tests for the key, not for falsiness.
+ */
+function hydrateFavor(saved: FavorModel | null | undefined): FavorModel | null {
+  if (!saved) return null;
+  return {
+    ...saved,
+    pathwayPts: saved.pathwayPts ?? TUNING_DEFAULTS.pathwayPts,
+    chmsPts: saved.chmsPts ?? TUNING_DEFAULTS.chmsPts,
   };
 }
 

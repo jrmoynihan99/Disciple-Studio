@@ -225,6 +225,36 @@ export interface FavorModel {
   appPts: number;
   /** One weight per next-step category. */
   stepCat: Record<string, number>;
+  /**
+   * Points for having a published discipleship pathway — BINARY, not per step.
+   *
+   * A church with ten stages is not ten times the lead of one with two; what the
+   * signal says is "this church already thinks in journeys", and that is either
+   * true or it is not. Weighting by count would also make the score move when
+   * the scraper simply found more of the same page.
+   *
+   * OPTIONAL, and 0 in the reference model. `golden-colors.json` was generated
+   * by executing `core.js`, which has no such field, so any non-zero default
+   * here would move every favor value in the M0 gate and the gate would stop
+   * being evidence about the port.
+   */
+  pathwayPts?: number;
+  /**
+   * Points for already running a church management system.
+   *
+   * ChMS ONLY — the `chms` half of `BACKEND_KINDS`, never `tooling`. A church on
+   * Givelify has bought a card reader; a church on Breeze has bought a system it
+   * administers, keeps membership in and trains staff on. Only the second says
+   * anything about appetite for what is being sold, so counting giving
+   * processors here would inflate 2,758 churches for the wrong reason.
+   *
+   * A vendor selling both (Tithe.ly, Subsplash, Ministry Brands, Faithlife)
+   * scores, because it IS in the ChMS list.
+   *
+   * OPTIONAL and 0 in the reference model, for the same reason as `pathwayPts`:
+   * `core.js` has no such term and the M0 gate must not move.
+   */
+  chmsPts?: number;
 }
 
 /** The user's own (question, answer) -> state mapping. Consulted FIRST. */

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { churchFromIndex } from "@/lib/leads/engine/adapt";
+import { churchFromIndex, type ChurchView } from "@/lib/leads/engine/adapt";
 import {
+  baseFiltered,
   computeView,
   defaultFilters,
   type LeadFilters,
@@ -150,6 +151,34 @@ export function LeadConsole() {
     [views, filters, deferredQ, ctx, isMarkedFor, isEarlier],
   );
 
+  /**
+   * WHAT EACH FACET COUNTS AGAINST — not the same set the list is showing.
+   *
+   * Option counts were read off `base`, the fully-filtered set, so ticking one
+   * option sent every SIBLING option in the same facet to 0: pick "Not checked"
+   * and "Has a pathway" reads 0, which says there are none, when what it should
+   * say is "627 more if you also tick this". Options within a facet are OR'd, so
+   * a facet's own selection must not narrow its own counts.
+   *
+   * So each ACTIVE facet counts against the set filtered by every OTHER facet
+   * with its own selection lifted. Only active facets need this — with nothing
+   * ticked there is nothing to lift, and `base` is already right — which keeps
+   * this to a handful of passes rather than one per facet on screen.
+   */
+  const narrowedFor = useMemo(() => {
+    const out = new Map<string, ChurchView[]>();
+    for (const key of Object.keys(filters.qsel)) {
+      if (!filters.qsel[key]?.length) continue;
+      const without = { ...filters.qsel };
+      delete without[key];
+      out.set(
+        key,
+        baseFiltered(views, { ...filters, q: deferredQ, qsel: without }, ctx, isMarkedFor),
+      );
+    }
+    return out;
+  }, [views, filters, deferredQ, ctx, isMarkedFor]);
+
   const baseDenom = favorBase(ctx.favor);
 
   const openIndex = openId ? visible.findIndex((v) => v.id === openId) : -1;
@@ -261,10 +290,10 @@ export function LeadConsole() {
               ref={searchRef}
               value={filters.q}
               onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
-              placeholder="search name…   /"
+              placeholder="search"
               aria-label="Search church name"
               autoComplete="off"
-              className="w-[230px] rounded-lg border border-lead-line bg-lead-panel px-3 py-2 text-[13.5px] text-lead-ink"
+              className="w-[230px] rounded-lg border border-l ead-line bg-lead-panel px-3 py-2 text-[13.5px] text-lead-ink"
             />
           </div>
           <button
@@ -301,6 +330,7 @@ export function LeadConsole() {
         <Rail
           views={views}
           narrowed={base}
+          narrowedFor={narrowedFor}
           ctx={ctx}
           filters={filters}
           setFilters={setFilters}
@@ -320,8 +350,6 @@ export function LeadConsole() {
             onSort={(sort) => setFilters((f) => ({ ...f, sort }))}
             bucket={filters.favorBucket}
             onBucket={(favorBucket) => setFilters((f) => ({ ...f, favorBucket }))}
-            newFirst={filters.newFirst}
-            onNewFirst={(newFirst) => setFilters((f) => ({ ...f, newFirst }))}
           />
 
           {loading ? (

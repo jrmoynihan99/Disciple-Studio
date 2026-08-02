@@ -10,10 +10,12 @@
 import type { ChurchView } from "./adapt.ts";
 import type { EngineCtx, QuestionKey, VerdictState } from "./types.ts";
 import { colorState } from "./color.ts";
-import { favorBucket, favorCount, favorMax, favorScore } from "./favor.ts";
+import { favorAxisMax, favorBucket, favorCount, favorScore } from "./favor.ts";
 import { staffText } from "./staff.ts";
 import { stepsCountState } from "./steps.ts";
 import { PLATFORM_FACETS } from "./platform.ts";
+import { backendIsKind } from "./backend.ts";
+import { PATHWAY_STATE, type PathwayKnowledge } from "./group-types.ts";
 
 export type SortKey = "opp" | "steps" | "name" | "paid" | "state" | "scraped";
 
@@ -101,6 +103,25 @@ export function facetVal(key: string, view: ChurchView): string {
   }
   // Language is a recorded fact, not an answer to one of the questions.
   if (key === "lang") return view.lang;
+
+  /**
+   * TWO FACETS OVER ONE FIELD. A church running Tithe.ly appears under both,
+   * because Tithe.ly sells both halves — see `BACKEND_KINDS`. Returning "" here
+   * is what keeps it out of the other list rather than a filter that has to know
+   * about vendors.
+   */
+  if (key === "chms") return backendIsKind(view.backend, "chms") ? view.backend : "";
+  if (key === "tooling") return backendIsKind(view.backend, "tooling") ? view.backend : "";
+
+  /**
+   * The three discipleship states, not the step count.
+   *
+   * A count facet would offer 2..10 and silently drop the distinction the whole
+   * feature turns on — "no pathway" and "never checked" would both land outside
+   * every numeric option, so filtering to any count would hide two thirds of the
+   * corpus without saying so.
+   */
+  if (key === "pathway") return view.pathway;
   if (key === "q2") {
     const q2 = view.q("q2");
     return q2?.answer === "counted" && q2.count != null ? staffText(q2) : "";
@@ -116,9 +137,16 @@ export function optionState(
   views: readonly ChurchView[],
   ctx: EngineCtx,
 ): { state: VerdictState | ""; mixed: boolean } {
-  // A platform is a fact, not a verdict — no swatch.
-  if (key.endsWith("_platform") || key === "lang") return { state: "", mixed: false };
+  // A platform is a fact, not a verdict — no swatch. The two backend facets are
+  // the same kind of thing: "runs Breeze" is not good or bad, it is true.
+  if (key.endsWith("_platform") || key === "lang" || key === "chms" || key === "tooling") {
+    return { state: "", mixed: false };
+  }
   if (key === "steps") return { state: stepsCountState(Number(value) || 0), mixed: false };
+  // The discipleship states carry the same colours the tile does, from one map.
+  if (key === "pathway") {
+    return { state: PATHWAY_STATE[value as PathwayKnowledge] ?? "", mixed: false };
+  }
 
   const qk = key as QuestionKey;
   const tally = new Map<VerdictState, number>();
@@ -207,22 +235,23 @@ export interface Summary {
 }
 
 /**
- * The histogram axis is computed from `favorMax` — the true ceiling — not from
- * the filtered rows, so the bars do not rescale while the user is filtering. A
- * rescaling histogram makes filtering feel like the data is changing.
+ * The axis comes in from the caller — see `favorAxisMax` — because it is a
+ * property of the WHOLE corpus, not of the filtered rows. Deriving it here from
+ * `base` would rescale the bars as the user filters, which makes filtering feel
+ * like the data is changing.
  */
 export function summarize(
   base: readonly ChurchView[],
   total: number,
-  ctx: EngineCtx,
+  axisMax: number,
   scores: Map<string, number>,
   isEarlier: (orgId: string) => boolean = () => false,
 ): Summary {
-  const max = Math.max(1, Math.ceil(favorMax(ctx.favor)));
+  const max = Math.max(1, axisMax);
   const dist = Array<number>(max + 1).fill(0);
   let collected = 0;
   for (const v of base) {
-    dist[favorBucket(scores.get(v.id) ?? 0, ctx.favor)]++;
+    dist[favorBucket(scores.get(v.id) ?? 0, max)]++;
     if (isEarlier(v.id)) collected++;
   }
   return { n: base.length, total, dist, collected };
@@ -249,11 +278,13 @@ export function computeView(
   const scores = new Map<string, number>();
   for (const v of base) scores.set(v.id, favorScore(v, ctx));
 
-  const summary = summarize(base, views.length, ctx, scores, isEarlier);
+  // Scored over every church, so the axis does not move while filtering.
+  const axisMax = favorAxisMax(views, ctx);
+  const summary = summarize(base, views.length, axisMax, scores, isEarlier);
 
   let rows = base;
   if (f.favorBucket != null) {
-    rows = base.filter((v) => favorBucket(scores.get(v.id) ?? 0, ctx.favor) === f.favorBucket);
+    rows = base.filter((v) => favorBucket(scores.get(v.id) ?? 0, axisMax) === f.favorBucket);
   }
 
   const sort = comparator(f.sort, scores);

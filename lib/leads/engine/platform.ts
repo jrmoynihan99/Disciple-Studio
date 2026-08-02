@@ -11,9 +11,7 @@
  */
 
 import type { ChurchRecord, IndexRow, QuestionKey } from "./types.ts";
-import { VOCAB } from "./vocab.generated.ts";
-
-const BACKEND_NAME = VOCAB.BACKEND_NAME as Record<string, string>;
+import { backendName } from "./backend.ts";
 
 /**
  * @param builder      `q7.platform` — the site builder, e.g. "Wix"
@@ -29,10 +27,13 @@ export function platformLine(
   const p = builder;
   if (p && p !== "Church Center default") out.push(p);
   const plat = (platformKey ?? "").toLowerCase();
+  // `backendName` covers the 11 values the generated vocabulary has no name for.
+  // Before it did, a church running Pushpay or ChurchTrac showed only its
+  // website builder and read as though we had detected no backend at all.
   const backend =
     plat === "church_center" || hasApps || p === "Church Center default"
       ? "Church Center"
-      : BACKEND_NAME[plat];
+      : backendName(plat);
   // Dedupe: don't repeat the backend if the builder line already named it.
   if (backend && !out.some((x) => x.toLowerCase() === backend.toLowerCase())) out.push(backend);
   return out.length ? out.join(" · ") : "no platform identified";

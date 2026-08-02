@@ -217,6 +217,15 @@ export interface ChurchView {
   pathway: PathwayKnowledge;
   /** Steps when we have them, 0 otherwise. Never a stand-in for "none". */
   pathwaySteps: number;
+  /**
+   * The recorded backend key — `pf` / `record.platform`, lower-cased, `""` when
+   * absent or explicitly `unknown`.
+   *
+   * Raw rather than named, because two facets read it and each decides for
+   * itself whether a vendor belongs (see `backend.ts`). A display name is a
+   * rendering concern; the key is the join value.
+   */
+  backend: string;
 }
 
 export function churchFromRecord(rec: ChurchRecord): ChurchView {
@@ -232,6 +241,7 @@ export function churchFromRecord(rec: ChurchRecord): ChurchView {
     platformLine: platformLineFromRecord(rec),
     fetchedLast: rec.fetched_last ?? "",
     ...pathwayFromRecord(rec),
+    backend: backendKey(rec.platform),
   };
 }
 
@@ -248,7 +258,21 @@ export function churchFromIndex(row: IndexRow): ChurchView {
     platformLine: platformLineFromIndex(row),
     fetchedLast: row.ts ?? "",
     ...pathwayFromIndex(row),
+    backend: backendKey(row.pf),
   };
+}
+
+/**
+ * `unknown` is normalised to `""` because it is not a vendor.
+ *
+ * 1,359 churches carry it, and left as a value it would sit in both platform
+ * dropdowns as though "Unknown" were a product you could filter customers by.
+ * Absent is the honest reading, and it is how every other fact-facet here
+ * spells "we have nothing".
+ */
+function backendKey(v: unknown): string {
+  const k = typeof v === "string" ? v.trim().toLowerCase() : "";
+  return k === "unknown" ? "" : k;
 }
 
 /* ------------------------------------------------------- discipleship pathway */

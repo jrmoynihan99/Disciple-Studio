@@ -139,6 +139,27 @@ export function FavorTuning({
           onChange={(n) => patch({ websitePts: n })}
         />
         <Row label="Native app" value={favor.appPts} onChange={(n) => patch({ appPts: n })} />
+        {/* ONE KNOB, NOT ONE PER STEP. The signal is "this church already thinks
+            in journeys", which a church either does or does not — a ten-stage
+            pathway is not five times the lead of a two-stage one, and points per
+            step would make the score move whenever the scraper found more of the
+            same page. Churches we never checked score the same zero as churches
+            with no pathway: the colour tells those apart, the score must not
+            guess. */}
+        <Row
+          label="Has a discipleship pathway"
+          value={favor.pathwayPts ?? 0}
+          onChange={(n) => patch({ pathwayPts: n })}
+        />
+        {/* ChMS ONLY, never the giving processors and media libraries in the
+            "other tooling" facet. Running Breeze means a church has bought a
+            system it administers and trains staff on; running Givelify means it
+            has a card reader. Only the first says anything about appetite. */}
+        <Row
+          label="Runs a ChMS"
+          value={favor.chmsPts ?? 0}
+          onChange={(n) => patch({ chmsPts: n })}
+        />
 
         <p className="mt-2 mb-1.5 font-mono text-[9px] tracking-wide text-lead-ink2 uppercase">
           Points per next step

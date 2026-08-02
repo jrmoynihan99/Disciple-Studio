@@ -18,6 +18,7 @@ import type { EngineCtx, FavorModel, VerdictState } from "./types.ts";
 import { VOCAB } from "./vocab.generated.ts";
 import { colorState } from "./color.ts";
 import { staffMaxPts, staffPts } from "./staff.ts";
+import { backendIsKind } from "./backend.ts";
 
 export const STEP_CATS = VOCAB.STEP_CATS;
 
@@ -45,6 +46,9 @@ export const FAVOR_DEFAULTS = VOCAB.FAVOR_DEFAULTS;
  *     guess, and a wrong one often enough to cost leads.
  *   · Custom login is worth 6x what it was (0.5 -> 3). It is the single
  *     strongest signal in the set — it is the thing being sold.
+ *   · A published discipleship pathway is worth 1, and already running a ChMS is
+ *     worth another — neither of which core.js had any concept of. Together they
+ *     take the shipped denominator from 7.5 to 9.5.
  *
  * Anyone can move all of it at runtime in the tuning panel; this is only where
  * the sliders sit before they touch them.
@@ -63,6 +67,8 @@ export const TUNING_DEFAULTS: FavorModel = {
   websitePts: FAVOR_DEFAULTS.websitePts,
   appPts: FAVOR_DEFAULTS.appPts,
   stepCat: FAVOR_DEFAULTS.stepCat,
+  pathwayPts: 1,
+  chmsPts: 1,
 };
 
 /** Deep clone, so nothing shares a mutable tier object with the constant. */
@@ -73,7 +79,36 @@ function clone(m: FavorModel): FavorModel {
     websitePts: m.websitePts,
     appPts: m.appPts,
     stepCat: { ...m.stepCat },
+    pathwayPts: m.pathwayPts,
+    chmsPts: m.chmsPts,
   };
+}
+
+/**
+ * Points for the discipleship pathway.
+ *
+ * BINARY, and only for a pathway we actually found. `none` and `unknown` score
+ * the same zero — deliberately, because the alternative is docking a church for
+ * an absence we never measured, and two thirds of the corpus is in that state.
+ * The colour already tells those two apart; the score has no business guessing.
+ */
+function pathwayPts(view: ChurchView, favor: FavorModel): number {
+  return view.pathway === "has" ? +(favor.pathwayPts ?? 0) : 0;
+}
+
+/**
+ * Points for already running a church management system.
+ *
+ * ChMS ONLY. `backendIsKind(_, "chms")` is the same test the ChMS facet uses, so
+ * a church that scores here is exactly a church that filter returns — and the
+ * giving processors and media libraries in the other facet score nothing, which
+ * is the whole reason `pf` had to be split before it could be scored at all.
+ *
+ * Churches with no backend detected score zero rather than negative: 1,359 carry
+ * no platform key, and that is our detection gap as much as their stack.
+ */
+function chmsPts(view: ChurchView, favor: FavorModel): number {
+  return backendIsKind(view.backend, "chms") ? +(favor.chmsPts ?? 0) : 0;
 }
 
 /** What the app starts on, and what "reset to defaults" returns to. */
@@ -89,6 +124,13 @@ export function referenceFavorModel(): FavorModel {
     websitePts: FAVOR_DEFAULTS.websitePts,
     appPts: FAVOR_DEFAULTS.appPts,
     stepCat: { ...FAVOR_DEFAULTS.stepCat },
+    // EXPLICITLY ZERO. core.js has no discipleship term, so the golden table was
+    // generated without one; anything else here moves all 15,274 favor values in
+    // the M0 gate and it stops being evidence about the port rather than about
+    // the product's current opinion. Stated rather than left undefined so that
+    // reading this function tells you it was a decision.
+    pathwayPts: 0,
+    chmsPts: 0,
   };
 }
 
@@ -142,6 +184,8 @@ export function favorScore(view: ChurchView, ctx: EngineCtx): number {
     else if (s === "good2") n += w / 2;
   }
   n += stepsPts(view, M);
+  n += pathwayPts(view, M);
+  n += chmsPts(view, M);
   return n;
 }
 
@@ -166,7 +210,7 @@ export function favorCount(view: ChurchView, ctx: EngineCtx): number {
 
 /**
  * The TRUE ceiling — sets the histogram axis.
- * Reference model: 6.5. Shipped tuning: 9.
+ * Reference model: 6.5. Shipped tuning: 11.
  */
 export function favorMax(favor: FavorModel): number {
   return (
@@ -174,14 +218,21 @@ export function favorMax(favor: FavorModel): number {
     (+favor.loginPts || 0) +
     (+favor.websitePts || 0) +
     (+favor.appPts || 0) +
-    stepCatSum(favor)
+    stepCatSum(favor) +
+    (+(favor.pathwayPts ?? 0)) +
+    (+(favor.chmsPts ?? 0))
   );
 }
 
 /**
- * The reference denominator shown in the chip ("3.2 / 7.5") — the most a church
+ * The reference denominator shown in the chip ("3.2 / 9.5") — the most a church
  * can score WITHOUT the custom-website and app opportunities.
- * Reference model: 5. Shipped tuning: 7.5.
+ * Reference model: 5. Shipped tuning: 9.5.
+ *
+ * The discipleship point is IN here, unlike the website and app points, because
+ * this denominator excludes exactly the two OPPORTUNITY signals — the things a
+ * church earns by lacking something. A published pathway is not an opportunity;
+ * it is a church already doing the thing, so it belongs with staff and login.
  *
  * SO A CHURCH CAN LEGITIMATELY SCORE ABOVE ITS OWN DENOMINATOR. `8 / 7.5` is not
  * a bug; it is a church that also lacks a custom site and an app. Do not clamp
@@ -195,7 +246,11 @@ export function favorMax(favor: FavorModel): number {
 export function favorBase(favor: FavorModel): number {
   return Math.max(
     0.5,
-    staffMaxPts(favor) + (+favor.loginPts || 0) + stepCatSum(favor),
+    staffMaxPts(favor) +
+      (+favor.loginPts || 0) +
+      stepCatSum(favor) +
+      (+(favor.pathwayPts ?? 0)) +
+      (+(favor.chmsPts ?? 0)),
   );
 }
 
@@ -204,10 +259,43 @@ export function favFmt(x: number): string {
   return String(Math.round((+x || 0) * 100) / 100);
 }
 
-/** The histogram bucket a score falls in, clamped to the axis. */
-export function favorBucket(score: number, favor: FavorModel): number {
-  const max = Math.max(1, Math.ceil(favorMax(favor)));
-  return Math.min(max, Math.max(0, Math.round(score)));
+/**
+ * The histogram bucket a score falls in, clamped to the axis.
+ *
+ * FLOOR, NOT ROUND. A bar labelled 9 now means "scored at least 9", which is
+ * what a reader assumes a bucket labelled with a number means. Rounding put a
+ * church on 8.6 into the 9 bar, so the strongest bar included churches that had
+ * not reached it — and with the shipped tuning topping out at 9.5 it also
+ * created a 10 bar that only 9.5-scorers could ever occupy.
+ */
+export function favorBucket(score: number, axisMax: number): number {
+  return Math.min(Math.max(1, axisMax), Math.max(0, Math.floor(score)));
+}
+
+/**
+ * THE AXIS THE HISTOGRAM DRAWS — how high the DATA reaches, not how high the
+ * model could theoretically go.
+ *
+ * `favorMax` is the ceiling of the tuning: every knob at once, on a church that
+ * has everything. With the shipped weights that is 11, and no church comes near
+ * it — so the histogram drew empty bars at 10 and 11 forever, which reads as
+ * "there are leads up there we are not seeing" rather than "nobody scores that".
+ *
+ * So the axis is the best score any church ACTUALLY has, floored. Today that is
+ * 9.5 → 9. It is not a cap: raise a weight or publish a stronger church and the
+ * axis grows on its own, up to the model's real ceiling.
+ *
+ * COMPUTED OVER EVERY CHURCH, never the filtered set. The bars must not rescale
+ * while somebody is filtering — a histogram whose axis moves as you narrow makes
+ * filtering feel like the data is changing underneath you.
+ */
+export function favorAxisMax(views: readonly ChurchView[], ctx: EngineCtx): number {
+  let hi = 0;
+  for (const v of views) {
+    const s = favorScore(v, ctx);
+    if (s > hi) hi = s;
+  }
+  return Math.max(1, Math.min(Math.floor(hi), Math.ceil(favorMax(ctx.favor))));
 }
 
 /** The four questions the opportunity phrasing keys off. */

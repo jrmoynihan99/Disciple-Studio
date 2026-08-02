@@ -35,6 +35,8 @@ import {
   type ChurchView,
 } from "../adapt.ts";
 import { colorState } from "../color.ts";
+import { facetVal, optionState } from "../filter.ts";
+import { PATHWAY_STATE } from "../group-types.ts";
 import { favorBase, favorCount, favorMax, favorScore, referenceFavorModel } from "../favor.ts";
 import { stepsDisplayCount } from "../steps.ts";
 import { QMETA, type EngineCtx, type QuestionKey } from "../types.ts";
@@ -122,6 +124,46 @@ describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not pr
   const expected = (id: string, k: QuestionKey, view: ChurchView) =>
     DIVERGES[`${k}:${view.q(k)?.answer}`] ?? golden.churches[id].cells[k];
 
+  /**
+   * THE SECOND SANCTIONED DIVERGENCE — backends `core.js` had no name for.
+   *
+   * `VOCAB.BACKEND_NAME` carries 7 of the 19 values the corpus contains, and
+   * `platformLine` pushed nothing when it missed. 1,908 churches had a KNOWN
+   * backend that appeared nowhere in the product, which is indistinguishable
+   * from having detected none. `backend.ts` patches the 11 missing names in.
+   *
+   * So the reference line is still exactly right about everything it knew; it
+   * simply stops one name short. Rather than exempt those churches, the expected
+   * value is COMPUTED from the reference: the line is whatever core.js said,
+   * plus the name it could not say. A drift in any other direction still fails.
+   *
+   * The 11 keys are written out here as a literal and deliberately NOT imported
+   * from `BACKEND_NAME_PATCH` — the same reasoning as `DIVERGES` above. Importing
+   * would make this test assert that the code agrees with itself.
+   */
+  const NAMED_SINCE: Record<string, string> = {
+    rightnowmedia: "RightNow Media",
+    pushpay: "Pushpay",
+    givelify: "Givelify",
+    churchtrac: "ChurchTrac",
+    vanco: "Vanco",
+    ministrybrands: "Ministry Brands",
+    fellowshipone: "Fellowship One",
+    textinchurch: "Text In Church",
+    rockrms: "Rock RMS",
+    clearstream: "Clearstream",
+    faithlife: "Faithlife",
+  };
+
+  function expectedPlatformLine(id: string, reference: string): string {
+    const name = NAMED_SINCE[(byId.get(id)?.pf ?? "").toLowerCase()];
+    if (!name) return reference;
+    // `platformLine` dedupes: where the builder already reads "Ministry Brands"
+    // the backend is not appended a second time, so the reference is unchanged.
+    if (reference.toLowerCase().split(" · ").includes(name.toLowerCase())) return reference;
+    return reference === "no platform identified" ? name : `${reference} · ${name}`;
+  }
+
   function checkProjection(label: string, viewFor: (id: string) => ChurchView) {
     describe(label, () => {
       test("every cell matches", () => {
@@ -179,11 +221,11 @@ describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not pr
         assert.deepEqual(bad.slice(0, 25), [], `${bad.length} step counts wrong`);
       });
 
-      test("every platform line matches", () => {
+      test("every platform line matches, apart from the backends core.js could not name", () => {
         const bad: string[] = [];
         for (const id of ids) {
           const got = viewFor(id).platformLine;
-          const want = golden.churches[id].platformLine;
+          const want = expectedPlatformLine(id, golden.churches[id].platformLine);
           if (got !== want) bad.push(`${id}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
         }
         assert.deepEqual(bad.slice(0, 25), [], `${bad.length} platform lines wrong`);
@@ -372,6 +414,33 @@ describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not pr
     for (const state of ["has", "none", "unknown"]) {
       assert.ok(tally[state] > 0, `no church reads "${state}" — the three states have collapsed`);
     }
+  });
+
+  /**
+   * The facet must filter to exactly what the tile shows.
+   *
+   * A swatch that disagrees with the rows it filters to is the failure this
+   * whole block exists to prevent, and a facet is the one place a reader acts on
+   * the distinction rather than just reading it: picking "No pathway published"
+   * and receiving churches nobody checked is a worked list built on a claim we
+   * never made.
+   */
+  test("the discipleship facet filters to exactly the state it names", () => {
+    const bad: string[] = [];
+    const seen = new Set<string>();
+    for (const id of ids) {
+      const view = churchFromIndex(byId.get(id)!);
+      const val = facetVal("pathway", view);
+      seen.add(val);
+      if (val !== view.pathway) bad.push(`${id}: facet ${val} vs tile ${view.pathway}`);
+      // The swatch colour is the tile's colour, from one map.
+      const { state } = optionState("pathway", val, [view], ctx);
+      if (state !== PATHWAY_STATE[view.pathway]) {
+        bad.push(`${id}: swatch ${state} vs tile colour ${PATHWAY_STATE[view.pathway]}`);
+      }
+    }
+    assert.deepEqual(bad.slice(0, 10), [], `${bad.length} churches filter to the wrong state`);
+    assert.deepEqual([...seen].sort(), ["has", "none", "unknown"], "a facet value went missing");
   });
 
   /**
