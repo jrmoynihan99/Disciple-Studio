@@ -181,6 +181,32 @@ export function facetCounts(key: string, views: readonly ChurchView[]): Map<stri
 }
 
 /**
+ * Which options a facet should actually offer.
+ *
+ * AN OPTION THAT WOULD RETURN NOTHING IS NOT OFFERED. The value list is built
+ * from the whole corpus, so at 15,274 churches a facet like Language listed 32
+ * options of which most read `0` under any real filter — a wall of choices that
+ * all lead to an empty list.
+ *
+ * A SELECTED OPTION IS ALWAYS OFFERED, whatever its count, and that exception is
+ * the whole reason this is a function rather than a `.filter()` at the call site.
+ * A facet with a selection is counted against the set narrowed by the OTHER
+ * facets, so its own ticked option can legitimately reach 0 — tick Language `es`,
+ * then a country with no Spanish-speaking church. Dropping it would leave a
+ * filter that is active, invisible, and impossible to untick: the list stays
+ * empty and nothing on screen says which control emptied it.
+ *
+ * Order is preserved, because the caller sorted it for a reason.
+ */
+export function visibleFacetValues(
+  values: readonly string[],
+  counts: ReadonlyMap<string, number>,
+  selected: readonly string[],
+): string[] {
+  return values.filter((v) => (counts.get(v) ?? 0) > 0 || selected.includes(v));
+}
+
+/**
  * Everything except the histogram bucket.
  *
  * Facets are OR within a facet, AND across facets — which is what a person means

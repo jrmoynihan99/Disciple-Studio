@@ -30,9 +30,8 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 
-const FIXTURE =
-  process.env.LEADS_FIXTURE_DIR ?? resolve(ROOT, "lead-console-instructions/fixture");
-const SRC = resolve(FIXTURE, "vocab.json");
+const PACK = resolve(ROOT, process.env.LEADS_PACK_DIR ?? "data/leads/pack");
+const SRC = resolve(PACK, "dev/vocab.json");
 const OUT = resolve(ROOT, "lib/leads/engine/vocab.generated.ts");
 
 /** Every key the engine reads. A missing one is a hard error, never a default. */

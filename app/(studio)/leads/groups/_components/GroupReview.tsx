@@ -172,6 +172,14 @@ export function GroupReview({ id }: { id: string }) {
           {group.entries.length} church{group.entries.length === 1 ? "" : "es"}
           {edits > 0 && ` · ${edits} edit${edits === 1 ? "" : "s"}`}
           {removals > 0 && ` · ${removals} struck out`}
+          {/* THE COUNTERS HAVE TO ADD UP. The console's rail counts only churches
+              the current publish still carries, so a batch holding two churches
+              that have since left the dataset reads 0 there and N here. Without
+              this line the difference looks like one of them is broken; with it,
+              it is the same fact stated twice. The cards themselves already carry
+              the per-church banner. */}
+          {departed.size > 0 &&
+            ` · ${departed.size} no longer in the dataset (kept — this is the only copy)`}
           {status === "open" && (
             <>
               {" · "}

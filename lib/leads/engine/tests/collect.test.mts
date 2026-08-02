@@ -20,6 +20,7 @@ import { demoteCollected } from "../filter.ts";
 import { applyOp, membershipFrom, sanitizeOp } from "../group.ts";
 import {
   EMPTY_MEMBERSHIP,
+  collectingCount,
   earlierBatches,
   isCollecting,
   type ExportGroup,
@@ -223,5 +224,60 @@ describe("filters", () => {
     assert.equal(collected("a"), true, "filtering to collected must show today's work");
     assert.equal(collected("b"), true);
     assert.equal(collected("z"), false);
+  });
+});
+
+/**
+ * THE RAIL'S COUNTER AGAINST A CORPUS THAT MOVED.
+ *
+ * Batch membership is stored per user and outlives a republish, so a church
+ * collected against an earlier corpus keeps its entry after its `org_id` leaves
+ * the dataset. Counted naively the rail read "2 churches in this batch" while
+ * not one row rendered as collecting — a row can only exist for a church the
+ * publish still carries — and the deck's "already collected", which counts rows,
+ * read 0. Two honest numbers about two different sets is the worst kind of
+ * disagreement: neither looks wrong on its own, so nobody investigates.
+ */
+describe("the collecting counter, across a republish", () => {
+  const today = group("aug-2", "Aug 2", "open", ["a", "gone", "b"]);
+  const m = membershipFrom([today]);
+  /** The new publish dropped `gone`. */
+  const corpus = new Set(["a", "b", "c"]);
+  const present = (id: string) => corpus.has(id);
+
+  test("a church the publish no longer carries is not counted", () => {
+    assert.equal(collectingCount(m, present), 2);
+    assert.equal(collectingCount(m, () => true), 3, "the entry itself is still there");
+  });
+
+  test("the counter agrees with the rows that can actually render", () => {
+    const renderable = [...corpus].filter((id) => isCollecting(m, id));
+    assert.equal(collectingCount(m, present), renderable.length);
+  });
+
+  test("nothing is deleted — the departed entry survives for the review page", () => {
+    assert.equal(today.entries.length, 3);
+    assert.ok(today.entries.some((e) => e.orgId === "gone"));
+    assert.ok(isCollecting(m, "gone"), "membership still knows about it");
+  });
+
+  test("an entry in an EARLIER batch is never counted, present or not", () => {
+    const two = membershipFrom([
+      group("aug-2", "Aug 2", "open", ["a"]),
+      group("aug-1", "Aug 1", "exported", ["b", "gone"]),
+    ]);
+    assert.equal(collectingCount(two, present), 1);
+  });
+
+  test("no open batch means nothing is being collected", () => {
+    const closed = membershipFrom([group("aug-1", "Aug 1", "closed", ["a", "b"])]);
+    assert.equal(closed.openGroupId, null);
+    assert.equal(collectingCount(closed, present), 0);
+    assert.equal(collectingCount(EMPTY_MEMBERSHIP, present), 0);
+  });
+
+  test("every entry departing reads zero, not the stored count", () => {
+    const allGone = membershipFrom([group("aug-2", "Aug 2", "open", ["x", "y"])]);
+    assert.equal(collectingCount(allGone, present), 0);
   });
 });

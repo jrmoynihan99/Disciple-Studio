@@ -46,9 +46,27 @@ const ANSWER_LABEL_PATCH: Record<string, Record<string, string>> = {
   q5: { custom_candidate: "Possible custom login — unconfirmable" },
 };
 
+/**
+ * "NOT MEASURED" IS OUR VOCABULARY, NOT THE READER'S.
+ *
+ * Seven answers across q1, q3, q5, q6, q7, q8 and q9 read "Not measured", and it
+ * is the same fact q10 already states as "Unknown" — the difference is only that
+ * they were written by different hands. "Not measured" also invites the wrong
+ * next move: it sounds like a queue this church is waiting in, when for most of
+ * these the measurement was attempted and produced nothing.
+ *
+ * A RULE RATHER THAN SEVEN ENTRIES, deliberately. The table is generated from
+ * `vocab.json`, so seven overrides would need re-checking against every
+ * regeneration and would silently miss the eighth question that arrives wording
+ * itself the same way. This normalises whatever the table says, and the test in
+ * `text.test.mts` asserts no rendered label contains "measured" at all.
+ */
+const UNMEASURED_LABEL = /^\s*not measured\.?\s*$/i;
+
 /** Plain English for a raw answer enum. Anything unmapped falls back to the value. */
 export function answerLabel(k: QuestionKey | string, v: string): string {
-  return ANSWER_LABEL_PATCH[k]?.[v] ?? ANSWER_LABEL[k]?.[v] ?? v;
+  const label = ANSWER_LABEL_PATCH[k]?.[v] ?? ANSWER_LABEL[k]?.[v] ?? v;
+  return UNMEASURED_LABEL.test(label) ? "Unknown" : label;
 }
 
 /**
@@ -90,11 +108,57 @@ const DANGLING_XREF = /\s*See\s+Q\d+\s+for\s+details\.?\s*$/i;
  */
 const RETIRED_INSTRUCTION = /\s*[—–-]\s*needs? (?:a )?(?:render )?check.*$/i;
 
+/**
+ * THE FIFTH REPAIR — labels that say "we did not measure this", 1,955 churches.
+ *
+ * Three sentences in the corpus, all of them the same fact:
+ *
+ *   q7  "Not measured"                          101
+ *   q9  "Service times were not measured."    1,854
+ *   q12 "Not enough was measured to judge …"  1,916  (q12 renders nowhere)
+ *
+ * They are DROPPED rather than rewritten, and that is the whole trick: a card
+ * falls back to `answerLabel(k, answer)` when the record has no label of its own,
+ * and every one of these sits on an `unknown`/`unmeasured` answer whose table
+ * wording is now "Unknown". So the generic word arrives on its own and no new
+ * sentence is invented about a real church.
+ */
+const UNMEASURED_RECORD_LABEL =
+  /^\s*(?:not measured|(?:\w+\s+)*(?:was|were) not measured|not enough was measured\b.*)\.?\s*$/i;
+
+/**
+ * THE SIXTH REPAIR — a competitor's name in a slot that is not about them, 3,293
+ * churches.
+ *
+ * Every `q5: unknown` record carries, verbatim:
+ *
+ *   "The Church Center login module is not enabled for this church."
+ *
+ * Most of those churches are not Church Center churches at all — the pipeline's
+ * own q12 sub-signal says "not a Church Center church" for the majority of them.
+ * The sentence describes the state of ONE detector's probe, which is a fact about
+ * how we happened to look, not about the congregation; and it lands on the card
+ * whose generic wording is simply "Unknown". A salesperson reading it out loud
+ * would be telling a church something untrue about its own software.
+ *
+ * Same treatment, same reason: dropped, and the table's "Unknown" takes over.
+ *
+ * SCOPED TO THIS ONE SENTENCE. The `generic_cc` labels also name vendors —
+ * "Generic Realm login — not a custom portal" — and those stay, because there the
+ * vendor IS the finding and `q5.provider` carries the same value. This is the
+ * same line `COMPETITOR_ASIDE` draws for the evidence paragraph below; the repair
+ * was scoped to `evidence` when it was written, and never reached `label`.
+ */
+const DETECTOR_NOT_ENABLED = /^\s*The Church Center login module is not enabled for this church\.?\s*$/i;
+
 export function recordLabel(label: unknown): string {
-  return String(label ?? "")
+  const text = String(label ?? "")
     .replace(DANGLING_XREF, "")
     .replace(RETIRED_INSTRUCTION, "")
     .trim();
+  if (UNMEASURED_RECORD_LABEL.test(text)) return "";
+  if (DETECTOR_NOT_ENABLED.test(text)) return "";
+  return text;
 }
 
 /**

@@ -110,9 +110,30 @@ export function Rail({
   onFavorChange: (favor: EngineCtx["favor"] | null) => void;
 }) {
   const facets = buildFacets(views);
-  const countries = countryValues(views);
-  const subdivs = subdivValues(views, filters.country);
-  const networks = networkValues(views);
+
+  /**
+   * OFFER ONLY WHAT WOULD RETURN SOMETHING.
+   *
+   * These used to list every value in the corpus — 100+ countries, every network
+   * name — so most of what the dropdown offered led to an empty list under any
+   * real filter. Each is now derived from the set narrowed by every OTHER
+   * filter, with its own field lifted (`narrowedFor`, `LeadConsole.tsx`), which
+   * is the same rule the facet checkboxes follow.
+   *
+   * THE CURRENT VALUE IS ALWAYS PRESENT. A `<select>` whose selected option is
+   * missing renders blank while still filtering, which reads as a bug and cannot
+   * be undone from the control.
+   */
+  const withCurrent = (opts: string[], current: string) =>
+    current && !opts.includes(current) ? [...opts, current].sort() : opts;
+
+  const forCountry = narrowedFor.get("country") ?? narrowed;
+  const forSubdiv = narrowedFor.get("subdiv") ?? narrowed;
+  const forNetwork = narrowedFor.get("network") ?? narrowed;
+
+  const countries = withCurrent(countryValues(forCountry), filters.country);
+  const subdivs = withCurrent(subdivValues(forSubdiv, filters.country), filters.subdiv);
+  const networks = withCurrent(networkValues(forNetwork), filters.network);
 
   // Exported last — finished work stays reachable without competing with the
   // batch being built.

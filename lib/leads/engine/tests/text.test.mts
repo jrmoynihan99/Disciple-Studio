@@ -11,7 +11,9 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { decodeEntities } from "../text.ts";
-import { evidenceText, recordLabel } from "../labels.ts";
+import { answerLabel, evidenceText, recordLabel } from "../labels.ts";
+import { rollupWhy, STATE_PHRASE } from "../color.ts";
+import { VOCAB } from "../vocab.generated.ts";
 import { HAVE_FIXTURE, loadIndex, loadRecord } from "./fixture.mts";
 
 describe("decodeEntities", () => {
@@ -193,5 +195,135 @@ describe("evidenceText", () => {
     // `custom_candidate` records for the assertions above to mean anything, but
     // how many there are is a property of the publish and moves with every one.
     assert.ok(candidates > 0, "no custom_candidate records — the repair is unexercised");
+  });
+});
+
+/**
+ * "NOT MEASURED" AND THE COMPETITOR'S NAME.
+ *
+ * Two wordings a reader was never meant to see, both surviving because the
+ * repairs that would have caught them were aimed at the wrong layer.
+ *
+ * "Not measured" was seven entries in a GENERATED table, so nobody edited it —
+ * and it would have been re-generated back anyway.
+ *
+ * "The Church Center login module is not enabled for this church." is worse: it
+ * is not in the code at all. It is a per-church label the pipeline wrote, and a
+ * record's own label WINS over the table, so a fix to the table would have
+ * silently done nothing. 3,293 churches carry it, most of them not Church Center
+ * churches, which makes it a sentence about our detector's configuration
+ * printed as a finding about a congregation.
+ */
+describe("unknown, not unmeasured", () => {
+  const ANSWERS = VOCAB.ANSWER_LABEL as Record<string, Record<string, string>>;
+
+  test("no answer label anywhere says 'measured'", () => {
+    const bad: string[] = [];
+    for (const [k, answers] of Object.entries(ANSWERS)) {
+      for (const a of Object.keys(answers)) {
+        const label = answerLabel(k, a);
+        if (/measured/i.test(label)) bad.push(`${k}:${a} = ${label}`);
+      }
+    }
+    assert.deepEqual(bad, [], "an answer label still uses our word rather than the reader's");
+  });
+
+  test("the unmeasured answers all read exactly 'Unknown'", () => {
+    for (const [k, a] of [
+      ["q1", "unknown"],
+      ["q3", "unknown"],
+      ["q5", "unknown"],
+      ["q6", "unknown"],
+      ["q7", "unmeasured"],
+      ["q8", "unknown"],
+      ["q9", "unknown"],
+      ["q10", "unknown"],
+    ] as [string, string][]) {
+      assert.equal(answerLabel(k, a), "Unknown", `${k}:${a}`);
+    }
+  });
+
+  /**
+   * DROPPED, NOT REWRITTEN. Returning "" is what lets the card fall through to
+   * `answerLabel`, so the generic word arrives on its own and no new sentence is
+   * invented about a real church. A test that only checked "it no longer says
+   * measured" would pass on a label rewritten into a claim nobody made.
+   */
+  test("a record label that says we did not measure is dropped, not reworded", () => {
+    assert.equal(recordLabel("Not measured"), "");
+    assert.equal(recordLabel("Service times were not measured."), "");
+    assert.equal(recordLabel("Not enough was measured to judge technical capacity."), "");
+  });
+
+  test("the detector-configuration sentence is dropped", () => {
+    assert.equal(recordLabel("The Church Center login module is not enabled for this church."), "");
+  });
+
+  /**
+   * The blast radius, checked from the other side. Every one of these names a
+   * vendor, and every one of them is a finding about the church rather than
+   * about us — `q5.provider` carries the same value. A repair that swept them up
+   * would delete the substance of 1,096 cards.
+   */
+  test("labels that name the vendor a church actually runs are untouched", () => {
+    for (const label of [
+      "Generic Church Community Builder login — not a custom portal",
+      "Generic Church Center login — not a custom portal",
+      "Generic Realm login — not a custom portal",
+      "Generic Breeze login — not a custom portal",
+      "No login link on the homepage",
+      "Modern site",
+      "No matching app found",
+    ]) {
+      assert.equal(recordLabel(label), label);
+    }
+  });
+
+  test("the sub-signal explanation uses the same word as everything else", () => {
+    assert.equal(STATE_PHRASE.unk, "unknown");
+    const why = rollupWhy([
+      { label: "a", state: "good" },
+      { label: "b", state: "unk" },
+    ] as never);
+    assert.ok(!/measured/i.test(why), why);
+    assert.match(why, /unknown, not counted/);
+    assert.ok(!/measured/i.test(rollupWhy([{ label: "a", state: "unk" }] as never)));
+  });
+
+  /**
+   * THE WHOLE CORPUS, through the exact expression the dossier renders.
+   *
+   * The unit tests above pin the rules; this proves no church escapes them. It
+   * is the assertion that would have caught the original defect, because it does
+   * not care which layer the sentence came from.
+   */
+  test("no card in the corpus reads either wording", { skip: !HAVE_FIXTURE && "fixture not present" }, () => {
+    const CARDS = ["q4", "q5", "q6", "q7", "q8", "q9", "q10"];
+    const measured: string[] = [];
+    const detector: string[] = [];
+    let q5unknown = 0;
+
+    for (const row of loadIndex()) {
+      const rec = loadRecord(row.id) as unknown as Record<
+        string,
+        { label?: unknown; answer?: unknown } | undefined
+      >;
+      for (const k of CARDS) {
+        const shown = recordLabel(rec[k]?.label) || answerLabel(k, String(rec[k]?.answer ?? "unknown"));
+        if (/measured/i.test(shown)) measured.push(`${row.id} ${k}: ${shown}`);
+        if (/church center login module/i.test(shown)) detector.push(`${row.id} ${k}`);
+        if (k === "q5" && rec.q5?.answer === "unknown") {
+          q5unknown++;
+          assert.equal(shown, "Unknown", `${row.id} q5`);
+        }
+      }
+    }
+
+    assert.deepEqual(measured.slice(0, 10), [], `${measured.length} cards still say "measured"`);
+    assert.deepEqual(detector.slice(0, 10), [], `${detector.length} cards still name the detector`);
+    // A floor, not the measured 3,293: the repair has to keep meeting real
+    // records for the assertion above to mean anything, and the count moves with
+    // every publish.
+    assert.ok(q5unknown > 0, "no q5 unknown records — the repair is unexercised");
   });
 });

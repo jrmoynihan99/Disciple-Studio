@@ -309,10 +309,16 @@ export function Dossier({
                 no website URL on this record
               </p>
             )}
+            {/* NAMED FROM THE URL, not hard-coded. This read "church center ↗"
+                for every church carrying a `church_url`, which is a claim about
+                which vendor the link goes to — and the field holds whatever
+                secondary portal the scrape found. Where it genuinely is Church
+                Center the host says so; where it is not, the label no longer
+                tells the reader something untrue about this church. */}
             {record.church_url && (
               <div className="mt-1.5 text-right font-mono text-[10.5px]">
                 <SafeLink href={record.church_url} className="text-lead-link hover:underline">
-                  church center ↗
+                  {hostOf(record.church_url) || "member portal"} ↗
                 </SafeLink>
               </div>
             )}

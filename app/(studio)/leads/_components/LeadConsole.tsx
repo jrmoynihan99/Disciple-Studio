@@ -15,7 +15,11 @@ import { useDataset } from "@/lib/leads/client/useDataset";
 import { useLeadState } from "@/lib/leads/client/useLeadState";
 import { isDownloaded, isMarked, rowTint, type MarkKind } from "@/lib/leads/client/state";
 import { useGroupList, useMembership } from "@/lib/leads/client/useGroups";
-import { earlierBatches, isCollecting } from "@/lib/leads/engine/group-types";
+import {
+  collectingCount as countCollecting,
+  earlierBatches,
+  isCollecting,
+} from "@/lib/leads/engine/group-types";
 import { Rail } from "./rail/Rail";
 import { Deck } from "./deck/Deck";
 import { LeadRow } from "./list/LeadRow";
@@ -66,12 +70,6 @@ export function LeadConsole() {
     () => groupList.groups.find((g) => g.id === membership.openGroupId) ?? null,
     [groupList.groups, membership.openGroupId],
   );
-  /** Counted from membership, not the summary, so it moves the instant you click. */
-  const collectingCount = useMemo(
-    () => Object.keys(membership.byOrg).filter((id) => isCollecting(membership, id)).length,
-    [membership],
-  );
-
   /**
    * Publish the header's height as `--lead-header-h`.
    *
@@ -119,6 +117,28 @@ export function LeadConsole() {
 
   const views = useMemo(() => rows.map(churchFromIndex), [rows]);
   const rowById = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
+
+  /**
+   * Counted from membership, not the summary, so it moves the instant you click
+   * — and INTERSECTED WITH THE CURRENT PUBLISH, so it counts only churches this
+   * console can actually show.
+   *
+   * Without the intersection the rail counted stored batch entries outright, so
+   * churches collected against an earlier corpus kept being counted after their
+   * `org_id` left it: the rail said "2 churches in this batch" while not one row
+   * rendered as collecting and the deck's own "already collected" said 0. Both
+   * numbers were honest about different sets, which is the worst kind of
+   * disagreement — neither looks wrong on its own.
+   *
+   * NOTHING IS DELETED HERE. A batch entry holds a frozen snapshot the review
+   * page calls "the only copy we hold" for a church that has left the dataset,
+   * and it still shows them, still flagged. This is a counter agreeing with the
+   * list beside it, not a prune.
+   */
+  const collectingCount = useMemo(
+    () => countCollecting(membership, (id) => rowById.has(id)),
+    [membership, rowById],
+  );
 
   const ctx: EngineCtx = useMemo(
     () => ({
@@ -175,6 +195,27 @@ export function LeadConsole() {
         key,
         baseFiltered(views, { ...filters, q: deferredQ, qsel: without }, ctx, isMarkedFor),
       );
+    }
+
+    /**
+     * The region cascade needs the same treatment, for the same reason.
+     *
+     * Now that an option offering nothing is hidden, a `<select>` counted
+     * against its own choice would collapse to the one country already picked —
+     * every other country reads 0 by construction. So each of the three gets the
+     * corpus with ITS OWN field lifted and every other filter still applied.
+     *
+     * `subdiv` rides along with `country`: it is scoped to the chosen country,
+     * so lifting the country as well would offer subdivisions from everywhere.
+     */
+    for (const key of ["country", "subdiv", "network"] as const) {
+      if (!filters[key]) continue;
+      const without = { ...filters, q: deferredQ, [key]: "" };
+      // Choosing a country resets the subdivision anyway; lifting the country
+      // without lifting the subdivision would filter to a subdivision that
+      // belongs to a country nobody selected.
+      if (key === "country") without.subdiv = "";
+      out.set(key, baseFiltered(views, without, ctx, isMarkedFor));
     }
     return out;
   }, [views, filters, deferredQ, ctx, isMarkedFor]);

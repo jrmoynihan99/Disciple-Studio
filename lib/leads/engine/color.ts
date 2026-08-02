@@ -28,8 +28,19 @@ const COLOR_DEFAULTS = VOCAB.COLOR_DEFAULTS as Record<
   Record<string, VerdictState> | null
 >;
 
-/** Plain-English phrase per state, so a multi-factor rating is never a black box. */
-export const STATE_PHRASE = VOCAB.STATE_PHRASE as Record<VerdictState, string>;
+/**
+ * Plain-English phrase per state, so a multi-factor rating is never a black box.
+ *
+ * ONE OVERRIDE: `unk` reads "unknown", not "unmeasured". Every other surface says
+ * "Unknown" for this state — the legend, the login tile, the answer labels — and
+ * a sub-signal explanation that reaches for a different word makes a reader
+ * wonder which of the two they are looking at. Patched here rather than in
+ * `vocab.generated.ts`, which must stay a faithful transcription of `core.js`.
+ */
+export const STATE_PHRASE: Record<VerdictState, string> = {
+  ...(VOCAB.STATE_PHRASE as Record<VerdictState, string>),
+  unk: "unknown",
+};
 
 function ruleState(k: string, a: string): VerdictState | null {
   const r = COLOR_DEFAULTS[k];
@@ -100,14 +111,14 @@ export function rollupWhy(subs: SubSignal[] | null | undefined): string {
   const all = subs ?? [];
   const known = all.filter((x) => x.state && x.state !== "unk");
   const nUnk = all.length - known.length;
-  const tail = nUnk ? ` (${nUnk} sub-signal${nUnk > 1 ? "s" : ""} unmeasured, not counted)` : "";
-  if (!known.length) return "grey — every sub-signal is unmeasured";
+  const tail = nUnk ? ` (${nUnk} sub-signal${nUnk > 1 ? "s" : ""} unknown, not counted)` : "";
+  if (!known.length) return "grey — every sub-signal is unknown";
   const col = rollup(all);
   const parts = known.map((x) => `${x.label} is ${STATE_PHRASE[x.state as VerdictState]}`);
   if (col === "warn" && !known.every((x) => x.state === known[0].state))
     return `${STATE_PHRASE[col]} — the sub-signals disagree: ${parts.join("; ")}${tail}`;
   return `${STATE_PHRASE[col]} — ${
-    known.length > 1 ? "all measured sub-signals agree" : "the one measured sub-signal says"
+    known.length > 1 ? "all known sub-signals agree" : "the one known sub-signal says"
   }: ${parts.join("; ")}${tail}`;
 }
 

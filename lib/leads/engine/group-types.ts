@@ -453,6 +453,30 @@ export function isCollecting(m: Membership, orgId: string): boolean {
 }
 
 /**
+ * How many churches the open batch is collecting THAT THIS CONSOLE CAN SHOW.
+ *
+ * The rail used to count `byOrg` outright, and the two numbers on screen then
+ * disagreed by construction: batch membership is stored per user and outlives a
+ * republish, so a church collected against an earlier corpus keeps its entry
+ * after its `org_id` leaves the dataset. The rail said "2 churches in this
+ * batch", not one row rendered as collecting — a row can only render for a
+ * church the publish still carries — and the deck's own "already collected",
+ * which counts rows, said 0. Both were honest about different sets, which is the
+ * worst kind of disagreement: neither number looks wrong on its own.
+ *
+ * NOTHING IS DELETED. The entry keeps its frozen snapshot, the review page keeps
+ * showing it, and `departedEntries` keeps flagging it there — this is a counter
+ * agreeing with the list beside it, not a prune.
+ */
+export function collectingCount(m: Membership, present: (orgId: string) => boolean): number {
+  let n = 0;
+  for (const orgId of Object.keys(m.byOrg)) {
+    if (present(orgId) && isCollecting(m, orgId)) n++;
+  }
+  return n;
+}
+
+/**
  * Batches this church is in OTHER than the open one.
  *
  * The distinction is load-bearing: a church in the open batch is today's work

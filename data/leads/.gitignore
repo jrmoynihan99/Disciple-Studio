@@ -1,0 +1,15 @@
+# DENY BY DEFAULT.
+#
+# The root .gitignore already names `incoming/` and `pack/`, but this directory is
+# where the corpus lands, and the corpus is real contact data for 15,274 real
+# congregations in a PUBLIC repository. A deny-list only protects against the
+# folder names someone thought of; this allow-list protects against the ones they
+# did not. Anything dropped here is invisible to git unless it is listed below.
+#
+# Before adding a line here, be certain the file carries no church names, emails,
+# phone numbers, addresses or org_ids.
+*
+!.gitignore
+!README.md
+!published.json
+!index.schema.json

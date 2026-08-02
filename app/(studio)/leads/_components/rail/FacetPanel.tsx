@@ -5,7 +5,7 @@ import type { ChurchView } from "@/lib/leads/engine/adapt";
 import type { EngineCtx, VerdictState } from "@/lib/leads/engine/types";
 import { VALID_STATES } from "@/lib/leads/engine/types";
 import { answerLabel, VERDICT_WORD } from "@/lib/leads/engine/labels";
-import { facetCounts, optionState } from "@/lib/leads/engine/filter";
+import { facetCounts, optionState, visibleFacetValues } from "@/lib/leads/engine/filter";
 import { fillClass } from "../verdict";
 import { Chevron } from "../Chevron";
 import { facetValues, facetValueLabel, type FacetDef } from "./facets";
@@ -46,6 +46,14 @@ export function FacetPanel({
   const counts = facetCounts(facet.key, views);
   const active = selected.length > 0;
 
+  // Zero-count options are dropped, and a SELECTED one never is — the rule and
+  // the reason live in `visibleFacetValues`, where a test can reach them.
+  const shown = visibleFacetValues(values, counts, selected);
+
+  // Deliberately `values`, not `shown`. A facet whose options are all empty
+  // right now still belongs in the rail — collapsed, reading "any" — because it
+  // comes back the moment the reader loosens something else. Only a facet the
+  // corpus has no values for at all is dropped.
   if (!values.length) return null;
 
   return (
@@ -70,7 +78,12 @@ export function FacetPanel({
 
       {open && (
         <div className="max-h-64 overflow-y-auto px-1.5 pb-2">
-          {values.map((v) => {
+          {!shown.length && (
+            <p className="p-1 font-mono text-[10.5px] text-lead-ink2">
+              nothing here matches the other filters
+            </p>
+          )}
+          {shown.map((v) => {
             const { state, mixed } = optionState(facet.key, v, allViews, ctx);
             const on = selected.includes(v);
             // `facetValueLabel` owns the per-facet wording; a fact with no
