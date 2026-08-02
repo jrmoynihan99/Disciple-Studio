@@ -3,9 +3,8 @@
 /**
  * The state layer.
  *
- * ONE interface, two backends: `localStorage` today, Vercel Blob later, with no
- * component change. Everything a component touches goes through `getState()` /
- * `mutate()`.
+ * ONE interface, two backends: `localStorage` today, R2 later, with no component
+ * change. Everything a component touches goes through `getState()` / `mutate()`.
  *
  * MARKS ARE MONOTONIC AND NOTHING IS EVER DELETED ON EXPORT. That is the whole
  * trick, and it is what removes the need for a transaction on a store with no

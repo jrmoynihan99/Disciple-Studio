@@ -1,37 +1,32 @@
 /**
- * Server-side read of the per-device id minted by `proxy.ts`.
+ * Which workspace a route is reading and writing. There is exactly one.
  *
- * Route handlers call this to decide WHICH per-user blob they are allowed to
- * write. It reads the signed cookie and nothing else — never a body field, never
- * a header the client controls. That is the whole point: "every mutable blob has
- * exactly one logical writer" is only an invariant if the writer's identity
- * cannot be chosen by the caller.
+ * Both functions return the same constant and neither can fail. They keep their
+ * async, nullable shapes so the five `/api/leads/groups/**` handlers are
+ * unchanged, and so that introducing real accounts later is an edit to this file
+ * rather than to every route.
+ *
+ * See `lib/leads/identity.ts` for why the per-device cookie this used to read is
+ * gone, and what that costs.
  */
 
-import { cookies } from "next/headers";
-import { USER_COOKIE, identitySecret, verifyUserToken } from "@/lib/leads/identity";
+import { WORKSPACE_ID } from "@/lib/leads/identity";
 
-/** The verified id, or null. Callers that need one should 401 on null. */
+/** Never null in this build. Kept nullable-shaped because callers branch on it,
+ *  and a real account system will need that branch back. */
 export async function getUserId(): Promise<string | null> {
-  const secret = identitySecret();
-  if (!secret) return null;
-
-  const store = await cookies();
-  return verifyUserToken(store.get(USER_COOKIE)?.value, secret);
+  return WORKSPACE_ID;
 }
 
 /**
- * `getUserId()` or a thrown 401 Response, for routes that cannot proceed without
- * an identity. Reaching this on a gated path means the proxy ran and the cookie
- * was stripped or the secret rotated mid-session — rare, but a silent fallback
- * to a shared id would quietly merge two people's marks.
+ * The workspace id.
+ *
+ * This used to be able to 401 — "No identity cookie. Reload to obtain one." —
+ * when a cookie was stripped or the signing secret rotated mid-session. With
+ * nothing to verify there is nothing to fail, so that failure mode is gone rather
+ * than handled. Whether a request may touch this state at all is decided upstream
+ * by `proxy.ts`, which is the only thing that ever really decided it.
  */
 export async function requireUserId(): Promise<string> {
-  const id = await getUserId();
-  if (!id) {
-    throw new Response("No identity cookie. Reload to obtain one.", {
-      status: 401,
-    });
-  }
-  return id;
+  return WORKSPACE_ID;
 }

@@ -19,7 +19,6 @@ import {
   cardFlags,
   departedEntries,
   exportableItems,
-  fresherGroup,
   isSafeGroupId,
   makeExportGroupId,
   resolve,
@@ -482,50 +481,9 @@ describe("review flags", { skip }, () => {
   });
 });
 
-/**
- * The storage lag guard.
- *
- * Vercel Blob returns the PREVIOUS contents of a key for roughly ten seconds
- * after an overwrite — measured, and not preventable from the client side. An
- * autosaving editor folds each flush into whatever it reads, so without this
- * rule two saves a second apart both read the same old group and the second one
- * silently throws away the first. The bug leaves no trace on screen: the edit
- * appears, is acknowledged, and is gone on reload.
- */
-describe("preferring the copy we wrote while the store is behind", { skip }, () => {
-  const g = (rev: number): ExportGroup => ({ ...group1([]), rev });
-
-  test("a stale read loses to what we just wrote", () => {
-    const out = fresherGroup(g(1), { group: g(2), at: 1_000 }, 1_500, 120_000);
-    assert.equal(out.group?.rev, 2, "the older stored copy won — an edit is now lost");
-    assert.equal(out.expired, false);
-  });
-
-  test("a genuinely newer stored copy wins — this is not a write-back cache", () => {
-    // Another writer got there. Ours is only ever a patch over OUR OWN lag.
-    assert.equal(fresherGroup(g(5), { group: g(2), at: 1_000 }, 1_500, 120_000).group?.rev, 5);
-    assert.equal(fresherGroup(g(2), { group: g(2), at: 1_000 }, 1_500, 120_000).group?.rev, 2);
-  });
-
-  test("the remembered copy expires, and says so, so it can be dropped", () => {
-    const out = fresherGroup(g(1), { group: g(2), at: 0 }, 200_000, 120_000);
-    assert.equal(out.group?.rev, 1);
-    assert.equal(out.expired, true);
-  });
-
-  test("with nothing remembered, the store is the truth", () => {
-    assert.equal(fresherGroup(g(3), undefined, 1_000, 120_000).group?.rev, 3);
-    assert.equal(fresherGroup(null, undefined, 1_000, 120_000).group, null);
-  });
-
-  test("a write the store has not admitted to yet is still served", () => {
-    assert.equal(fresherGroup(null, { group: g(1), at: 1_000 }, 1_100, 120_000).group?.rev, 1);
-  });
-});
-
 describe("untrusted input", () => {
   /**
-   * The group id becomes part of a Vercel Blob key. `identity.ts` refuses a
+   * The group id becomes part of an R2 object key. `groups.ts` refuses a
    * correctly-signed `../../team/config` for exactly this reason, and there is a
    * test asserting it; this is the same rule one layer out.
    */

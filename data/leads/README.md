@@ -41,7 +41,7 @@ R2's public access is a **per-bucket** setting.
 
 | bucket | holds | public? |
 |---|---|---|
-| `R2_BUCKET_DATA` | `<publish_id>/index.json.gz`, `<publish_id>/records/<xx>.ndjson.gz` | **never** — names, emails, phone numbers |
+| `R2_BUCKET_DATA` | `<publish_id>/index.json.gz`, `<publish_id>/records/<xx>.ndjson.gz`, and `state/` (below) | **never** — names, emails, phone numbers |
 | `R2_BUCKET_LOGOS` | `logos-thumb/<sha256>.webp` | may go behind a CDN — sha-named images identify nothing alone |
 
 One bucket would mean that putting the logos on a CDN — the only reason to want
@@ -52,6 +52,32 @@ logos bucket.
 **Logos are not keyed by publish.** The filename *is* the sha256, so identical
 bytes are the same key forever: a republish uploads ~257 objects instead of
 14,511, and a CDN URL stays valid across publishes.
+
+### `state/` — the mutable half of the data bucket
+
+```
+state/leads/groups/<workspaceId>/<batchId>.json    an export batch
+state/leads/groups/<workspaceId>/index.json        summaries, for the picker
+```
+
+Export batches used to live on Vercel Blob and moved here for the same reason the
+corpus did — not size, **shape**. This is the app's busiest storage: a `list()` on
+a cold page load and two writes per 1.5-second autosave, which spends a 2,000
+operation monthly budget in a few review sessions.
+
+`<workspaceId>` is the constant in [`lib/leads/identity.ts`](../../lib/leads/identity.ts).
+**There is one workspace**: everyone who signs in with `STUDIO_PASSWORD` sees the
+same batches, the way one account shares one document. The path segment stays so
+that adding real accounts later changes a function rather than a layout.
+
+Two things this prefix must keep being true:
+
+- **It is in the never-public bucket.** Batches carry frozen church snapshots —
+  names, emails, phone numbers. If `R2_BUCKET_DATA` were ever made public, these
+  go with it.
+- **`leads:publish` cannot touch it.** The publisher lists and writes by
+  `<publish_id>/`, so `state/` is invisible to it. Keep it that way: a publish
+  that could sweep this prefix would delete work.
 
 ## Layout
 
@@ -160,9 +186,9 @@ Production needs:
 |---|---|
 | `STUDIO_USER` | defaults to `admin` |
 | `STUDIO_PASSWORD` | `proxy.ts` fails closed — every gated route 401s |
-| `LEADS_ID_SECRET` | **set it explicitly.** `identity.ts` falls back to `STUDIO_PASSWORD`, so user ids derive from the password — rotate it and every user's batches are orphaned |
+| `R2_*` (below) | also where **export batches** live now, under `state/` in the data bucket |
 | `R2_ACCOUNT_ID`, `R2_BUCKET_DATA`, `R2_BUCKET_LOGOS`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | no dataset. The preflight names whichever one is missing |
-| `BLOB_READ_WRITE_TOKEN` | no demo generation and no export batches (still Vercel Blob) |
+| `BLOB_READ_WRITE_TOKEN` | no demo generation. **Demos only** — export batches moved to R2 and no longer need this |
 
 Locally none of the R2 variables are needed to *read* the corpus: with a `pack/`
 on disk the app reads it from there. They are needed to publish. Set

@@ -1,13 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import {
-  USER_COOKIE,
-  USER_COOKIE_MAX_AGE,
-  identitySecret,
-  mintUserId,
-  signUserId,
-  verifyUserToken,
-} from "@/lib/leads/identity";
 
 /**
  * HTTP Basic Auth gate for the demo studio.
@@ -22,9 +14,11 @@ import {
  * STUDIO_USER. If STUDIO_PASSWORD is unset we fail closed (always 401) so the
  * tooling can never be exposed by a missing env var.
  *
- * On success we also ensure a signed, opaque per-device id cookie exists. See
- * `lib/leads/identity.ts` for what that is and — more importantly — what it is
- * not. Every other gated route ignores it; an extra Set-Cookie is harmless.
+ * THIS IS THE ONLY THING DECIDING ACCESS. It used to also mint a signed
+ * per-device id cookie for the Lead Console, so that each browser wrote its own
+ * batches. The console is now a single shared workspace — one login, one set of
+ * batches — so there is no per-device id to mint and nothing to sign. See
+ * `lib/leads/identity.ts` for why, and what it costs.
  */
 
 const EXPECTED_USER = process.env.STUDIO_USER ?? "admin";
@@ -35,29 +29,6 @@ function unauthorized() {
     headers: {
       "WWW-Authenticate": 'Basic realm="Disciple Studio", charset="UTF-8"',
     },
-  });
-}
-
-/**
- * Mint the per-device id if the request doesn't already carry a valid one.
- *
- * Re-signs nothing: a cookie that verifies is left completely alone, so the id
- * is stable for the life of the cookie and the Set-Cookie header only appears on
- * a first visit (or after a secret rotation).
- */
-function ensureUserId(req: NextRequest, res: NextResponse) {
-  const secret = identitySecret();
-  if (!secret) return;
-
-  const existing = verifyUserToken(req.cookies.get(USER_COOKIE)?.value, secret);
-  if (existing) return;
-
-  res.cookies.set(USER_COOKIE, signUserId(mintUserId(), secret), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: USER_COOKIE_MAX_AGE,
   });
 }
 
@@ -72,11 +43,7 @@ export function proxy(req: NextRequest) {
       const idx = decoded.indexOf(":");
       const user = decoded.slice(0, idx);
       const pass = decoded.slice(idx + 1);
-      if (user === EXPECTED_USER && pass === expectedPassword) {
-        const res = NextResponse.next();
-        ensureUserId(req, res);
-        return res;
-      }
+      if (user === EXPECTED_USER && pass === expectedPassword) return NextResponse.next();
     } catch {
       /* malformed header → fall through to 401 */
     }

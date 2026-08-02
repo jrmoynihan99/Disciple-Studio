@@ -24,7 +24,7 @@ export const GROUP_SCHEMA_VERSION = 1;
  * ------------------------------------------------------------------ */
 
 /**
- * A group id is echoed into a Vercel Blob KEY (`leads/groups/<uid>/<id>.json`),
+ * A group id is echoed into an R2 KEY (`state/leads/groups/<uid>/<id>.json`),
  * so it is checked against a fixed alphabet before a pathname is ever built —
  * the same rule `identity.ts` applies to user ids and `fixture.ts` applies to
  * `org_id`, for the same reason. No dots, so `..` cannot be spelled.

@@ -124,12 +124,35 @@ export async function r2Put(
   cacheControl = "no-store",
 ): Promise<void> {
   const { r2, base } = r2Client();
+
+  /**
+   * BUFFER AND AN EXPLICIT LENGTH, BOTH DELIBERATE — this failed in production
+   * shape before it was fixed, with `411 MissingContentLength`.
+   *
+   * S3 requires `Content-Length` on a PUT; it does not accept chunked transfer
+   * encoding. aws4fetch wraps the request in a `Request` before signing it, and a
+   * `Request` body is a `ReadableStream` — so undici sends it chunked with no
+   * length, and R2 rejects it. Inferring the length from the fetch layer is not
+   * something to rely on.
+   *
+   * The string is encoded to a Buffer first so the length is UTF-8 BYTES rather
+   * than UTF-16 code units. A church name with an accent or an emoji in it makes
+   * those two numbers differ, and a Content-Length shorter than the body is a
+   * truncated object — a batch that looks saved and is not, which is the worst
+   * outcome this system has.
+   */
+  const bytes = typeof body === "string" ? Buffer.from(body, "utf8") : body;
+
   const res = await r2.fetch(`${base}/${bucket}/${key}`, {
     method: "PUT",
     // `Buffer` is an `ArrayBufferView` and a perfectly good fetch body at
     // runtime; the DOM's `BodyInit` union just does not name it.
-    body: body as BodyInit,
-    headers: { "Content-Type": contentType, "Cache-Control": cacheControl },
+    body: bytes as unknown as BodyInit,
+    headers: {
+      "Content-Type": contentType,
+      "Cache-Control": cacheControl,
+      "Content-Length": String(bytes.byteLength),
+    },
   });
   if (!res.ok) {
     throw new Error(`R2 ${res.status} writing ${bucket}/${key}: ${(await res.text()).slice(0, 200)}`);

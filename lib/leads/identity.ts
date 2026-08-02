@@ -1,85 +1,54 @@
 /**
- * Opaque per-device identity for the Lead Console.
+ * WHO IS WRITING: one workspace, shared by everyone who knows the password.
  *
- * The studio's only auth is one shared HTTP Basic password (see `proxy.ts`), so
- * there is no per-person identity to hang shared state off. The Lead Console's
- * state model needs one: every mutable blob has exactly ONE logical writer,
- * chosen by putting the writer's identity in the key, and that is what removes
- * the need for transactions on a store with no compare-and-swap.
+ * The studio's only auth is a single HTTP Basic login (see `proxy.ts`). Two
+ * people use it the way two people use one Google account on one Google Doc —
+ * one at a time, no per-person accounts, no per-person state — so the console has
+ * exactly ONE workspace and every batch belongs to it.
  *
- * So on successful Basic auth the proxy mints a signed, opaque id and sets it as
- * an HttpOnly cookie. Signed rather than raw because the SERVER reads it to
- * decide which blob to write — an unsigned client-supplied id would let one
- * browser write another's state, which turns "one writer per blob" from an
- * invariant into a convention.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT THIS REPLACED, AND WHY IT WAS WRONG FOR THIS PRODUCT
  *
- * BE HONEST ABOUT WHAT THIS IS: it identifies a DEVICE, not a person. One person
- * on two machines is two users. That is harmless for marks (they fold with
- * `max()` across users) and only cosmetically wrong in export attribution.
- * Because the id is opaque, swapping in real accounts later is a login page plus
- * a different `getUserId()` — the blob layout does not change.
+ * This module used to mint `u_` + eight random bytes per BROWSER on successful
+ * auth, sign it, and set it as an HttpOnly cookie — a per-device identity, so
+ * that "every mutable object has exactly one logical writer" could be enforced by
+ * putting the writer in the storage key. That is a sound design for a store with
+ * no compare-and-swap, and it is the wrong shape for this product:
  *
- * Sign and verify live in ONE module on purpose. The last time this codebase
- * kept two copies of a table that had to agree, they drifted (see
- * `02-COLOR-AND-HONESTY.md` invariant 8); two copies of an HMAC would drift the
- * same way, and the symptom — every cookie silently rejected, a fresh id minted
- * on every request, one user's marks scattered across dozens of blobs — would
- * look like anything but a signing bug.
+ *  · TWO PEOPLE SHARING ONE PASSWORD GOT TWO DISJOINT WORKSPACES. They could not
+ *    see each other's batches — the one thing a shared login is supposed to buy.
+ *  · SO DID ONE PERSON ON TWO MACHINES. Laptop and desktop were two users.
+ *  · CLEARING COOKIES SILENTLY ORPHANED EVERYTHING. The batches were not deleted;
+ *    they stayed under an id nothing would ever mint again and simply stopped
+ *    appearing. An empty picker is a much worse symptom than an error.
+ *  · ROTATING THE PASSWORD DID THE SAME THING TO EVERYONE AT ONCE, because the
+ *    signing secret fell back to `STUDIO_PASSWORD`.
+ *
+ * A constant id has none of those failure modes and needs no cookie, no HMAC and
+ * no secret: the id is not a credential, and it never was. Basic auth is what
+ * decides whether a request may touch state; this only decides which key that
+ * state lives under. There is nothing for a client to forge, because there is
+ * nothing a client can say that would change the answer.
+ *
+ * WHAT IT COSTS, PLAINLY: the single-writer guarantee is gone. Two browsers can
+ * now write the same batch. Different batches are still perfectly safe — separate
+ * keys — but simultaneous edits to the SAME batch are last-write-wins, and the
+ * loser's changes to it are lost. That is the accepted trade for a shared
+ * workspace, and it is why `openGroup` keeps its find-or-create comment about
+ * racing clicks. If overlap ever turns out to happen in practice, R2 supports
+ * conditional writes (`If-Match` on an ETag), which the previous store did not —
+ * a stale write could be rejected and retried rather than silently winning.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * KEEPING THE ID IN THE KEY, rather than dropping the segment. Real accounts
+ * later are then a login page and a different `getUserId()`, with the stored
+ * layout unchanged — which is the same promise the per-device version made, and
+ * the only part of it worth keeping.
+ *
+ * The literal must satisfy `SAFE_USER_ID` in `lib/leads/server/groups.ts`
+ * (`/^u_[0-9a-f]{16}$/`), because it still becomes a storage path segment and
+ * that check still runs.
  */
 
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-
-export const USER_COOKIE = "ds_uid";
-
-/** 400 days: the longest a browser will honour, so a returning rep keeps their marks. */
-export const USER_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
-
-/**
- * Falls back to STUDIO_PASSWORD so this works with no new env var. Set
- * LEADS_ID_SECRET to decouple the two.
- *
- * ROTATING EITHER INVALIDATES EVERY ID. Existing per-user state is orphaned, not
- * lost — it stays in its old blob and stops being read. Rotate deliberately.
- */
-export function identitySecret(): string | null {
-  return process.env.LEADS_ID_SECRET ?? process.env.STUDIO_PASSWORD ?? null;
-}
-
-/** `u_` + 16 hex. Opaque, never an email — emails change, keys shouldn't. */
-export function mintUserId(): string {
-  return `u_${randomBytes(8).toString("hex")}`;
-}
-
-function sign(id: string, secret: string): string {
-  return createHmac("sha256", secret).update(id).digest("base64url");
-}
-
-/** The cookie value: `<id>.<sig>`. */
-export function signUserId(id: string, secret: string): string {
-  return `${id}.${sign(id, secret)}`;
-}
-
-/**
- * Returns the id, or null if the token is malformed or the signature does not
- * verify. Never throws — a hostile cookie is a routine input here, not an error.
- */
-export function verifyUserToken(
-  token: string | undefined | null,
-  secret: string,
-): string | null {
-  if (!token) return null;
-  const dot = token.lastIndexOf(".");
-  if (dot <= 0) return null;
-
-  const id = token.slice(0, dot);
-  const sig = token.slice(dot + 1);
-  // Reject before hashing: the id is echoed into blob KEYS, so anything that is
-  // not our own alphabet must never reach the storage layer, signature or not.
-  if (!/^u_[0-9a-f]{16}$/.test(id)) return null;
-
-  const expected = Buffer.from(sign(id, secret));
-  const actual = Buffer.from(sig);
-  // timingSafeEqual throws on a length mismatch, so check that first.
-  if (expected.length !== actual.length) return null;
-  return timingSafeEqual(expected, actual) ? id : null;
-}
+/** The one workspace. Not a secret, not a credential — a storage path segment. */
+export const WORKSPACE_ID = "u_0000000000000000";

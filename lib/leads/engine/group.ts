@@ -612,43 +612,6 @@ export function membershipFrom(groups: readonly ExportGroup[]): Membership {
 }
 
 /* ------------------------------------------------------------------ *
- * Storage lag
- * ------------------------------------------------------------------ */
-
-/**
- * Which copy of a group to trust when the store may be behind what we wrote.
- *
- * MEASURED, NOT THEORETICAL: writing a group to Vercel Blob and reading it back
- * returns the PREVIOUS contents for about ten seconds. Five overwrites 300ms
- * apart all read back as the first. `cacheControlMaxAge: 0` does not prevent it
- * and neither does a `cache-control: no-cache` request header.
- *
- * That is a data-loss path through the middle of an autosaving editor: a PATCH
- * folds operations into whatever it reads, so two flushes inside the window both
- * read the same old group and the second silently discards the first.
- *
- * `rev` decides, never recency. If the store comes back with a rev at least as
- * high as the remembered one, somebody else has written and their copy wins —
- * the remembered copy only ever papers over the store lagging behind us.
- *
- * Pure and here rather than in the server module so it can be tested; the
- * failure it prevents is invisible on screen and shows up as an edit that was
- * saved and then was not.
- */
-export function fresherGroup(
-  stored: ExportGroup | null,
-  remembered: { group: ExportGroup; at: number } | undefined,
-  now: number,
-  freshMs: number,
-): { group: ExportGroup | null; expired: boolean } {
-  if (!remembered) return { group: stored, expired: false };
-  if (now - remembered.at > freshMs) return { group: stored, expired: true };
-  if (!stored) return { group: remembered.group, expired: false };
-  const win = (stored.rev ?? 0) >= (remembered.group.rev ?? 0) ? stored : remembered.group;
-  return { group: win, expired: false };
-}
-
-/* ------------------------------------------------------------------ *
  * Validation
  * ------------------------------------------------------------------ */
 
@@ -737,7 +700,7 @@ export function makeExportGroupId(name: string, suffix: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
   const id = `${base || "group"}-${suffix}`;
-  // Belt and braces: the id is about to become part of a blob key.
+  // Belt and braces: the id is about to become part of a storage key.
   return isSafeGroupId(id) ? id : `group-${suffix}`;
 }
 

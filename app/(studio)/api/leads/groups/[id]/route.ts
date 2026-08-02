@@ -63,7 +63,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   // Every op is narrowed before it runs. The path and the item id are keys into
   // stored state, so neither may be whatever arrived over the wire — the same
-  // rule `identity.ts` applies to a user id it is about to put in a blob key.
+  // rule `groups.ts` applies to a user id it is about to put in a storage key.
   const ops: GroupOp[] = [];
   for (const raw of body.ops) {
     const op = sanitizeOp(raw);
