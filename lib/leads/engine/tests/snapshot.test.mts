@@ -13,7 +13,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { buildSnapshot, buildEntry, pathwayOf } from "../snapshot.ts";
-import { pathwayIsOrdered } from "../group-types.ts";
+import { pathwayIsOrdered, pathwayKnowledge } from "../group-types.ts";
 import type { ChurchRecord, IndexRow } from "../types.ts";
 import { HAVE_FIXTURE, loadIndex, loadRecord, loadEdgeCases } from "./fixture.mts";
 
@@ -95,9 +95,13 @@ describe("buildSnapshot", { skip }, () => {
   });
 
   /**
-   * Three states, not two. Measured on this corpus: 51 churches have a slogan
-   * (scope ""), 83 have no slogan but scope "homepage_only" — meaning the inner
-   * pages were never read. Collapsing those two asserts absence for 83 churches.
+   * Three states, not two: a slogan, or no slogan with a scope saying the inner
+   * pages were never read. Collapsing those two asserts an absence nobody
+   * measured, for whichever churches are in the second group.
+   *
+   * The counts used to be pinned. What survives a republish is that both states
+   * still occur and that every church lands in one of them — a church in
+   * neither has lost its scope, which is the collapse this exists to catch.
    */
   test("the slogan keeps its scope even when the text is empty", () => {
     let withText = 0;
@@ -106,8 +110,8 @@ describe("buildSnapshot", { skip }, () => {
       if (snap.slogan.text) withText++;
       else if (snap.slogan.scope) homepageOnly++;
     }
-    assert.equal(withText, 51);
-    assert.equal(homepageOnly, 83);
+    assert.ok(withText > 0, "no church has a slogan — the field stopped being read");
+    assert.ok(homepageOnly > 0, "no church carries a bare scope — the third state has collapsed");
     assert.equal(withText + homepageOnly, snaps.length, "a slogan state went missing");
   });
 
@@ -135,6 +139,13 @@ describe("buildSnapshot", { skip }, () => {
    * The roster runs to 102 entries on one church and is the largest single size
    * driver. It is reference material for the dossier, not something you put in
    * front of a church — and a group blob has a hard 4 MB ceiling.
+   *
+   * The ceiling moved from 8 KB to 12 KB when the adjudicated pathway landed: a
+   * church with ten cited steps is legitimately bigger than one with none, and
+   * the largest in the corpus is now ~8.8 KB. The tripwire is not a budget — at
+   * 12 KB a twenty-church batch is ~240 KB against a 4 MB limit — it is a guard
+   * against something UNBOUNDED slipping in, which is what the roster would be.
+   * So it is raised to clear real content and no further.
    */
   test("the staff roster is not snapshotted, and no card is oversized", () => {
     let biggest = 0;
@@ -147,24 +158,67 @@ describe("buildSnapshot", { skip }, () => {
         biggestId = row.id;
       }
     }
-    assert.ok(biggest < 8_000, `${biggestId} snapshot is ${biggest} B — over the 8 KB tripwire`);
+    assert.ok(biggest < 12_000, `${biggestId} snapshot is ${biggest} B — over the 12 KB tripwire`);
   });
 
   /**
-   * Pins the real state of INDEX-CONTRACT §3.1: the ordered pathway is a forward
-   * contract with no data behind it, while q1 carries a genuine cited finding on
-   * more than half the corpus. When a publish finally lands the steps, this test
-   * fails loudly and whoever sees it goes and reads §3.1 — which is the point.
+   * The pathway data has arrived, and this is what replaces the tripwire that
+   * said it had not. It used to assert `withSteps === 0` precisely so that the
+   * publish landing the steps would fail the build rather than pass silently —
+   * which is what happened.
+   *
+   * WHAT IT CHECKS NOW IS THE CONTRACT, NOT THE COUNT: the pipeline writes the
+   * pathway only when at least two steps survive verification, so a present
+   * pathway is complete and an absent one carries a status saying which absence
+   * it is. Those two facts are what every surface downstream leans on.
    */
-  test("no church has ordered pathway steps yet, but 76 carry a cited finding", () => {
+  test("a pathway is either complete or absent-with-a-reason, never half-built", () => {
     let withSteps = 0;
-    let withFinding = 0;
-    for (const { snap } of snaps) {
-      if (snap.pathway.steps.length) withSteps++;
-      if (snap.pathway.finding) withFinding++;
+    const thin: string[] = [];
+    const silent: string[] = [];
+    for (const { row, snap } of snaps) {
+      const p = snap.pathway;
+      if (p.present) {
+        withSteps++;
+        if (p.steps.length < 2) thin.push(`${row.id}: ${p.steps.length} step(s)`);
+      } else if (!p.status) {
+        silent.push(row.id);
+      }
     }
-    assert.equal(withSteps, 0, "§3.1 pathway data has arrived — go and read the contract");
-    assert.equal(withFinding, 76);
+    assert.ok(withSteps > 0, "no church has a pathway — has the key moved again?");
+    assert.deepEqual(thin.slice(0, 10), [], `${thin.length} pathways ship with fewer than 2 steps`);
+    assert.deepEqual(
+      silent.slice(0, 10),
+      [],
+      `${silent.length} churches have neither a pathway nor a status — they would read ` +
+        `"not checked" without anything saying so`,
+    );
+  });
+
+  /**
+   * The retired scalar, guarded.
+   *
+   * `next_steps_by_category.pathway_name` is an observation, not proof of a
+   * pathway — `01-DOMAIN.md` says so and says it is dropped from the export for
+   * that reason. `pathwayOf` used to fall back to it, which would name a pathway
+   * for every church carrying the scalar while having none. That is 853 invented
+   * journeys, and each one would read as a finding.
+   */
+  test("the retired pathway_name scalar never produces a pathway", () => {
+    const invented: string[] = [];
+    for (const { row } of snaps) {
+      const rec = loadRecord(row.id) as unknown as Record<string, unknown>;
+      if (rec.discipleship_pathway) continue;
+      const nsc = rec.next_steps_by_category as { pathway_name?: string } | undefined;
+      if (!nsc?.pathway_name) continue;
+      const p = buildSnapshot(row, loadRecord(row.id)).pathway;
+      if (p.present || p.name || p.steps.length) invented.push(`${row.id}: "${p.name}"`);
+    }
+    assert.deepEqual(
+      invented.slice(0, 10),
+      [],
+      `${invented.length} churches got a pathway from the retired scalar`,
+    );
   });
 
   /** A finding we cannot link is not a finding we may quote. */
@@ -285,36 +339,45 @@ describe("buildSnapshot sanitises hostile input", () => {
  * back at you in a reply to a cold email.
  */
 describe("the discipleship pathway", () => {
+  /**
+   * Built against `discipleship_pathway`, the adjudicated shape the pipeline
+   * actually ships — `order`/`name`/`name_verified`, not the retired flat
+   * `q1.pathway_steps` with `ordinal`/`label`/`label_verified` these tests were
+   * first written for. A fixture that models a shape nobody sends proves the
+   * mapper handles imaginary data.
+   */
   const withSteps = (basis: string | undefined, extra: Record<string, unknown> = {}) =>
     ({
       org_id: "pathway_test",
-      q1: {
-        answer: "yes",
-        pathway_name: "First Steps",
-        pathway_order_basis: basis,
-        pathway_source_url: "https://example.org/im-new",
-        pathway_steps: [
+      discipleship_pathway: {
+        name: "First Steps",
+        name_confidence: "high",
+        declaration_quote: "Here is how we help you grow:",
+        purpose: "discipleship",
+        ordered: basis === "explicit_numbered" || basis === "explicit_sequenced",
+        order_basis: basis,
+        source_url: "https://example.org/im-new",
+        step_count: 2,
+        steps: [
           {
-            ordinal: 1,
-            label: "Attend a Sunday gathering",
-            blurb: "You're invited to worship with us!",
+            order: 1,
+            name: "Attend a Sunday gathering",
             category: null,
             category_raw: "visit",
             quote: "You're invited to worship with us!",
             source_url: "https://example.org/im-new",
             verified: "exact",
-            label_verified: "exact",
+            name_verified: "exact",
           },
           {
-            ordinal: 2,
-            label: "Fill out a welcome card",
-            blurb: "",
+            order: 2,
+            name: "Fill out a welcome card",
             category: "connect",
             category_raw: "connect",
             quote: "",
             source_url: "https://example.org/im-new",
             verified: "",
-            label_verified: "exact",
+            name_verified: "exact",
           },
         ],
         ...extra,
@@ -355,9 +418,9 @@ describe("the discipleship pathway", () => {
    */
   test("ordinals are kept as the page gave them, never renumbered by position", () => {
     const gappy = withSteps("explicit_numbered", {
-      pathway_steps: [
-        { ordinal: 2, label: "Second" },
-        { ordinal: 5, label: "Fifth" },
+      steps: [
+        { order: 2, name: "Second" },
+        { order: 5, name: "Fifth" },
       ],
     });
     assert.deepEqual(
@@ -369,27 +432,32 @@ describe("the discipleship pathway", () => {
 
   test("a step with no ordinal falls back to its position, and ids stay unique", () => {
     const noOrdinals = withSteps("page_order", {
-      pathway_steps: [{ label: "One" }, { label: "Two" }, { label: "Three" }],
+      steps: [{ name: "One" }, { name: "Two" }, { name: "Three" }],
     });
     const p = pathwayOf(noOrdinals);
     assert.deepEqual(p.steps.map((s) => s.ordinal), [1, 2, 3]);
     assert.equal(new Set(p.steps.map((s) => s.id)).size, 3, "duplicate ids would collide on edit");
   });
 
-  /** Absence of steps is not absence of a pathway — the name is real on its own. */
-  test("a named pathway with no steps keeps its name", () => {
-    const named = { org_id: "x", q1: { pathway_name: "Growth Track" } } as unknown as ChurchRecord;
-    const p = pathwayOf(named);
-    assert.deepEqual(p.steps, []);
-    assert.equal(p.name, "Growth Track");
-  });
-
-  test("the pathway name falls back to the one next-steps carries", () => {
+  /**
+   * THE 853, GUARDED AT THE UNIT LEVEL.
+   *
+   * `pathwayOf` used to fall back to `next_steps_by_category.pathway_name`, and
+   * a test asserted that fallback as a feature. `01-DOMAIN.md` calls the field a
+   * scalar observation that is "NOT proof of a pathway" and drops it from the
+   * export for exactly that reason, so the old test was pinning a bug. 853
+   * churches in the corpus carry the scalar and have no pathway; the fallback
+   * would have named a journey for every one of them.
+   */
+  test("the retired pathway_name scalar produces nothing", () => {
     const alt = {
       org_id: "x",
       next_steps_by_category: { pathway_name: "ABCD" },
     } as unknown as ChurchRecord;
-    assert.equal(pathwayOf(alt).name, "ABCD");
+    const p = pathwayOf(alt);
+    assert.equal(p.name, "", "an observation was promoted to a pathway name");
+    assert.equal(p.present, false);
+    assert.deepEqual(p.steps, []);
   });
 
   test("a church with nothing has an empty pathway, not a thrown error", () => {
@@ -397,15 +465,67 @@ describe("the discipleship pathway", () => {
     assert.deepEqual(p.steps, []);
     assert.equal(p.name, "");
     assert.equal(p.finding, null);
+    assert.equal(p.present, false);
+  });
+
+  /**
+   * The three states, at the boundary. Two of these absences look identical in
+   * the data — no pathway key — and only `status` tells them apart.
+   */
+  test("which absence it is comes from the status, never from the step count", () => {
+    const withStatus = (s: string) =>
+      pathwayKnowledge({
+        present: false,
+        stepCount: 0,
+        status: s,
+      });
+    assert.equal(withStatus("model_says_no"), "none", "a measured negative");
+    assert.equal(
+      withStatus("no_declaration_candidate"),
+      "unknown",
+      "the largest bucket — we never looked, and must not say 'none'",
+    );
+    assert.equal(withStatus("fewer_than_2_valid_steps"), "unknown");
+    assert.equal(withStatus("steps_not_in_headings"), "unknown");
+    assert.equal(withStatus(""), "unknown", "no status at all is not a negative");
+    assert.equal(pathwayKnowledge({ present: true, stepCount: 4 }), "has");
   });
 
   test("a hostile step URL does not survive into a rendered link", () => {
     const nasty = withSteps("explicit_numbered", {
-      pathway_steps: [
-        { ordinal: 1, label: "Click me", quote: "Come", source_url: "javascript:alert(1)" },
-      ],
+      source_url: "",
+      steps: [{ order: 1, name: "Click me", quote: "Come", source_url: "javascript:alert(1)" }],
     });
     assert.equal(pathwayOf(nasty).steps[0].sourceUrl, "");
     assert.ok(!JSON.stringify(pathwayOf(nasty)).toLowerCase().includes("javascript:"));
+  });
+
+  /**
+   * The 22 pathways with `source_url: ""`, at the unit level. Their step quotes
+   * have no page anywhere up the tree, and a quote without its page is the one
+   * thing the evidence rules forbid shipping. The STEP survives — its name is
+   * adjudicated, not quoted.
+   */
+  test("a step quote with no page anywhere is withheld, but the step remains", () => {
+    const unsourced = withSteps("explicit_sequenced", {
+      source_url: "",
+      steps: [{ order: 1, name: "Belong", quote: "Come and see", source_url: "" }],
+    });
+    const p = pathwayOf(unsourced);
+    assert.equal(p.steps.length, 1, "the step itself must survive");
+    assert.equal(p.steps[0].label, "Belong");
+    assert.equal(p.steps[0].quote, "", "an unattributable quote was kept");
+    assert.equal(p.steps[0].sourceUrl, "");
+    assert.equal(p.finding, null, "the declaration has no page either");
+  });
+
+  test("a step quote inherits the pathway's page when it has none of its own", () => {
+    const p = pathwayOf(
+      withSteps("explicit_sequenced", {
+        steps: [{ order: 1, name: "Belong", quote: "Come and see", source_url: "" }],
+      }),
+    );
+    assert.equal(p.steps[0].quote, "Come and see");
+    assert.equal(p.steps[0].sourceUrl, "https://example.org/im-new");
   });
 });

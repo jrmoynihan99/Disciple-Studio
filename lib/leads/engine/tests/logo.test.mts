@@ -63,11 +63,19 @@ describe("logo plates", () => {
           `unexpected logo_theme "${lt}" — decide its plate before it ships`,
         );
       }
-      // Pins today's split so a publish that stops classifying is visible.
-      assert.equal(seen.get("dark"), 64);
-      assert.equal(seen.get("light"), 48);
-      assert.equal(seen.get("either"), 18);
-      assert.equal(seen.get("unknown"), undefined, "0 here — the checker branch is untested by real data");
+      // A publish that stops classifying is what this catches. It used to pin
+      // the exact split, which described one 134-church sample; on any corpus
+      // the fact worth protecting is that the classifier still returns real
+      // polarities rather than sending everything to the unknown plate — which
+      // is the branch that silently makes every tile beige.
+      assert.ok((seen.get("dark") ?? 0) > 0, "no dark-ink logos — the classifier stopped");
+      assert.ok((seen.get("light") ?? 0) > 0, "no light-ink logos — the classifier stopped");
+      const classified = (seen.get("dark") ?? 0) + (seen.get("light") ?? 0) + (seen.get("either") ?? 0);
+      const total = [...seen.values()].reduce((a, b) => a + b, 0);
+      assert.ok(
+        classified > total / 2,
+        `only ${classified} of ${total} logos carry a polarity — most tiles will fall back to the checker plate`,
+      );
     },
   );
 });

@@ -2,6 +2,7 @@
 
 import type { ChurchView } from "@/lib/leads/engine/adapt";
 import type { EngineCtx, StepCategory, VerdictState } from "@/lib/leads/engine/types";
+import type { PathwayKnowledge } from "@/lib/leads/engine/group-types";
 import { colorState } from "@/lib/leads/engine/color";
 import { staffText } from "@/lib/leads/engine/staff";
 import { stepsSummaryState } from "@/lib/leads/engine/steps";
@@ -43,6 +44,34 @@ function dotState(s: StepCategory["state"]): VerdictState {
   return s === "present" ? "good" : s === "absent_looked" ? "bad" : "unk";
 }
 
+/**
+ * The discipleship tile, in the three states the data actually distinguishes.
+ *
+ * "None" IS A CLAIM AND MOST CHURCHES HAVE NOT EARNED IT. 627 churches publish
+ * an adjudicated pathway. 4,534 were read and publish none — a measured
+ * negative, and the only ones this may say "None" about. The remaining 10,113,
+ * dominated by the 9,766 our detector never asked about, get "Not checked",
+ * because printing "None" over them would assert an absence nobody looked for.
+ *
+ * This is the same rule the Next-steps tile beside it follows when it refuses to
+ * render `0/8` for a church whose next-step pages were never read, and it is the
+ * reason `pathwayKnowledge()` is one function shared with the dossier.
+ */
+const PATHWAY_TILE: Record<
+  PathwayKnowledge,
+  { state: VerdictState; title: string }
+> = {
+  has: { state: "good", title: "The church publishes a named discipleship pathway" },
+  none: {
+    state: "bad",
+    title: "We read the site and it publishes no discipleship pathway",
+  },
+  unknown: {
+    state: "unk",
+    title: "We did not check this church for a discipleship pathway",
+  },
+};
+
 function dotTitle(c: StepCategory): string {
   if (c.state === "present") {
     const terms = (c.own_terms ?? []).join(", ");
@@ -82,6 +111,20 @@ export function CrucialTiles({ view, ctx }: { view: ChurchView; ctx: EngineCtx }
           {/* An answer we have no short form for is as unmeasured, to a reader,
               as one we never got — so it reads the same rather than as a dash. */}
           {LOGIN_SHORT[q5?.answer ?? "unknown"] ?? "Unknown"}
+        </span>
+      </Tile>
+
+      <Tile
+        state={PATHWAY_TILE[view.pathway].state}
+        label="Discipleship"
+        title={PATHWAY_TILE[view.pathway].title}
+      >
+        <span className="text-xs font-bold text-lead-ink">
+          {view.pathway === "has"
+            ? `${view.pathwaySteps} step${view.pathwaySteps === 1 ? "" : "s"}`
+            : view.pathway === "none"
+              ? "None"
+              : "Not checked"}
         </span>
       </Tile>
 

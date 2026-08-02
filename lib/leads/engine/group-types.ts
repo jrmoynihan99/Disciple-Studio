@@ -178,7 +178,7 @@ export interface SnapshotPathwayStep {
   labelVerified: string;
 }
 
-/** The q1 discipleship finding: real, cited, and present on 76 of 134. */
+/** The pathway's own declaration, cited. Null when it cannot be quoted. */
 export interface SnapshotFinding {
   answer: string;
   label: string;
@@ -188,13 +188,48 @@ export interface SnapshotFinding {
 }
 
 export interface SnapshotPathway {
+  /** The key was present, which the pipeline writes only for a complete pathway. */
+  present: boolean;
+  /**
+   * WHICH absence this is, when there is no pathway — `""` when there is one.
+   *
+   * `model_says_no` is a measured negative: we read the site and it publishes no
+   * pathway. Everything else, above all `no_declaration_candidate`, means our
+   * detector never asked. Collapsing the two would print "no discipleship
+   * pathway" over churches nobody looked at, and it is the largest group.
+   */
+  status: string;
   name: string;
   orderBasis: PathwayOrderBasis | null;
   sourceUrl: string;
-  /** Empty on 134/134 today — §3.1 is a forward contract, not shipped data. */
   steps: SnapshotPathwayStep[];
-  /** What we DO know about discipleship. Null when q1 carries no quotable finding. */
+  /** Null when the declaration carries no quote, or no page to attribute it to. */
   finding: SnapshotFinding | null;
+}
+
+/**
+ * The three states every surface must agree on.
+ *
+ * ONE FUNCTION, for the same reason `pathwayIsOrdered` is one: the list tile,
+ * the dossier card and anything an export grows later all ask "what do we know
+ * about this church's discipleship pathway", and a second copy of the mapping
+ * does not fail loudly — it just tells the list "None" while the dossier says
+ * "Not checked" for the same church, and whoever notices has to work out which
+ * one is lying.
+ *
+ *   has        627 churches with an adjudicated pathway
+ *   none     4,534 `model_says_no` — we read the site; it publishes none
+ *   unknown 10,113 every other status, above all the 9,766 we never checked
+ */
+export type PathwayKnowledge = "has" | "none" | "unknown";
+
+export function pathwayKnowledge(input: {
+  present?: boolean;
+  stepCount?: number;
+  status?: string;
+}): PathwayKnowledge {
+  if (input.present || (input.stepCount ?? 0) > 0) return "has";
+  return input.status === "model_says_no" ? "none" : "unknown";
 }
 
 export type ContactKind = "person" | "churchEmail" | "phone" | "social";

@@ -102,10 +102,18 @@ function stepsOf(rec: ChurchRecord): SnapshotStep[] {
     label: txt(c.label),
     state: c.state ?? "present",
     ownTerms: (c.own_terms ?? []).map(txt).filter(Boolean),
-    quote: txt(c.quote),
-    quoteConfidence: str(c.quote_confidence),
-    verified: str(c.verified),
-    sourceUrl: safeUrl(c.source_url),
+    // Cite or abstain, same rule as the pathway steps: one category in the v2
+    // corpus carries a quote with no `source_url`, and a snapshot is the artifact
+    // that leaves the building. The CATEGORY still ships — "they offer baptism"
+    // is a state we adjudicated, not a sentence we are attributing.
+    ...(safeUrl(c.source_url)
+      ? {
+          quote: txt(c.quote),
+          quoteConfidence: str(c.quote_confidence),
+          verified: str(c.verified),
+          sourceUrl: safeUrl(c.source_url),
+        }
+      : { quote: "", quoteConfidence: "", verified: "", sourceUrl: "" }),
   }));
 }
 
@@ -114,68 +122,108 @@ function stepsOf(rec: ChurchRecord): SnapshotStep[] {
  * ------------------------------------------------------------------ */
 
 /**
- * The ordered pathway, per INDEX-CONTRACT §3.1 — read from `q1`, which is where
- * the contract puts it. A top-level `discipleship_pathway` would be the third
- * spelling of one fact, which is the thing §3.1 exists to prevent.
+ * The adjudicated discipleship pathway — read from `record.discipleship_pathway`
+ * and from nothing else.
  *
- * It is empty on 134 of 134 records today. That is not a bug to route around:
- * the field is a forward contract and the console's own rule is that a claim
- * must not appear before its data has.
+ * IT USED TO READ `q1`, AND THAT WAS WRONG IN TWO DIRECTIONS.
  *
- * What IS here today is the q1 finding — a cited, quotable discipleship
- * statement on 76 of 134 churches. Rendering "no pathway" and stopping would
- * throw that away on more than half the corpus.
+ * `q1.pathway_steps` was the flat forward-contract shape that never shipped; the
+ * pipeline split it into an adjudicated object and `q1` kept only the question.
+ * Worse was the fallback to `next_steps_by_category.pathway_name`, which
+ * `01-DOMAIN.md` names explicitly: that field is *"a scalar observation and NOT
+ * proof of a pathway — it is dropped from the exported package for that
+ * reason."* 853 churches carry it while having no pathway at all, so the
+ * fallback would have invented a named journey for every one of them.
  *
- * EXPORTED so the console's dossier reads the pathway through this function and
- * not through a second reading of `q1`. The comment above is about a top-level
- * `discipleship_pathway` being a third spelling of one fact; a hand-rolled
- * `record.q1.pathway_steps.map(...)` in a component is the same mistake wearing
- * a different hat, and it is the one that drifts silently — the two renderings
- * disagree only for churches whose data nobody has looked at yet.
+ * AN ABSENT KEY IS THE ANSWER, NOT A HOLE. The pipeline writes the object only
+ * when at least two steps survived verification, so there is no such thing as an
+ * empty pathway: 627 churches have one, and the other 14,647 carry a
+ * `discipleship_pathway_status` saying WHICH absence it is. That distinction is
+ * carried through to `status` here rather than collapsed, because "we read the
+ * site and it publishes no pathway" and "our detector never looked" are
+ * different claims and only one of them may be shown as a finding of ours.
+ *
+ * EXPORTED so the list tile and the dossier read the pathway through one
+ * function. A hand-rolled `record.discipleship_pathway.steps.map(...)` in a
+ * component is the failure that drifts silently — the two renderings disagree
+ * only for churches whose data nobody has looked at yet.
  */
 export function pathwayOf(rec: ChurchRecord): SnapshotPathway {
-  const q1 = obj(rec.q1);
-  const rawBasis = str(q1.pathway_order_basis);
+  const p = obj((rec as unknown as Record<string, unknown>).discipleship_pathway);
+  const present = Object.keys(p).length > 0;
+
+  const rawBasis = str(p.order_basis);
   const orderBasis = (ORDER_BASES.includes(rawBasis) ? rawBasis : null) as
     | PathwayOrderBasis
     | null;
 
-  const steps: SnapshotPathwayStep[] = arr(q1.pathway_steps).map((raw, i) => {
+  const pathwayUrl = safeUrl(p.source_url);
+
+  const steps: SnapshotPathwayStep[] = arr(p.steps).map((raw, i) => {
     const s = obj(raw);
-    const ordinal = typeof s.ordinal === "number" ? s.ordinal : i + 1;
+    const ordinal = typeof s.order === "number" ? s.order : i + 1;
+
+    /**
+     * CITE OR ABSTAIN, PER STEP.
+     *
+     * A step quote may carry its own URL or inherit the pathway's — but 22 of
+     * the 627 pathways ship with `source_url: ""`, and their 59 step quotes have
+     * no page anywhere up the tree. Rendering those would put an unattributed
+     * sentence in a cold email, which is the one thing the evidence rules exist
+     * to stop. The STEP survives; only its quote is withheld, because the step's
+     * name is a label we adjudicated rather than a claim we are quoting.
+     *
+     * `verified: "failed"` means the span was NOT found on the page. Today the
+     * pipeline already moves those into `quote_rejected` and leaves `quote`
+     * empty, so this branch is belt-and-braces — but it is the difference
+     * between depending on that and assuming it.
+     */
+    const stepUrl = safeUrl(s.source_url) || pathwayUrl;
+    const verified = str(s.verified);
+    const quote = stepUrl && verified !== "failed" ? txt(s.quote) : "";
+
     return {
       id: `p_${ordinal}`,
       ordinal,
-      label: txt(s.label),
+      label: txt(s.name),
+      // No `blurb` in the adjudicated shape — 0 of 2,376 steps carry one. Kept
+      // in the type because the batch card renders it when it exists.
       blurb: txt(s.blurb),
       category: typeof s.category === "string" && s.category ? s.category : null,
       categoryRaw: txt(s.category_raw),
-      quote: txt(s.quote),
-      sourceUrl: safeUrl(s.source_url),
-      verified: str(s.verified),
-      labelVerified: str(s.label_verified),
+      quote,
+      sourceUrl: quote ? stepUrl : "",
+      verified,
+      labelVerified: str(s.name_verified),
     };
   });
 
-  const quote = txt(q1.quote);
-  const sourceUrl = safeUrl(q1.source_url);
-  // A finding without a source URL is not a finding we may quote — the whole
-  // rule is that a quote travels with the page it came from.
+  /**
+   * The finding is the pathway's OWN declaration, not q1's answer.
+   *
+   * q1 is retired from display, and reviving it here to fill this slot would be
+   * the same "third spelling of one fact" the domain doc warns about — the card
+   * would cite a discipleship claim adjudicated by a different question than the
+   * one whose steps it is showing.
+   */
+  const quote = txt(p.declaration_quote);
   const finding: SnapshotFinding | null =
-    quote && sourceUrl
+    present && quote && pathwayUrl
       ? {
-          answer: str(q1.answer),
-          label: recordLabel(q1.label),
+          answer: str(p.purpose),
+          label: recordLabel(p.name),
           quote,
-          sourceUrl,
-          verified: str(q1.verified),
+          sourceUrl: pathwayUrl,
+          verified: str(p.name_confidence),
         }
       : null;
 
   return {
-    name: txt(q1.pathway_name) || txt(obj(rec.next_steps_by_category).pathway_name),
+    present,
+    status: present ? "" : str((rec as unknown as Record<string, unknown>).discipleship_pathway_status),
+    name: txt(p.name),
     orderBasis,
-    sourceUrl: safeUrl(q1.pathway_source_url),
+    sourceUrl: pathwayUrl,
     steps,
     finding,
   };

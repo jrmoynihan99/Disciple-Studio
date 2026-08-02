@@ -338,6 +338,24 @@ export interface IndexRow {
   /** <=3 contacts */ em?: IndexContact[];
   /** phone */ ph?: string;
   /** socials — ONLY when `em` is empty */ so?: Record<string, string>;
+  /**
+   * The discipleship pathway, projected so the list can colour every row without
+   * fetching 15,274 records. EXACTLY ONE of these is present on every row:
+   *
+   *   dp  step count, when the church has an adjudicated pathway (>= 2)
+   *   dps the status, naming WHICH absence it is, when it does not
+   *
+   * The XOR is the contract, and it is asserted in the tests rather than assumed
+   * — a row carrying neither would fall to "unknown" and quietly under-report,
+   * and a row carrying both means the projection has two opinions.
+   *
+   * Read them through `pathwayKnowledge()`, never by hand: the dossier reads the
+   * same three states out of the full record, and a second copy of the mapping
+   * is how the list and the dossier start disagreeing about one church.
+   */
+  /** pathway step count */ dp?: number;
+  /** discipleship_pathway_status */ dps?: string;
+
   /** sha256 of the full record -> the lazy-fetch key */ rec?: string;
 }
 

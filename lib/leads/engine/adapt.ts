@@ -45,6 +45,7 @@ import { isStaffClaim, isVerdictState } from "./types.ts";
 import { VOCAB } from "./vocab.generated.ts";
 import { nextStepsSummary } from "./steps.ts";
 import { platformLineFromIndex, platformLineFromRecord } from "./platform.ts";
+import { pathwayKnowledge, type PathwayKnowledge } from "./group-types.ts";
 import {
   countryFromIndex,
   countryFromRecord,
@@ -204,6 +205,18 @@ export interface ChurchView {
   platformLine: string;
   /** The `scraped` sort. Unparseable sorts last, never in the middle. */
   fetchedLast: string;
+  /**
+   * What we know about the church's discipleship pathway, in three states.
+   *
+   * Here rather than in the components for the reason this whole module exists:
+   * the list reads the index and the dossier reads the record, and the mapping
+   * from raw fields to "has / none / unknown" must be stated once or the two
+   * surfaces will eventually disagree about the same church. Both projections
+   * below feed the identical `pathwayKnowledge()`.
+   */
+  pathway: PathwayKnowledge;
+  /** Steps when we have them, 0 otherwise. Never a stand-in for "none". */
+  pathwaySteps: number;
 }
 
 export function churchFromRecord(rec: ChurchRecord): ChurchView {
@@ -218,6 +231,7 @@ export function churchFromRecord(rec: ChurchRecord): ChurchView {
     lang: rec.lang?.facet ?? "",
     platformLine: platformLineFromRecord(rec),
     fetchedLast: rec.fetched_last ?? "",
+    ...pathwayFromRecord(rec),
   };
 }
 
@@ -233,5 +247,40 @@ export function churchFromIndex(row: IndexRow): ChurchView {
     lang: row.lg ?? "",
     platformLine: platformLineFromIndex(row),
     fetchedLast: row.ts ?? "",
+    ...pathwayFromIndex(row),
+  };
+}
+
+/* ------------------------------------------------------- discipleship pathway */
+
+/**
+ * `dp` XOR `dps`, folded into the three states.
+ *
+ * A row carrying neither lands on `unknown`, which is the safe direction: it
+ * says "we do not know" about a church we genuinely have no projection for,
+ * rather than asserting an absence. The XOR itself is asserted in the tests —
+ * silently tolerating both fields would hide a projection with two opinions.
+ */
+function pathwayFromIndex(row: IndexRow): Pick<ChurchView, "pathway" | "pathwaySteps"> {
+  return {
+    pathway: pathwayKnowledge({ stepCount: row.dp, status: row.dps }),
+    pathwaySteps: row.dp ?? 0,
+  };
+}
+
+function pathwayFromRecord(rec: ChurchRecord): Pick<ChurchView, "pathway" | "pathwaySteps"> {
+  const raw = rec as unknown as Record<string, unknown>;
+  const p = raw.discipleship_pathway;
+  const present = !!p && typeof p === "object";
+  const steps = present ? (p as { steps?: unknown[] }).steps : undefined;
+  return {
+    pathway: pathwayKnowledge({
+      present,
+      stepCount: Array.isArray(steps) ? steps.length : 0,
+      status: typeof raw.discipleship_pathway_status === "string"
+        ? raw.discipleship_pathway_status
+        : undefined,
+    }),
+    pathwaySteps: Array.isArray(steps) ? steps.length : 0,
   };
 }

@@ -361,20 +361,29 @@ export function Dossier({
 
                   No `q` and no `qKey`, so no evidence panel: everything this
                   card knows is already in its body, and the retired verdict is
-                  not something to resurrect underneath it. */}
+                  not something to resurrect underneath it.
+
+                  THREE STATES, and it used to have two. "None identified" was
+                  printed at zero steps, which quietly asserted an absence for
+                  the ~10,113 churches nobody checked — two thirds of the corpus.
+                  The wording and the colour now come from the same
+                  `pathwayKnowledge()` the list tile reads, so a church cannot
+                  read "None" in the list and "Not checked" here. */}
               <Card
                 kicker="Discipleship"
                 finding={
-                  pathwaySteps > 0
+                  view.pathway === "has"
                     ? `${pathwaySteps} discipleship step${pathwaySteps === 1 ? "" : "s"}`
-                    : "None identified"
+                    : view.pathway === "none"
+                      ? "No pathway published"
+                      : "Not checked"
                 }
                 // Green when a church is already thinking in stages — a fit
-                // signal, the same reading the retired question had. Grey at
-                // zero: "none identified" covers both "we never collected it"
-                // and "there are none", and grey is the colour that already
-                // means exactly that much.
-                state={pathwaySteps > 0 ? "good" : "unk"}
+                // signal, the same reading the retired question had. Red for a
+                // measured negative, grey only where we genuinely did not look.
+                state={
+                  view.pathway === "has" ? "good" : view.pathway === "none" ? "bad" : "unk"
+                }
               >
                 <PathwayDetail record={record} />
               </Card>
@@ -481,32 +490,32 @@ export function Dossier({
  *    that is a real fact even when the stages were never enumerated;
  *  · nothing at all.
  *
- * Data note, so nobody reads the empty state as a bug: `q1.pathway_steps` is a
- * forward contract (INDEX-CONTRACT §3.1) and is unpopulated on all 134 records
- * in the current dataset. The console's rule is that a claim must not appear
- * before its data has, so this renders what is there and says so when nothing
- * is.
+ * Data note: the pathway is written by the pipeline ONLY when at least two steps
+ * survived verification, so there is no such thing as a present-but-empty one.
+ * The empty branch below is therefore always an ABSENCE, and which absence it is
+ * comes from `discipleship_pathway_status` — never inferred from the step count.
  */
 export function PathwayDetail({ record }: { record: ChurchRecord }) {
   const pathway = pathwayOf(record);
   const steps = pathway.steps;
 
   if (steps.length === 0) {
-    // ONE LINE, and not the header's words again. The card already says "None
-    // identified"; repeating it here would spend a second row saying nothing,
-    // on every church, in a section built for scanning. What this line adds is
-    // the pathway's NAME where we have one — real data on 7 of 134, and the
-    // difference between "we know nothing" and "we know what they call it".
+    /**
+     * ONE LINE, and not the header's words again. The card above already carries
+     * the verdict; repeating it would spend a second row saying nothing on two
+     * thirds of the corpus, in a section built for scanning.
+     *
+     * What this line adds is WHICH absence, in the church's terms rather than
+     * the pipeline's. "We read the site and it publishes none" is a finding a
+     * salesperson can use; "our detector never asked" is a caveat they need
+     * before they say anything at all. The status string itself is never shown —
+     * `no_declaration_candidate` is our vocabulary, not theirs.
+     */
     return (
       <p className="text-[12.5px] italic text-lead-ink2">
-        {pathway.name ? (
-          <>
-            No steps collected · the site calls its pathway{" "}
-            <span className="font-serif text-lead-ink">“{pathway.name}”</span>
-          </>
-        ) : (
-          "No discipleship steps were collected for this church."
-        )}
+        {pathway.status === "model_says_no"
+          ? "We read this church's site and found no published discipleship pathway."
+          : "We did not check this church for a discipleship pathway."}
       </p>
     );
   }

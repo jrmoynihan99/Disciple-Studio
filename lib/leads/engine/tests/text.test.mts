@@ -189,6 +189,9 @@ describe("evidenceText", () => {
         `${row.id} still carries the competitor aside`,
       );
     }
-    assert.equal(candidates, 22, "the corpus changed — recheck the wording against it");
+    // A floor, not the measured 22. The repair has to keep meeting real
+    // `custom_candidate` records for the assertions above to mean anything, but
+    // how many there are is a property of the publish and moves with every one.
+    assert.ok(candidates > 0, "no custom_candidate records — the repair is unexercised");
   });
 });

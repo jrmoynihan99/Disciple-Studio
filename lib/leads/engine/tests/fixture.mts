@@ -28,8 +28,29 @@ export function loadIndex(): IndexRow[] {
   return readJson<IndexRow[]>("index.json");
 }
 
+/**
+ * MEMOIZED, because the corpus grew by two orders of magnitude.
+ *
+ * `golden.test.mts` walks every church once per assertion — projection, platform
+ * line, favor, each declared divergence — and at 134 records a re-read per call
+ * was invisible. At 15,274 it is roughly 100,000 file reads to answer 15,274
+ * questions, and the suite spends its time in the filesystem rather than in the
+ * engine it is meant to be testing.
+ *
+ * Holding the whole corpus costs ~300 MB, measured. The cache is never
+ * invalidated: a test run reads one immutable publish, so a record that changed
+ * mid-run would be a fixture being rewritten underneath the suite, which is not
+ * a case worth supporting.
+ */
+const recordCache = new Map<string, ChurchRecord>();
+
 export function loadRecord(orgId: string): ChurchRecord {
-  return readJson<ChurchRecord>(`records/${orgId}.json`);
+  let rec = recordCache.get(orgId);
+  if (!rec) {
+    rec = readJson<ChurchRecord>(`records/${orgId}.json`);
+    recordCache.set(orgId, rec);
+  }
+  return rec;
 }
 
 export function loadAllRecords(): ChurchRecord[] {

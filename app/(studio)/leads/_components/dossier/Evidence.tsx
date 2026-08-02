@@ -13,10 +13,15 @@ import { SafeLink } from "../SafeLink";
  *
  * Three rules that look like styling and are not:
  *
- *  1. A QUOTE NEVER SHIPS WITHOUT ITS SOURCE URL. 30 quotes in the fixture sit
- *     in `q4.subsignals[]` and carry no `source_url` of their own — the URL is
- *     on the parent question, and this component inherits it. Draw them naively
- *     and you ship 30 unattributed quotes.
+ *  1. A QUOTE NEVER SHIPS WITHOUT ITS SOURCE URL. Thousands of quotes in the
+ *     fixture sit in `q4.subsignals[]` and carry no `source_url` of their own —
+ *     the URL is on the parent question, and this component inherits it. Draw
+ *     them naively and you ship them all unattributed.
+ *
+ *     Inheritance is the first half. The second is that a few quotes have no URL
+ *     anywhere up the tree, and those are WITHHELD rather than drawn bare — see
+ *     `Quote` below. Cite or abstain is a rule about what we show, so it has to
+ *     be enforced where we show it, not assumed from the data being tidy.
  *
  *  2. A URL-DERIVED VERDICT IS NEVER DRESSED AS A QUOTE. `evidence_kind: "url"`
  *     means the answer came from the shape of a URL, not from page text.
@@ -66,6 +71,21 @@ function Quote({
   unread?: boolean;
   inherited?: boolean;
 }) {
+  /**
+   * CITE OR ABSTAIN, ENFORCED AT THE RENDER SITE.
+   *
+   * Rule 1 above says a quote never ships without its source URL, and until now
+   * this component only half-kept it: with no URL it dropped the source LINE and
+   * drew the quote anyway. That is the failure the rule names, executed
+   * politely — a sentence attributed to a church with nothing behind it, in the
+   * panel a salesperson copies from.
+   *
+   * It stayed invisible while every quote in the corpus happened to have a URL.
+   * The v2 corpus has a handful that do not, so the guard has to be real rather
+   * than implied by the data.
+   */
+  if (!safeUrl(url ?? "")) return null;
+
   return (
     <div className="my-[7px]">
       {/*
