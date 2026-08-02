@@ -41,6 +41,27 @@ function Counter({ n, label, className }: { n: number; label: string; className:
   );
 }
 
+/**
+ * A CHARACTER CAP, BECAUSE CSS CANNOT TOUCH THIS.
+ *
+ * `<option>` text is drawn by the operating system's native popup, so `truncate`,
+ * `text-overflow` and `max-width` all do nothing inside a `<select>` — a JS cap
+ * is the only thing available. It matters for exactly one facet: `network` has
+ * 379 distinct values and the longest is 179 characters (a Methodist conference
+ * partnership that names three organisations), which stretches the rail's popup
+ * across the screen.
+ *
+ * THE DISPLAYED CHILD ONLY, NEVER THE VALUE. `filters.network` is compared by
+ * equality in `filter.ts` and re-injected by identity in `withCurrent` below, so
+ * a truncated `value` would silently stop matching the churches it names.
+ */
+const OPTION_MAX = 60;
+const OPTION_KEEP = 57;
+
+function optionText(o: string): string {
+  return o.length > OPTION_MAX ? `${o.slice(0, OPTION_KEEP)}...` : o;
+}
+
 function Select({
   label,
   value,
@@ -63,8 +84,10 @@ function Select({
       >
         <option value="">{label}: any</option>
         {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
+          // `title` carries the full string, so a truncated option is still
+          // readable on hover rather than merely unreadable.
+          <option key={o} value={o} title={o}>
+            {optionText(o)}
           </option>
         ))}
       </select>

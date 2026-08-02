@@ -181,6 +181,18 @@ function resolvePathwaySteps(entry: GroupEntry): { steps: ResolvedPathwayStep[];
         : s.quote
           ? sourceVoice(s.quote, s.sourceUrl, s.verified, "no page recorded")
           : null,
+      /**
+       * The church's own wording, when it differs from the label we show.
+       *
+       * `categoryRaw` is what the page called this step; `label` is what we call
+       * it. Where they match, showing both is noise, so only a genuine
+       * difference earns the chip — the same rule `resolveSteps` applies to next
+       * steps, which is what lets one component render both columns.
+       */
+      ownTerms:
+        s.categoryRaw && s.categoryRaw.toLowerCase() !== s.label.toLowerCase()
+          ? [s.categoryRaw]
+          : [],
     };
   });
 
@@ -195,6 +207,9 @@ function resolvePathwaySteps(entry: GroupEntry): { steps: ResolvedPathwayStep[];
       label: userVoice(labelEdit ? labelEdit.value : item.label),
       blurb: blurbEdit ? blurbEdit.value : item.blurb,
       quote: null,
+      // A step somebody typed has no "the church's own wording" — they ARE the
+      // author, and the attribution line already says so.
+      ownTerms: [],
     });
   });
 
@@ -274,7 +289,13 @@ export function resolve(entry: GroupEntry): ResolvedCard {
     stepsLooked: s.stepsLooked,
     steps: resolveSteps(entry),
     pathway: {
-      name: s.pathway.name,
+      /**
+       * EDITABLE, because the review sheet renders it as one. `PATH.finding("label")`
+       * already existed in the path table but nothing read it back, so an edit to
+       * the pathway's name was stored and then silently ignored on the next
+       * render — the field looked editable and was not.
+       */
+      name: edit(entry, PATH.finding("label"))?.value ?? s.pathway.name,
       numbered,
       finding: resolveFinding(entry),
       steps: pathwaySteps,
@@ -350,19 +371,25 @@ export interface CardFlag {
 export function cardFlags(card: ResolvedCard): CardFlag[] {
   const out: CardFlag[] = [];
 
-  if (card.slogan.kind === "homepage_only") {
-    out.push({
-      key: "slogan",
-      label: "slogan: homepage only",
-      tone: "unk",
-      title: "Only the homepage was read for branding. /about was never fetched, which is where a slogan usually lives.",
-    });
-  } else if (card.slogan.kind === "none") {
+  /**
+   * ONE FLAG FOR BOTH ABSENCES.
+   *
+   * `slogan.kind` still distinguishes `homepage_only` from `none` and the
+   * resolver and its tests still defend that — but the console no longer names
+   * the difference. There used to be a second chip reading "slogan: homepage
+   * only", explaining that /about was never fetched; that is a fact about our
+   * crawl, in pipeline vocabulary, on a card a salesperson reads before phoning
+   * a church. Owner's call to drop it.
+   *
+   * The flag itself stays for both, because "this church has no slogan" is a
+   * thing the reviewer has to notice and fix by hand either way.
+   */
+  if (card.slogan.kind !== "slogan") {
     out.push({
       key: "slogan",
       label: "no slogan",
       tone: "plain",
-      title: "We read the site and found no slogan.",
+      title: "No slogan was extracted for this church. Click the line to add one.",
     });
   }
 

@@ -8,6 +8,8 @@ import { useDataset } from "@/lib/leads/client/useDataset";
 import { ChurchCard, SHEET_COLS } from "./ChurchCard";
 import { EditableText } from "./EditableText";
 import { ExportBar } from "./ExportBar";
+// REVIEW-DESIGN-TEMP — three candidate looks; see DesignSwitch.tsx.
+import { DesignSwitch, useReviewDesign } from "./DesignSwitch";
 
 /**
  * The review page.
@@ -62,6 +64,8 @@ function ColumnHeads() {
 export function GroupReview({ id }: { id: string }) {
   const { group, loading, error, save, pending, apply, reload } = useGroup(id);
   const { rows } = useDataset();
+  // REVIEW-DESIGN-TEMP
+  const [design, chooseDesign] = useReviewDesign();
 
   /**
    * The acknowledgement is NOT persisted, on purpose.
@@ -127,7 +131,9 @@ export function GroupReview({ id }: { id: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-[1760px] px-6 pt-6 pb-32">
+    // REVIEW-DESIGN-TEMP — `data-review-design` is what the three token sets in
+    // leads-theme.css key off. Remove the attribute with the block.
+    <div data-review-design={design} className="mx-auto max-w-[1760px] px-6 pt-6 pb-32">
       <nav className="mb-5 flex items-center gap-3 font-mono text-[11px] text-lead-ink2">
         <Link href="/leads" className="underline underline-offset-2 hover:text-lead-ink">
           ← Console
@@ -172,6 +178,14 @@ export function GroupReview({ id }: { id: string }) {
           {group.entries.length} church{group.entries.length === 1 ? "" : "es"}
           {edits > 0 && ` · ${edits} edit${edits === 1 ? "" : "s"}`}
           {removals > 0 && ` · ${removals} struck out`}
+          {/* THE TWO COUNTERS HAVE TO ADD UP. The console's rail counts only
+              churches the current publish still carries, so a batch holding two
+              that have since left the dataset reads 0 there and N here. Without
+              this line the difference looks like one of them is broken; with it,
+              it is one fact stated twice. The cards carry the per-church banner
+              already. */}
+          {departed.size > 0 &&
+            ` · ${departed.size} no longer in the dataset (kept — this is the only copy)`}
           {status === "open" && (
             <>
               {" · "}
@@ -191,18 +205,24 @@ export function GroupReview({ id }: { id: string }) {
       {/* ── the disclaimer ──
           A banner rather than a dialog. A dialog on every visit becomes a reflex
           click inside a day, and a thing you click without reading is worse than
-          no warning at all, because it looks like consent. */}
-      {/* `max-w-[78ch]` INSIDE a 1760px page. The sheet wants every pixel it can
-          get; prose does not — a paragraph run to 1760px is close to unreadable,
-          and this is the one block on the page whose whole purpose is to be
-          read. */}
-      <section className="mb-6 max-w-[78ch] rounded-xl border border-lead-warn/50 bg-lead-warn/[0.07] px-5 py-4">
+          no warning at all, because it looks like consent.
+
+          `w-fit max-w-[78ch]` INSIDE a 1760px page. The cap is a reading measure
+          — a paragraph run to 1760px is close to unreadable, and this is the one
+          block on the page whose whole purpose is to be read. `w-fit` is what
+          stops it also being a MINIMUM: as a plain block it stretched to the
+          full 78ch whatever it contained.
+
+          THE COPY IS SHORT ON PURPOSE. `w-fit` does nothing while the text wraps
+          past the cap anyway, and more importantly a warning nobody finishes is
+          a warning nobody read. Three lines that get read beat six that do
+          not. */}
+      <section className="mb-6 w-fit max-w-[78ch] rounded-xl border border-lead-warn/50 bg-lead-warn/[0.07] px-5 py-4">
         <h2 className="font-serif text-[17px] font-semibold text-lead-ink">{DISCLAIMER_TITLE}</h2>
-        <div className="mt-2 space-y-2 text-[13.5px] leading-relaxed text-lead-ink2">
-          <p>
-            A lot of the information here was extracted by LLM models that are <b>prone to making mistakes.</b> Please <b>manually review critical information</b> such as each church's name, slogan, steps, descriptions, contact names, etc and <b>click on them to make changes</b> if necessary.
-          </p>
-        </div>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-lead-ink2">
+          Names, slogans, steps and contacts were extracted by a model that makes
+          mistakes. <b>Click any line to fix it</b> before you send.
+        </p>
       </section>
 
       {group.entries.length === 0 ? (
@@ -224,6 +244,9 @@ export function GroupReview({ id }: { id: string }) {
           ))}
         </>
       )}
+
+      {/* REVIEW-DESIGN-TEMP */}
+      <DesignSwitch design={design} onChoose={chooseDesign} />
 
       <ExportBar
         count={group.entries.length}

@@ -564,6 +564,16 @@ export interface ResolvedPathwayStep {
   label: Voice;
   blurb: string;
   quote: Voice | null;
+  /**
+   * The church's own wording for this step, when the snapshot captured one.
+   *
+   * Shaped as an array to match `ResolvedStep.ownTerms`, because the review
+   * sheet renders both through ONE component. Without it, pathway steps could
+   * never show the church's-own-words chip while next steps usually do — same
+   * markup, visibly different columns, which is the whole thing the shared
+   * component exists to prevent.
+   */
+  ownTerms: string[];
 }
 
 export interface ResolvedContact {

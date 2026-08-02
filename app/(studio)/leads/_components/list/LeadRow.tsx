@@ -117,23 +117,9 @@ function Slogan({ row }: { row: IndexRow }) {
     );
   }
 
-  if (row.ss === "homepage_only") {
-    return (
-      <p
-        title="Only the homepage was read for branding; inner pages such as /about were not fetched."
-        className="mt-1.5 truncate text-[12.5px] leading-tight text-lead-ink2 opacity-60"
-      >
-        No slogan on the homepage{" "}
-        <span className="rounded bg-lead-unk px-1.5 align-[1px] font-mono text-[9px] text-lead-bg not-italic">
-          inner pages not read
-        </span>
-      </p>
-    );
-  }
-
   return (
     <p className="mt-1.5 truncate text-[12.5px] leading-tight text-lead-ink2 opacity-60">
-      No slogan found
+      Couldn&rsquo;t find slogan
     </p>
   );
 }
@@ -189,11 +175,21 @@ function LeadRowInner({
             // ink colour, which a colour emoji cannot take — and greyscaling it
             // made the one red control on the row read as a dead grey blob. A
             // dimmed red bug still says "bug"; a grey one says "disabled".
-            // Set state also takes a red wash, the way ✆ takes a green one.
-            // Opacity alone is too weak a difference for the one mark whose
-            // glyph cannot change colour.
-            activeClass="bg-lead-bad/20"
-            size="text-[19px] rounded-md px-1"
+            //
+            // NO BOX ON THE SET STATE. It used to take `bg-lead-bad/20` plus
+            // `rounded-md px-1`, which materialised a red rectangle out of
+            // nothing — wider than tall, with horizontal-only padding, hugging
+            // the glyph. The star sets no box because it only changes ink; ✆
+            // reads fine because it is ALWAYS a box and pressing it merely
+            // recolours one. This was the only control that conjured a box, and
+            // it looked like a rendering fault.
+            //
+            // The signal did not need it: a flagged row already takes
+            // `lead-tint-issue`, a red wash across its full width (see
+            // TINT_CLASS above). The button going from dim to vivid on a row
+            // that has just turned red is not a subtle difference.
+            activeClass="opacity-100"
+            size="text-[19px]"
             // The ONE mark that must not use `lead-glyph`: that stack reaches
             // Segoe UI Symbol's monochrome U+1F41E and the bug came out white.
             font="lead-emoji"
@@ -254,15 +250,16 @@ function LeadRowInner({
           </span>
         </div>
         {/* ── slogan ──
-            THREE STATES, NOT TWO. "We looked at the homepage and found none"
-            and "we never opened the inner pages" are different facts, and the
-            second is not evidence of absence — /about is where a slogan usually
-            lives. Collapsing them into one "no slogan found" would assert
-            something we did not check.
+            ONE ABSENT STATE IN THE UI, TWO IN THE DATA. The record still
+            distinguishes "we read the site and there is none" from "we only
+            read the homepage" (`slogan.ss`), and the engine and its tests still
+            defend that distinction — but the console no longer surfaces it.
+            Owner's call: "inner pages never read" is pipeline vocabulary, and a
+            rep reading a church card has no use for it.
 
             It renders even when empty, in muted ink, because a church with no
-            slogan and a church we have not finished reading should both be
-            visible while scanning rather than silently identical to each other. */}
+            slogan should stay visible while scanning rather than leaving a hole
+            where every other row has a line. */}
         <Slogan row={row} />
 
         {sub && (

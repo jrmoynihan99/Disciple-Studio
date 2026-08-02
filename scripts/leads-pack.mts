@@ -109,13 +109,58 @@ function write(rel: string, bytes: Buffer | string) {
 function newestIncoming(): string {
   if (process.env.LEADS_PACKAGE_DIR) return resolve(ROOT, process.env.LEADS_PACKAGE_DIR);
   if (!existsSync(INCOMING)) die(`no ${INCOMING}. Drop the package there, or set LEADS_PACKAGE_DIR.`);
-  const builds = readdirSync(INCOMING, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => resolve(INCOMING, d.name))
-    .filter((p) => existsSync(resolve(p, "MANIFEST.json")))
-    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-  if (!builds.length) die(`no package with a MANIFEST.json under ${INCOMING}`);
-  return builds[0];
+
+  /**
+   * A PACKAGE IS WHATEVER FOLDER HAS A `MANIFEST.json`, whatever it is called.
+   *
+   * The name carries no meaning — `package-v2-final`, `disciple-studio-leads-package`,
+   * a date, all fine — so several drops can sit side by side and the newest wins.
+   * The choice is PRINTED, because silently packing yesterday's build only shows
+   * up later as a church whose dossier disagrees with its row.
+   *
+   * Two depths, and one special case, because all three are things a human
+   * unzipping an archive on Windows actually produces:
+   *
+   *   incoming/MANIFEST.json                    ← extracted with no folder at all
+   *   incoming/<name>/MANIFEST.json             ← the normal case
+   *   incoming/<name>/<name>/MANIFEST.json      ← "extract here" twice over
+   *
+   * Guessing at a fourth level would start finding things that are not packages;
+   * two is where a mistake stops being a mistake and starts being a different
+   * layout, and the error below says what was actually there so it can be fixed.
+   */
+  const candidates: string[] = [];
+  if (existsSync(resolve(INCOMING, "MANIFEST.json"))) candidates.push(INCOMING);
+
+  const dirs = (at: string) => {
+    try {
+      return readdirSync(at, { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .map((d) => resolve(at, d.name));
+    } catch {
+      return [];
+    }
+  };
+
+  for (const first of dirs(INCOMING)) {
+    if (existsSync(resolve(first, "MANIFEST.json"))) candidates.push(first);
+    else {
+      for (const second of dirs(first)) {
+        if (existsSync(resolve(second, "MANIFEST.json"))) candidates.push(second);
+      }
+    }
+  }
+
+  if (!candidates.length) {
+    const saw = dirs(INCOMING).map((d) => `    ${d.slice(INCOMING.length + 1)}/`);
+    die(
+      `no package under ${INCOMING}.\n  A package is any folder containing MANIFEST.json.` +
+        (saw.length ? `\n  Found these folders, none with one:\n${saw.join("\n")}` : "") +
+        `\n  Extract the archive there, or set LEADS_PACKAGE_DIR.`,
+    );
+  }
+
+  return candidates.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
 }
 
 const PKG = newestIncoming();

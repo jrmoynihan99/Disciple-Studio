@@ -157,14 +157,34 @@ async function auditPathway(add: Add) {
   const { flushSync } = await import("react-dom");
   const { PathwayDetail } = await import("../_components/dossier/Dossier");
 
+  /**
+   * BUILT IN THE ADJUDICATED SHAPE, which is the one `pathwayOf` reads.
+   *
+   * These three checks were written against the RETIRED flat shape — `q1.
+   * pathway_name`, `q1.pathway_order_basis`, `q1.pathway_steps` — and stopped
+   * being able to pass the day `pathwayOf` moved to `record.discipleship_pathway`
+   * and its flat fallback was deleted (deliberately: the fallback would have
+   * invented pathways for 853 churches that never published one).
+   *
+   * They did not start failing loudly. They started reporting "We did not check
+   * this church for a discipleship pathway" — the correct answer for a record
+   * with no pathway, which is exactly what the probe was handing them. Three
+   * checks that could never pass and never said why.
+   */
   const steps = [
-    { ordinal: 1, label: "Attend a Sunday gathering", quote: "", source_url: "" },
-    { ordinal: 2, label: "Fill out a welcome card", quote: "", source_url: "" },
+    { order: 1, name: "Attend a Sunday gathering", quote: "", source_url: "" },
+    { order: 2, name: "Fill out a welcome card", quote: "", source_url: "" },
   ];
   const rec = (basis: string | undefined, extra: Record<string, unknown> = {}) =>
     ({
       org_id: "audit_pathway",
-      q1: { pathway_name: "First Steps", pathway_order_basis: basis, pathway_steps: steps, ...extra },
+      discipleship_pathway: {
+        name: "First Steps",
+        order_basis: basis,
+        source_url: "https://example.org/first-steps",
+        steps,
+        ...extra,
+      },
     }) as unknown as ChurchRecord;
 
   const host = document.createElement("div");
@@ -185,7 +205,7 @@ async function auditPathway(add: Add) {
             <PathwayDetail record={rec("page_order")} />
           </div>
           <div data-probe="none">
-            <PathwayDetail record={rec(undefined, { pathway_steps: [] })} />
+            <PathwayDetail record={rec(undefined, { steps: [] })} />
           </div>
         </>,
       );

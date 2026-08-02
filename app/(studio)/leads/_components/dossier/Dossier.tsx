@@ -261,8 +261,14 @@ export function Dossier({
         {record && view && (
           <div className="lead-fade-in">
             {/* ── brand header ──
-                It ALWAYS says something: a church we found nothing for must
-                look different from one we never looked at. */}
+                It ALWAYS says something: a slogan we are holding and a slogan we
+                do not have must not render identically.
+
+                ONE ABSENT STATE IN THE UI, TWO IN THE DATA. `slogan_scope` still
+                tells "we read the site and there is none" apart from "we only
+                read the homepage", and the engine still carries it — but the
+                console no longer prints it. Owner's call: "inner pages never
+                read" is pipeline vocabulary and means nothing to a reader. */}
             <div className="mb-4 flex items-center gap-3 border-b border-lead-line pt-4 pb-3">
               <div className="min-w-0">
                 <div className="text-[15px] font-bold text-lead-ink">
@@ -272,18 +278,10 @@ export function Dossier({
                   <p className="mt-1 text-[13px] leading-tight italic text-lead-ink2">
                     “{decodeEntities(brand.slogan)}”
                   </p>
-                ) : brand.slogan_scope === "homepage_only" ? (
-                  <p
-                    className="mt-1 text-xs text-lead-ink2 opacity-70"
-                    title="Only the homepage was read for branding; inner pages such as /about were not fetched."
-                  >
-                    No slogan on the homepage{" "}
-                    <span className="rounded bg-lead-unk px-1.5 font-mono text-[9px] text-lead-bg">
-                      inner pages not read
-                    </span>
-                  </p>
                 ) : (
-                  <p className="mt-1 text-xs text-lead-ink2 opacity-70">No slogan found</p>
+                  <p className="mt-1 text-xs text-lead-ink2 opacity-70">
+                    Couldn&rsquo;t find slogan
+                  </p>
                 )}
               </div>
             </div>
@@ -517,6 +515,22 @@ export function PathwayDetail({ record }: { record: ChurchRecord }) {
      * before they say anything at all. The status string itself is never shown —
      * `no_declaration_candidate` is our vocabulary, not theirs.
      */
+    /**
+     * A NAME WITH NO STEPS IS NOT AN ABSENCE. This branch used to print "we did
+     * not check" for it, which is false twice over: we did check, and they told
+     * us what they call it. Losing the one fact we hold, and replacing it with a
+     * claim that we hold nothing, is the worst of the three outcomes.
+     */
+    if (pathway.name) {
+      return (
+        <p className="text-[12.5px] text-lead-ink2">
+          The site calls it{" "}
+          <span className="font-serif italic text-lead-ink">“{pathway.name}”</span>, but no steps
+          collected.
+        </p>
+      );
+    }
+
     return (
       <p className="text-[12.5px] italic text-lead-ink2">
         {pathway.status === "model_says_no"

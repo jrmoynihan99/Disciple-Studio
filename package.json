@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --max-old-space-size=6144 --test \"lib/leads/**/*.test.mts\"",
     "lint:leads": "eslint --no-error-on-unmatched-pattern lib/leads scripts proxy.ts \"app/(studio)/leads/**\" \"app/(studio)/api/leads/**\"",
-    "verify": "npm run lint:leads && tsc --noEmit && npm test",
+    "verify": "next typegen && npm run lint:leads && tsc --noEmit && npm test",
     "leads:copy": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --max-old-space-size=6144 scripts/leads-copy-inventory.mts",
     "leads:gen": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/leads-gen-vocab.mts",
     "leads:pack": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --max-old-space-size=6144 scripts/leads-pack.mts",

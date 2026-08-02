@@ -21,6 +21,7 @@ export function EditableText({
   multiline,
   placeholder,
   className,
+  emptyClassName,
   ariaLabel,
   disabled,
 }: {
@@ -29,6 +30,9 @@ export function EditableText({
   multiline?: boolean;
   placeholder?: string;
   className?: string;
+  /** Styling for the EMPTY state only. Defaults to the muted placeholder look;
+   *  pass this where an absent value is something the reviewer must act on. */
+  emptyClassName?: string;
   ariaLabel: string;
   disabled?: boolean;
 }) {
@@ -116,8 +120,13 @@ export function EditableText({
       // `cursor-text`, not the pointer the base rule would give any other
       // button. This one turns into a text field, and a caret is the honest
       // answer to "what will this click do".
+      // `emptyClassName` overrides the muted default. It exists because the
+      // default deliberately RECEDES — most empty fields on this sheet are
+      // ordinary and should not shout — while a missing church NAME or SLOGAN is
+      // the reviewer's job to fix, and `opacity-60` was quietly draining the
+      // colour out of the treatment that says so.
       className={`w-full cursor-text rounded-md px-2 py-1 text-left transition-colors hover:bg-lead-panel2 ${
-        value ? "" : "text-lead-ink2 italic opacity-60"
+        value ? "" : (emptyClassName ?? "text-lead-ink2 italic opacity-60")
       } ${className ?? ""}`}
     >
       {value || placeholder || "—"}

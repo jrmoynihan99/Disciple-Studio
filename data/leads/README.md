@@ -69,9 +69,21 @@ data/leads/
 
 ### `incoming/<build>/`
 
-Drop the upstream package here under its own name — `package-v2-final`, and
-whatever supersedes it. Nothing reads it directly except the pack step, so old
-builds can sit alongside new ones and be deleted when you are sure.
+Drop the upstream package here. **The folder name carries no meaning** — a
+package is whatever folder holds a `MANIFEST.json`, so `disciple-studio-leads-package`,
+`package-v2-final` or a date all work, and several drops can sit side by side.
+The newest wins, and `leads:pack` prints which one it chose. Nothing else reads
+this folder, so old builds can be deleted whenever you are sure.
+
+Discovery tolerates the three layouts an archive actually unzips into:
+
+```
+incoming/MANIFEST.json                    extracted with no folder at all
+incoming/<name>/MANIFEST.json             the normal case
+incoming/<name>/<name>/MANIFEST.json      "extract here" run twice
+```
+
+If it finds none, it lists the folders it did see rather than just saying no.
 
 A package contains `MANIFEST.json`, `index.json.gz`, `records.ndjson.gz`,
 `logos-thumb.tar` and a `dev-only/` folder. An incremental rebuild also ships

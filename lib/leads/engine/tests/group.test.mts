@@ -397,17 +397,49 @@ describe("review flags", { skip }, () => {
     assert.ok(!keys(card).includes("steps"));
   });
 
-  /** 83 of 134 are `homepage_only` — the single most common gap in the corpus. */
-  test("a homepage-only slogan is flagged as unread, not as absent", () => {
+  /**
+   * BOTH ABSENCES NOW FLAG THE SAME, AND THAT IS A DECISION, NOT A REGRESSION.
+   *
+   * This test used to assert the opposite: that `homepage_only` earned its own
+   * chip reading "slogan: homepage only", tone `unk`, because "we only read the
+   * homepage" is not evidence of absence — /about is where a slogan usually
+   * lives, and it was the single most common gap in the corpus.
+   *
+   * The owner's call is that "inner pages never read" is pipeline vocabulary
+   * with no meaning to a salesperson reading a church card, and that both cases
+   * are the same job either way: type a slogan in.
+   *
+   * So the distinction is deliberately no longer SHOWN — but it is still
+   * MEASURED, and that is what the first assertion below pins. The day someone
+   * wants the wording back, the data is still there and no re-scrape is needed.
+   */
+  test("both slogan absences flag identically, while the data still tells them apart", () => {
     const index = loadIndex();
-    const row = index.find(
+    const cardFor = (id: string) => resolve(buildEntry(index.find((r) => r.id === id)!, loadRecord(id), "f", 0));
+
+    const homepageOnly = index.find(
       (r) => resolve(buildEntry(r, loadRecord(r.id), "f", 0)).slogan.kind === "homepage_only",
-    )!;
-    const flag = cardFlags(resolve(buildEntry(row, loadRecord(row.id), "f", 0))).find(
-      (f) => f.key === "slogan",
-    )!;
-    assert.equal(flag.tone, "unk", "we never looked — that is not the same as finding none");
-    assert.match(flag.label, /homepage/);
+    );
+    const none = index.find(
+      (r) => resolve(buildEntry(r, loadRecord(r.id), "f", 0)).slogan.kind === "none",
+    );
+
+    // The engine must still be able to tell them apart, or the decision above
+    // has quietly become irreversible.
+    assert.ok(homepageOnly, "no church resolves to homepage_only — the data distinction was lost");
+
+    const flagOf = (id: string) => cardFlags(cardFor(id)).find((f) => f.key === "slogan")!;
+    const a = flagOf(homepageOnly.id);
+    assert.equal(a.tone, "plain");
+    assert.doesNotMatch(a.label, /homepage/i, "the crawl detail is back in the UI");
+    assert.doesNotMatch(a.title, /inner page/i, "the crawl detail is back in the UI");
+    assert.ok(a.title.length > 20, "the flag still has to explain itself");
+
+    if (none) {
+      const b = flagOf(none.id);
+      assert.equal(b.label, a.label, "the two absences must be indistinguishable to a reader");
+      assert.equal(b.tone, a.tone);
+    }
   });
 
   test("suppressing the last contact raises the flag; putting it back lowers it", () => {
@@ -537,5 +569,69 @@ describe("untrusted input", () => {
     assert.equal(sanitizeOp({ op: "field.set", orgId: "x", path: PATH.name, value: "a".repeat(5000), base: "" }), null);
     assert.equal(sanitizeOp(null), null);
     assert.equal(sanitizeOp("field.set"), null);
+  });
+});
+
+/**
+ * THE TWO COLUMNS RENDER THROUGH ONE COMPONENT, which only works if the engine
+ * gives them the same shape. Both of these were added for that.
+ */
+describe("pathway steps carry what next steps carry", () => {
+  test("the church's own wording rides on a pathway step, when it differs", () => {
+    const { entry } = pick();
+    const withRaw: typeof entry = {
+      ...entry,
+      snapshot: {
+        ...entry.snapshot,
+        pathway: {
+          ...entry.snapshot.pathway,
+          steps: [
+            {
+              id: "p1", ordinal: 1, label: "Baptism", blurb: "",
+              category: null, categoryRaw: "Get Wet", quote: "",
+              sourceUrl: "", verified: "", labelVerified: "",
+            },
+            // Same word in both slots: showing it twice is noise, not evidence.
+            {
+              id: "p2", ordinal: 2, label: "Membership", blurb: "",
+              category: null, categoryRaw: "membership", quote: "",
+              sourceUrl: "", verified: "", labelVerified: "",
+            },
+          ],
+        },
+      },
+    };
+    const steps = resolve(withRaw).pathway.steps;
+    assert.deepEqual(steps[0].ownTerms, ["Get Wet"]);
+    assert.deepEqual(steps[1].ownTerms, [], "a term identical to our label earns no chip");
+  });
+
+  /**
+   * The path existed in `PATH` and nothing read it back, so the review sheet
+   * offered an editable pathway name whose edits were stored and then ignored on
+   * the next render — a field that looked editable and silently was not.
+   */
+  test("editing the pathway's name survives a re-resolve", () => {
+    const { entry, group } = pick();
+    const named: ExportGroup = {
+      ...group,
+      entries: [
+        {
+          ...entry,
+          snapshot: {
+            ...entry.snapshot,
+            pathway: { ...entry.snapshot.pathway, name: "LIFE Track" },
+          },
+        },
+      ],
+    };
+    assert.equal(resolve(named.entries[0]).pathway.name, "LIFE Track");
+
+    const edited = applyOp(
+      named,
+      { op: "field.set", orgId: entry.orgId, path: PATH.finding("label"), value: "Growth Track", base: "LIFE Track" },
+      0,
+    );
+    assert.equal(resolve(edited.entries[0]).pathway.name, "Growth Track");
   });
 });

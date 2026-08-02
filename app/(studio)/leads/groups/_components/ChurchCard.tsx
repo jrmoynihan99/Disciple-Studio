@@ -4,11 +4,11 @@ import { memo, useState } from "react";
 import { logoPlate, PLATE_CLASS } from "@/lib/leads/engine/logo";
 import { hostOf } from "@/lib/leads/engine/url";
 import { cardFlags, type CardFlag } from "@/lib/leads/engine/group";
+import { exportContacts } from "@/lib/leads/engine/contacts";
 import { PATH } from "@/lib/leads/engine/group-types";
 import type {
   GroupOp,
   ResolvedCard,
-  ResolvedContact,
   ResolvedPathwayStep,
   ResolvedStep,
   Voice,
@@ -55,6 +55,57 @@ interface Props {
 const H = "font-mono text-[10px] font-bold tracking-[0.14em] text-lead-ink2 uppercase";
 
 /**
+ * A MISSING NAME OR SLOGAN IS THE REVIEWER'S JOB, so it is styled as work to do
+ * rather than as an absence to accept.
+ *
+ * Colour alone was not enough: twenty churches in a vertical strip, and orange
+ * italic text at 13px is something the eye slides past. A wash plus a ring gives
+ * the empty cell a SHAPE, which is what makes it findable while scrolling.
+ *
+ * `--lead-warn-ink`, not `--lead-warn` — the verdict hue fails contrast as text
+ * on the light theme, and re-tinting it would move a colour that means something
+ * about a church. See `leads-theme.css`.
+ *
+ * Every other empty field on the card keeps the muted default. If everything
+ * shouted, nothing would.
+ */
+const EMPTY_VALUE =
+  "rounded-lg bg-lead-warn/[0.08] " +
+  "shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--lead-warn)_35%,transparent)]";
+const EMPTY_TEXT = "text-lead-warn-ink not-italic";
+
+/* REVIEW-DESIGN-TEMP — the handful of values the three candidate designs differ
+   on. Each reads a `--rv-*` custom property set by `[data-review-design]` in
+   `leads-theme.css`, with a fallback so the card renders correctly outside the
+   comparison. When a design is chosen, inline the winner's numbers and delete
+   these four constants along with the CSS block and `DesignSwitch.tsx`. */
+const LOGO_SIZE = "h-[var(--rv-logo,48px)] w-[var(--rv-logo,48px)]";
+const NAME_SIZE = "text-[length:var(--rv-name,17px)]";
+const CARD_RADIUS = "rounded-[var(--rv-radius,0.75rem)]";
+const COL_PAD = "px-[var(--rv-pad-x,0.875rem)] py-[var(--rv-pad-y,0.75rem)]";
+
+/**
+ * A church's initials, for the logo plate when there is no logo.
+ *
+ * Skips the words that every third church shares — "The First Baptist Church of
+ * Springfield" reading "TFBCOS" is worse than useless, because it looks the same
+ * as its neighbours. Two letters, so it stays a mark rather than a word.
+ */
+const SKIP = new Set(["the", "of", "at", "a", "and", "church", "chapel", "ministries"]);
+
+function initialsOf(name: string): string {
+  const words = name
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter((w) => w && !SKIP.has(w.toLowerCase()));
+  const from = words.length ? words : name.split(/\s+/).filter(Boolean);
+  return from
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+/**
  * The sheet's grid, exported so the column headers in `GroupReview` are built
  * from the same string. Two copies of a four-track template drift the first time
  * one is tuned, and a header that has drifted from its columns is worse than no
@@ -67,13 +118,22 @@ const H = "font-mono text-[10px] font-bold tracking-[0.14em] text-lead-ink2 uppe
  */
 export const SHEET_COLS =
   "grid gap-px bg-lead-line" +
-  // Weighted by MEASURED content, not by importance. Across a real batch the
-  // identity column runs ~170px and discipleship ~120px, while next steps runs
-  // 700–1200px and contacts up to 1100px — and the row is as tall as its tallest
-  // column, so every pixel given to the two short ones is pure whitespace. The
-  // two long ones get the width, which is what takes their quotes from three
-  // wrapped lines to two.
-  " grid-cols-[minmax(240px,1fr)_minmax(320px,1.8fr)_minmax(210px,0.85fr)_minmax(240px,1.35fr)]" +
+  // WEIGHTED FOR PARITY BETWEEN THE TWO VOICE COLUMNS, and that is a change.
+  //
+  // These used to be weighted by MEASURED content — next steps ran 700–1200px of
+  // text and discipleship ~120px, so next steps got 1.8fr and discipleship 0.85.
+  // The cost was that the two columns a reviewer compares directly could not
+  // look alike: the same `Claim` at 291px and at 615px wraps its quotes at
+  // different points and breaks its chip rows differently, which reads as two
+  // different components rather than one.
+  //
+  // So they are equal now. It is a real trade: only ~4% of churches publish a
+  // pathway, so this spends ~240px on a column that is usually empty. Parity
+  // between the two won, because comparing them is the job. Reverting is one
+  // string, and changes nothing else.
+  " grid-cols-[minmax(272px,0.9fr)_minmax(300px,1.55fr)_minmax(300px,1.55fr)_minmax(230px,1fr)]" +
+  // The four minimums sum to 1105px + 3 dividers. Keep this breakpoint above
+  // that or the sheet overflows in the gap between them.
   " max-[1180px]:grid-cols-2 max-[720px]:grid-cols-1";
 
 /**
@@ -103,7 +163,7 @@ function Col({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`bg-lead-panel px-3.5 py-3 ${className}`}>
+    <div className={`bg-lead-panel ${COL_PAD} ${className}`}>
       <div className="mb-1.5 flex items-baseline gap-2">
         {/* Only below 720px, where the tracks stack and the sticky strip's
             positions stop mapping to anything. Above it the strip names them. */}
@@ -268,6 +328,122 @@ function Quote({
   );
 }
 
+/**
+ * ONE CLAIM ABOUT A CHURCH — a named thing, optionally numbered, optionally in
+ * the church's own words, optionally quoted.
+ *
+ * BOTH EVIDENCE COLUMNS RENDER THROUGH THIS, and that is the point. They used to
+ * be written twice: a next step was a label with own-term chips and a quote,
+ * while a pathway step was an ordinal and a label in an `<ol>`, with the
+ * discipleship finding floating above as a bare quote in no container at all.
+ * Same kind of assertion, three different shapes, side by side in adjacent
+ * columns — so a reviewer comparing "what they offer" against "the order they
+ * put it in" had to learn two layouts to read one row.
+ *
+ * THE ORDINAL IS NOT AN INDEX. It is printed only when the church's own page put
+ * a number there; DOM order is not a sequence, and `resolvePathwaySteps` owns
+ * that rule. Next steps pass `null` and always will — a category list has no
+ * first.
+ *
+ * THE LABEL'S ATTRIBUTION IS RENDERED ONLY WHEN IT SAYS SOMETHING. An unedited
+ * next-step label is `uncited` by construction ("our category") and an unedited
+ * pathway label is usually `cited`; printing the former under all eight steps of
+ * twenty churches is 160 lines of the same sentence. `cited`, `edited` and
+ * `user` always render — those vary per church and are the reason the line
+ * exists. Quotes are exempt from this entirely and always carry theirs.
+ */
+function Claim({
+  ordinal,
+  label,
+  terms,
+  quote,
+  labelAriaLabel,
+  quoteAriaLabel,
+  onLabelCommit,
+  onLabelRevert,
+  onQuoteCommit,
+  onQuoteRevert,
+}: {
+  ordinal: number | null;
+  label: Voice;
+  terms: readonly string[];
+  quote: Voice | null;
+  labelAriaLabel: string;
+  quoteAriaLabel: string;
+  onLabelCommit: (next: string) => void;
+  onLabelRevert: () => void;
+  onQuoteCommit: (next: string) => void;
+  onQuoteRevert: () => void;
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap items-baseline gap-x-1.5 pr-6">
+        {ordinal != null && (
+          <span className="shrink-0 font-mono text-[11px] text-lead-brand tabular-nums">
+            {ordinal}.
+          </span>
+        )}
+        <div className="min-w-0 flex-1 text-[13px] font-medium text-lead-ink">
+          <EditableText value={label.text} onCommit={onLabelCommit} ariaLabel={labelAriaLabel} />
+        </div>
+        {terms.map((t) => (
+          // Their words, verbatim and read-only. Editing these would be editing
+          // a quotation without the affordances of one.
+          <span
+            key={t}
+            title="the church's own wording"
+            className="rounded-full border border-lead-line px-1.5 py-px font-mono text-[9px] text-lead-ink2"
+          >
+            {t}
+          </span>
+        ))}
+      </div>
+
+      {label.attribution.kind !== "uncited" && (
+        <AttributionLine
+          attribution={label.attribution}
+          onRevert={label.attribution.kind === "edited" ? onLabelRevert : undefined}
+        />
+      )}
+
+      {quote && (
+        <Quote
+          voice={quote}
+          ariaLabel={quoteAriaLabel}
+          onCommit={onQuoteCommit}
+          onRevert={onQuoteRevert}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * `<ol>` ONLY WHEN THE SOURCE LICENSED A SEQUENCE.
+ *
+ * To anyone looking at the screen these render identically — the ordinals are
+ * printed by `Claim`, not by list markers. To a screen reader they are different
+ * claims: "ordered list of 4" says these steps have an order, and where the
+ * pathway's basis was page position rather than the church's own numbering, that
+ * is a claim we are not entitled to make. `resolvePathwaySteps` decides; this
+ * only obeys.
+ */
+function Numbered({
+  numbered,
+  className,
+  children,
+}: {
+  numbered: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return numbered ? (
+    <ol className={className}>{children}</ol>
+  ) : (
+    <ul className={className}>{children}</ul>
+  );
+}
+
 const ADD_LINK =
   "font-mono text-[10px] text-lead-ink2 underline underline-offset-2 hover:text-lead-brand";
 
@@ -291,12 +467,24 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: Props) {
   const plate = PLATE_CLASS[logoPlate(card.logo?.theme)];
   const touched = card.editedCount > 0 || card.suppressedCount > 0;
   const liveSteps = card.steps.filter((s) => !s.suppressed).length;
-  const liveContacts = card.contacts.filter((c) => !c.suppressed).length;
+  /**
+   * WHAT SHIPS, NOT WHAT WE HOLD.
+   *
+   * The exported package carries at most four contacts, chosen by one channel.
+   * Rendering everything the snapshot happens to hold meant a reviewer read six
+   * social profiles that would never be sent, and could miss the address that
+   * would. `exportContacts` is the single rule both this card and the exporter
+   * read — see `lib/leads/engine/contacts.ts`.
+   *
+   * The count beside the column head is the SHIPPING count for the same reason.
+   */
+  const shipping = exportContacts(card.contacts);
+  const liveContacts = shipping.filter((r) => r.rank !== null).length;
 
   return (
     <article
       data-church={card.orgId}
-      className="group/card relative mb-3 overflow-hidden rounded-xl border border-lead-line"
+      className={`group/card relative mb-3 overflow-hidden border border-lead-line ${CARD_RADIUS} shadow-[var(--rv-card-shadow,none)]`}
     >
       {/* The status rail. Untouched cards look untouched, so what you have
           already been through is visible without reading any of it again. */}
@@ -306,6 +494,14 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: Props) {
           card.suppressedCount ? "bg-lead-bad" : touched ? "bg-lead-brand" : "bg-transparent"
         }`}
       />
+
+      {/* The index, in the rail rather than in the grid. Absolute, so it adds no
+          grid child and `[data-church] > .grid` still resolves to four tracks —
+          which `/leads/audit` asserts. It also now sits at the same y on every
+          card instead of drifting with the logo. */}
+      <span className="absolute top-3.5 left-1.5 z-[2] font-mono text-[10px] text-lead-ink2 tabular-nums">
+        {String(index).padStart(2, "0")}
+      </span>
 
       <button
         type="button"
@@ -325,56 +521,103 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: Props) {
       )}
 
       <div className={SHEET_COLS}>
-        {/* ── identity ── */}
-        <div className="bg-lead-panel px-3.5 py-3.5 pl-5">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 shrink-0 font-mono text-[11px] text-lead-ink2 tabular-nums">
-              {String(index).padStart(2, "0")}
-            </span>
-            <div
-              className={`grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg ${plate}`}
-            >
-              {card.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={`/api/leads/asset/logos-thumb/${card.logo.sha}.webp`}
-                  alt=""
-                  className="h-full w-full object-contain p-1"
-                />
-              ) : (
-                <span className="px-0.5 text-center font-mono text-[7px] leading-tight text-lead-ink2">
-                  {card.noLogo?.reason.replace(/_/g, " ") ?? "no logo"}
-                </span>
-              )}
-            </div>
+        {/* ── identity ──
+            THE LOGO GETS ITS OWN LINE. It used to sit in a flex row beside the
+            index and the name, which left the name about 150px of a 272px track
+            — and that, not a type decision, is why the church's name was 17px on
+            a page whose entire subject is churches. On its own line it has the
+            full column.
 
-            <div className="min-w-0 flex-1">
-              <div className="font-serif text-[17px] leading-tight font-semibold tracking-tight text-lead-ink">
-                <EditableText
-                  value={card.name.text}
-                  onCommit={set(PATH.name, card.name.text)}
-                  ariaLabel="church name"
-                  placeholder="(unnamed)"
-                />
-              </div>
+            The index moved into the absolute status rail. It is two characters
+            that were costing ~26px of the narrowest track, it is not a grid
+            child there (so `[data-church] > .grid` still resolves to four
+            tracks, which the audit asserts), and it now sits in the same place
+            on every card rather than drifting with the logo. */}
+        <div data-identity className={`bg-lead-panel pl-6 ${COL_PAD}`}>
+          <div
+            className={`grid ${LOGO_SIZE} place-items-center overflow-hidden rounded-xl ${plate}`}
+          >
+            {card.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/leads/asset/logos-thumb/${card.logo.sha}.webp`}
+                alt=""
+                className="h-full w-full object-contain p-1"
+              />
+            ) : (
+              /* INITIALS, NOT A 7px EXPLANATION. The reason used to be printed
+                 inside the plate at `text-[7px]`, which is not a readable size —
+                 it was there to preserve a real distinction ("none found" vs
+                 "found one and rejected it"), but nobody can read it. The
+                 distinction now rides on the flag chip below, where it is legible,
+                 and the plate shows the church's initials like every other
+                 avatar. */
+              <span className="font-serif text-[17px] leading-none text-lead-ink2">
+                {initialsOf(card.name.text)}
+              </span>
+            )}
+          </div>
+
+          {/* `min-h-[2lh]` on both, so the slogan starts at the same y on every
+              card whether the name ran to one line or two. THIS is what keeps
+              the columns comparable while the type gets bigger — alignment is a
+              claim about where things sit, not about point size, and the old
+              layout did not hold it. */}
+          <div className="mt-3 min-w-0">
+            <div
+              className={`min-h-[2lh] font-serif ${NAME_SIZE} leading-tight font-semibold tracking-tight text-lead-ink ${
+                card.name.text ? "" : EMPTY_VALUE
+              }`}
+            >
+              <EditableText
+                value={card.name.text}
+                onCommit={set(PATH.name, card.name.text)}
+                ariaLabel="church name"
+                placeholder="Couldn't find name"
+                emptyClassName={EMPTY_TEXT}
+              />
+            </div>
+            {/* AMBIENT ATTRIBUTIONS ARE NOT RENDERED. An unedited name is
+                `uncited` by construction and reads "as published" — the same
+                four words under all twenty churches, every time, describing the
+                pipeline rather than this church. A constant is not information.
+
+                `cited`, `edited` and `user` always render: those vary per
+                church and are the entire reason the line exists. Quotes are
+                exempt from this rule and always carry theirs — see `Claim`. */}
+            {card.name.attribution.kind !== "uncited" && (
               <AttributionLine
                 attribution={card.name.attribution}
                 onRevert={card.name.attribution.kind === "edited" ? revert(PATH.name) : undefined}
               />
-            </div>
+            )}
+
+            {card.nameOriginal && card.nameOriginal !== card.name.text && (
+              // Inline, not its own row. It is a four-word aside about a repair
+              // we already made, and it was costing a full line on every card
+              // that had one.
+              <p className="px-2 font-mono text-[10px] text-lead-ink2">
+                was “{card.nameOriginal}”
+              </p>
+            )}
           </div>
 
-          {card.nameOriginal && card.nameOriginal !== card.name.text && (
-            <p className="mt-1 px-2 font-mono text-[10px] text-lead-ink2">
-              scraped as “{card.nameOriginal}”, repaired
-            </p>
-          )}
+          {/* ── slogan ──
+              THE DATA STILL HAS THREE STATES; THE UI NOW SHOWS TWO. `slogan.kind`
+              still separates `homepage_only` from `none`, and `resolveSlogan`
+              and its tests still defend it — but both absences now read the
+              same to the reviewer. "Inner pages were never read" describes our
+              crawler, not the church, and this card is what somebody reads
+              before writing to them. Owner's call.
 
-          {/* ── slogan: three states, and editing preserves all three ── */}
+              A REAL SLOGAN IS NOT MUTED. It used to render in `text-lead-ink2`
+              italic — the same ink as every secondary label on the card — so
+              the church's own voice looked like chrome. It is one of the three
+              things worth reading here, and it is styled like it. */}
           <div className="mt-2">
             {card.slogan.kind === "slogan" ? (
               <>
-                <div className="font-serif text-[14px] leading-snug italic text-lead-ink2">
+                <div className="rv-slogan min-h-[2lh] font-serif leading-snug text-lead-ink">
                   <EditableText
                     value={card.slogan.voice.text}
                     onCommit={set(PATH.slogan, card.slogan.voice.text)}
@@ -382,26 +625,27 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: Props) {
                     multiline
                   />
                 </div>
-                <AttributionLine
-                  attribution={card.slogan.voice.attribution}
-                  onRevert={
-                    card.slogan.voice.attribution.kind === "edited"
-                      ? revert(PATH.slogan)
-                      : undefined
-                  }
-                />
+                {/* Same rule: an unedited slogan says "from the site's title"
+                    on every card that has one. */}
+                {card.slogan.voice.attribution.kind !== "uncited" && (
+                  <AttributionLine
+                    attribution={card.slogan.voice.attribution}
+                    onRevert={
+                      card.slogan.voice.attribution.kind === "edited"
+                        ? revert(PATH.slogan)
+                        : undefined
+                    }
+                  />
+                )}
               </>
             ) : (
-              <div className="text-[12.5px] text-lead-ink2 opacity-70">
+              <div className={EMPTY_VALUE}>
                 <EditableText
                   value=""
                   onCommit={set(PATH.slogan, "")}
                   ariaLabel="slogan"
-                  placeholder={
-                    card.slogan.kind === "homepage_only"
-                      ? "No slogan on the homepage — inner pages were never read"
-                      : "No slogan found"
-                  }
+                  placeholder="Couldn't find slogan"
+                  emptyClassName={EMPTY_TEXT}
                 />
               </div>
             )}
@@ -446,38 +690,19 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: Props) {
                 onRestore={restore(s.id)}
                 onDelete={del(s.id)}
               >
-                {/* Label and the church's own terms on ONE line. Our category
-                    name is a word or two and their term is a word or two, so
-                    stacking them spent a whole row on eight characters — twenty
-                    pixels a step, eight steps a church, twenty churches. */}
-                <div className="flex flex-wrap items-baseline gap-x-1.5 pr-6">
-                  <div className="text-[13px] font-medium text-lead-ink">
-                    <EditableText
-                      value={s.label.text}
-                      onCommit={set(PATH.step(s.id, "label"), s.label.text)}
-                      ariaLabel="step name"
-                    />
-                  </div>
-                  {s.ownTerms.map((t) => (
-                    // Their words, verbatim and read-only. Editing these would be
-                    // editing a quotation without the affordances of one.
-                    <span
-                      key={t}
-                      title="the church's own wording"
-                      className="rounded-full border border-lead-line px-1.5 py-px font-mono text-[9px] text-lead-ink2"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-                {s.quote && (
-                  <Quote
-                    voice={s.quote}
-                    ariaLabel="step quote"
-                    onCommit={set(PATH.step(s.id, "quote"), s.quote.text)}
-                    onRevert={revert(PATH.step(s.id, "quote"))}
-                  />
-                )}
+                {/* A category list has no first, so no ordinal — see `Claim`. */}
+                <Claim
+                  ordinal={null}
+                  label={s.label}
+                  terms={s.ownTerms}
+                  quote={s.quote}
+                  labelAriaLabel="step name"
+                  quoteAriaLabel="step quote"
+                  onLabelCommit={set(PATH.step(s.id, "label"), s.label.text)}
+                  onLabelRevert={revert(PATH.step(s.id, "label"))}
+                  onQuoteCommit={set(PATH.step(s.id, "quote"), s.quote?.text ?? "")}
+                  onQuoteRevert={revert(PATH.step(s.id, "quote"))}
+                />
               </SuppressShell>
             ))}
           </div>
@@ -514,31 +739,42 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: Props) {
           addLabel="+ step"
           onAdd={() => setAddingPathway(true)}
         >
-          {card.pathway.name && (
-            <p className="mb-1.5 text-[12.5px] leading-snug text-lead-ink2">
-              The site uses the phrase{" "}
-              <span className="font-serif italic text-lead-ink">“{card.pathway.name}”</span>
-              {card.pathway.steps.length === 0 && " — but no ordered steps were captured."}
-            </p>
+          {/* THE FINDING IS A CLAIM LIKE ANY OTHER. It used to float above the
+              list as a bare quote in no container, with the pathway's name in a
+              prose sentence ("The site uses the phrase …") above that — two
+              shapes this column had and the next-steps column did not, which is
+              most of why the two never looked alike. The name is now the
+              column's note, and the finding gets the same box as every step. */}
+          {card.pathway.finding && (
+            <div className="mb-1">
+              <Claim
+                ordinal={null}
+                label={{ text: card.pathway.name, attribution: { kind: "uncited", note: "" } }}
+                terms={[]}
+                quote={card.pathway.finding}
+                labelAriaLabel="pathway name"
+                quoteAriaLabel="discipleship finding"
+                onLabelCommit={set(PATH.finding("label"), card.pathway.name)}
+                onLabelRevert={revert(PATH.finding("label"))}
+                onQuoteCommit={set(PATH.finding("quote"), card.pathway.finding.text)}
+                onQuoteRevert={revert(PATH.finding("quote"))}
+              />
+            </div>
           )}
 
-          {card.pathway.finding ? (
-            <Quote
-              voice={card.pathway.finding}
-              ariaLabel="discipleship finding"
-              onCommit={set(PATH.finding("quote"), card.pathway.finding.text)}
-              onRevert={revert(PATH.finding("quote"))}
-            />
-          ) : (
-            !card.pathway.name && (
-              <Absent>
-                Nothing quotable about discipleship was found on the pages we read.
-              </Absent>
-            )
+          {!card.pathway.finding && !card.pathway.name && (
+            <Absent>Nothing quotable about discipleship was found on the pages we read.</Absent>
+          )}
+          {card.pathway.name && card.pathway.steps.length === 0 && (
+            <Absent>They name a pathway, but no ordered steps were captured.</Absent>
           )}
 
           {card.pathway.steps.length > 0 && (
-            <ol className="mt-2 space-y-0.5">
+            // `<ol>` only when the source licensed a sequence. To a reader the
+            // two render identically; to a screen reader "list of 4" and
+            // "ordered list of 4" are different claims, and only one of them is
+            // ours to make.
+            <Numbered numbered={card.pathway.numbered} className="mt-2 space-y-0.5">
               {card.pathway.steps.map((s: ResolvedPathwayStep) => (
                 <li key={s.id}>
                   <SuppressShell
@@ -548,42 +784,22 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: Props) {
                     onRestore={restore(s.id)}
                     onDelete={del(s.id)}
                   >
-                    <div className="flex items-baseline gap-1.5 pr-6">
-                      {/* A number is only printed when the church's own page put
-                          one there. DOM order is not a sequence. */}
-                      {s.ordinal != null && (
-                        <span className="shrink-0 font-mono text-[11px] text-lead-brand">
-                          {s.ordinal}.
-                        </span>
-                      )}
-                      <div className="min-w-0 flex-1 text-[13px] font-medium text-lead-ink">
-                        <EditableText
-                          value={s.label.text}
-                          onCommit={set(PATH.pathwayStep(s.id, "label"), s.label.text)}
-                          ariaLabel="pathway step"
-                        />
-                      </div>
-                    </div>
-                    <AttributionLine
-                      attribution={s.label.attribution}
-                      onRevert={
-                        s.label.attribution.kind === "edited"
-                          ? revert(PATH.pathwayStep(s.id, "label"))
-                          : undefined
-                      }
+                    <Claim
+                      ordinal={s.ordinal}
+                      label={s.label}
+                      terms={s.ownTerms}
+                      quote={s.quote}
+                      labelAriaLabel="pathway step"
+                      quoteAriaLabel="pathway step quote"
+                      onLabelCommit={set(PATH.pathwayStep(s.id, "label"), s.label.text)}
+                      onLabelRevert={revert(PATH.pathwayStep(s.id, "label"))}
+                      onQuoteCommit={set(PATH.pathwayStep(s.id, "quote"), s.quote?.text ?? "")}
+                      onQuoteRevert={revert(PATH.pathwayStep(s.id, "quote"))}
                     />
-                    {s.quote && (
-                      <Quote
-                        voice={s.quote}
-                        ariaLabel="pathway step quote"
-                        onCommit={set(PATH.pathwayStep(s.id, "quote"), s.quote.text)}
-                        onRevert={revert(PATH.pathwayStep(s.id, "quote"))}
-                      />
-                    )}
                   </SuppressShell>
                 </li>
               ))}
-            </ol>
+            </Numbered>
           )}
 
           {addingPathway && (
@@ -621,10 +837,10 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: Props) {
           {card.contactNote && (
             <p className="mb-1.5 text-[12.5px] leading-snug text-lead-ink2">{card.contactNote}</p>
           )}
-          {card.contacts.length === 0 && <Absent>No contact details found.</Absent>}
+          {shipping.length === 0 && <Absent>No contact details found.</Absent>}
 
           <div className="space-y-0.5">
-            {card.contacts.map((c: ResolvedContact) => (
+            {shipping.map(({ contact: c, rank }) => (
               <SuppressShell
                 key={c.id}
                 suppressed={c.suppressed}
@@ -633,6 +849,27 @@ function ChurchCardInner({ card, index, stale, departed, onOp }: Props) {
                 onRestore={restore(c.id)}
                 onDelete={del(c.id)}
               >
+                {/* THE ORDER IS THE POINT, so it is on screen rather than
+                    implied by position. `rank` is renumbered over the contacts
+                    that survived, so the first line always reads 1 — a reviewer
+                    should never have to reason about the ones filtered out
+                    above it. Rank 1 is the one that gets written to first, and
+                    it is the only one drawn in brand ink. */}
+                <span
+                  aria-hidden="true"
+                  title={
+                    rank === null
+                      ? "struck out — will not be sent"
+                      : rank === 1
+                        ? "first to contact"
+                        : `contact ${rank}`
+                  }
+                  className={`float-left mt-[3px] mr-1.5 w-4 shrink-0 font-mono text-[10px] tabular-nums ${
+                    rank === 1 ? "font-bold text-lead-brand" : "text-lead-ink2"
+                  }`}
+                >
+                  {rank ?? "–"}
+                </span>
                 {/* THREE SHAPES, NOT TWO.
                     A church address has no name and no job title — it is an
                     address. Giving it the person layout printed "(church
