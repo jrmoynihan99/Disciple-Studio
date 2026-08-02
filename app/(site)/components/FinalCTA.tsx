@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import { Btn, Arrow } from "@/components/ui";
 import { Glow } from "./ui";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
@@ -70,9 +71,15 @@ export default function FinalCTA({
             href="/"
             className="inline-flex items-center gap-2 text-paper/45 transition-colors hover:text-paper"
           >
-            <span className="grid h-5 w-5 place-items-center rounded-md bg-accent text-[11px] text-white">
-              {"✝"}
-            </span>
+            {/* alt="" — the wordmark right beside it already names the link.
+                rounded-md matches the tile the accent square used to be. */}
+            <Image
+              src="/logoFlipped.png"
+              alt=""
+              width={48}
+              height={48}
+              className="h-6 w-6 flex-none rounded-md"
+            />
             Disciple Studio
           </a>
           <span className="inline-flex gap-5">
