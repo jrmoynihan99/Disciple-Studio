@@ -30,6 +30,7 @@ export interface AttributionSkin {
   uncited: string;
   edited: string;
   user: string;
+  generated: string;
   verified: string;
   link: string;
   revert: string;
@@ -44,6 +45,7 @@ export const CONSOLE_ATTRIBUTION: AttributionSkin = {
   uncited: "text-lead-ink2 opacity-70",
   edited: "text-lead-warn",
   user: "text-lead-brand",
+  generated: "text-lead-warn-ink",
   verified: "rounded bg-lead-panel2 px-1.5 py-px",
   link: "underline decoration-dotted underline-offset-2 hover:text-lead-link",
   revert: "underline underline-offset-2 hover:text-lead-ink",
@@ -106,6 +108,17 @@ export function AttributionLine({
       return (
         <p data-attribution="user" className={`${base} ${skin.user}`}>
           added by you — not from the church&rsquo;s site
+        </p>
+      );
+
+    case "generated":
+      // Never hidden behind a hover and never abbreviated to a glyph. This line
+      // is the only thing separating a step the church publishes from one the
+      // pipeline invented for it, and a reviewer reads this page precisely to
+      // catch the second kind before it is sent.
+      return (
+        <p data-attribution="generated" className={`${base} ${skin.generated}`}>
+          added by us — not found on the church&rsquo;s site
         </p>
       );
   }

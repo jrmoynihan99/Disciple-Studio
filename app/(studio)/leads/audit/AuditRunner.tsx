@@ -20,6 +20,48 @@ type Add = (name: string, pass: boolean, detail: string) => void;
 const ctx: EngineCtx = { overrides: {}, favor: defaultFavorModel(), rows: [] };
 
 /**
+ * Run `fn` over `items` with at most `limit` in flight.
+ *
+ * Workers drain a shared cursor rather than the array being chunked into
+ * batches: a batch runs at the speed of its slowest member and leaves the pool
+ * idle waiting for it, which at 15,274 items is most of the run. Same shape as
+ * the upload workers in `scripts/leads-publish.mts`.
+ */
+async function pool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      for (;;) {
+        const i = next++;
+        if (i >= items.length) return;
+        await fn(items[i]);
+      }
+    }),
+  );
+}
+
+/**
+ * The same ids, reordered so that everything in one storage shard is asked for
+ * together.
+ *
+ * MUST MATCH `shardOf` in `lib/leads/pack/read.ts` — `sha256(org_id)`, first two
+ * hex characters. That module is server-side (`node:crypto`, `node:fs`) and
+ * cannot be imported here, so the hash is recomputed with WebCrypto. If the
+ * server's sharding ever changes, this stops being an optimisation and becomes
+ * merely useless — it cannot make the audit wrong, only slow again.
+ */
+async function shardOrder(ids: string[]): Promise<string[]> {
+  const enc = new TextEncoder();
+  const keyed = await Promise.all(
+    ids.map(async (id) => {
+      const digest = await crypto.subtle.digest("SHA-256", enc.encode(id));
+      return { id, shard: new Uint8Array(digest)[0] };
+    }),
+  );
+  return keyed.sort((a, b) => a.shard - b.shard).map((k) => k.id);
+}
+
+/**
  * The row, rendered twice: collecting now, and collected last week.
  *
  * `/leads` cannot be scraped for this — its server HTML is a loading skeleton
@@ -416,18 +458,7 @@ async function auditGroupCard(add: Add) {
     flushSync(() => {
       root.render(
         <>
-          {/* Pass "a" because the checks below are on `church/parts.tsx`, which
-              all three passes render through — the passes only change what one
-              item looks like. If a pass ever grows markup of its own, this needs
-              to become a loop over `PASS_ORDER`. */}
-          <ChurchCard
-            card={card}
-            index={1}
-            stale={false}
-            departed={false}
-            onOp={() => {}}
-            pass="a"
-          />
+          <ChurchCard card={card} index={1} stale={false} departed={false} onOp={() => {}} />
           <ExportBar count={1} acknowledged onAcknowledge={() => {}} />
         </>,
       );
@@ -697,19 +728,40 @@ export function AuditRunner() {
     const idxRes = await fetch("/api/leads/index");
     const rows: IndexRow[] = await idxRes.json();
 
-    const records = await Promise.all(
-      rows.map((r) =>
-        fetch(`/api/leads/church/${encodeURIComponent(r.id)}`)
-          .then((x) => (x.ok ? (x.json() as Promise<ChurchRecord>) : null))
-          .catch(() => null),
-      ),
-    );
-    const loaded = records.filter((r): r is ChurchRecord => !!r);
-    add("every church's record loads", loaded.length === rows.length, `${loaded.length}/${rows.length}`);
-
-    // Every non-empty quote must be traceable to a URL on itself or an ancestor.
+    /**
+     * FETCHED IN A BOUNDED POOL, IN SHARD ORDER. Both halves are load-bearing.
+     *
+     * This was one `Promise.all` over `rows.map(fetch)` — 15,274 simultaneous
+     * requests. It was written when the fixture was 134 churches; at corpus scale
+     * the tab dies with `ERR_INSUFFICIENT_RESOURCES`, every request resolves
+     * `null`, and the check reports `0/15274`. Worse than the red line, the array
+     * came back EMPTY, so the three checks that consume it — quote traceability,
+     * fully-unknown churches, colour-token coverage — all passed VACUOUSLY over
+     * nothing while appearing to sweep the corpus.
+     *
+     * NOTHING IS RETAINED, and that is the other half of the fix. A record is
+     * ~13 KB, so keeping all 15,274 is ~200 MB on the wire and several hundred
+     * more parsed on the heap — `readAllRecords` measures the same corpus at
+     * ~300 MB server-side and warns that "nothing in a request path calls this".
+     * Collecting them into an array would have swapped a fast crash for a slow
+     * one. Every check below is a FOLD — a count, two counters, a set of at most
+     * seven states — so each record is consumed on arrival and dropped.
+     *
+     * The order is by storage shard. It measured no difference against a local
+     * `pack/` (disk reads, and the OS caches them), and it is not there for that
+     * case: with `LEADS_DATASET_SOURCE=r2` a miss in the server's 24-shard LRU is
+     * a NETWORK fetch of a whole shard, and `readAllRecords` already explains why
+     * index order misses nearly every time — "the shard key is a hash and
+     * consecutive org_ids land in unrelated shards". 256 shard fetches instead of
+     * ~14,000. It costs one pass of hashing and cannot make the result wrong.
+     */
+    let ok = 0;
     let quotes = 0;
     let orphans = 0;
+    let allUnknown = 0;
+    const bogus: string[] = [];
+
+    // Every non-empty quote must be traceable to a URL on itself or an ancestor.
     const walk = (node: unknown, inherited: string) => {
       if (Array.isArray(node)) return node.forEach((v) => walk(v, inherited));
       if (typeof node !== "object" || node === null) return;
@@ -722,32 +774,42 @@ export function AuditRunner() {
       }
       for (const v of Object.values(o)) walk(v, nearest);
     };
-    loaded.forEach((r) => walk(r, ""));
-    add("every quote is traceable to a source URL", orphans === 0, `${quotes} quotes, ${orphans} orphaned`);
 
-    // A fully-unknown church must still score 0 and render a complete row.
-    const allUnknown = loaded.filter((r) =>
-      QMETA.every(([k]) => {
+    const order = await shardOrder(rows.map((r) => r.id));
+    await pool(order, 16, async (id) => {
+      const r = await fetch(`/api/leads/church/${encodeURIComponent(id)}`)
+        .then((x) => (x.ok ? (x.json() as Promise<ChurchRecord>) : null))
+        .catch(() => null);
+      if (!r) return;
+      ok++;
+
+      walk(r, "");
+
+      // A fully-unknown church must still score 0 and render a complete row.
+      const unknown = QMETA.every(([k]) => {
         const q = (r as unknown as Record<string, { answer?: string }>)[k];
         return !q || q.answer === "unknown" || q.answer == null;
-      }),
-    );
-    add(
-      "fully-unknown churches are representable",
-      true,
-      `${allUnknown.length} in this corpus (they must still render a complete row)`,
-    );
+      });
+      if (unknown) allUnknown++;
 
-    // No church may paint a colour we do not have a token for.
-    const bogus: string[] = [];
-    for (const r of loaded) {
+      // No church may paint a colour we do not have a token for.
       const v = churchFromRecord(r);
       for (const [k] of QMETA) {
         const s = colorState(k as QuestionKey, v.q(k as QuestionKey), ctx);
-        if (!probe(`bg-lead-${s}`).bg) bogus.push(`${r.org_id}.${k}=${s}`);
+        // `bogus` is the one thing kept, and only the first few: it is evidence
+        // for a failure, not a data structure.
+        if (!probe(`bg-lead-${s}`).bg && bogus.length < 3) bogus.push(`${r.org_id}.${k}=${s}`);
       }
-    }
-    add("every computed state has a colour token", bogus.length === 0, bogus.slice(0, 3).join(", ") || "all 7 states resolve");
+    });
+
+    add("every church's record loads", ok === rows.length, `${ok}/${rows.length}`);
+    add("every quote is traceable to a source URL", orphans === 0, `${quotes} quotes, ${orphans} orphaned`);
+    add(
+      "fully-unknown churches are representable",
+      true,
+      `${allUnknown} in this corpus (they must still render a complete row)`,
+    );
+    add("every computed state has a colour token", bogus.length === 0, bogus.join(", ") || "all 7 states resolve");
 
     // ── UI text checks on the live console ──
     const consoleRes = await fetch("/leads");

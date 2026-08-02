@@ -136,6 +136,73 @@ describe("buildSnapshot", { skip }, () => {
   });
 
   /**
+   * THE WHOLE CORPUS, because the id scheme changed shape.
+   *
+   * v1 built one step per category out of a fixed eight, so uniqueness was free.
+   * v2 reads `next_steps[]`, where a church can carry several steps in one
+   * category — 29 of them on `growwithsecond_org` — and `rank` cannot be the key
+   * either, since 2,226 records repeat one. So ids are `s_<category>` with an
+   * occurrence suffix, and "unique" stopped being structural and became something
+   * to prove. Twenty-five churches is not proof; every church is.
+   */
+  test("no church anywhere produces a duplicate step id", () => {
+    const bad: string[] = [];
+    for (const { row, snap } of snaps) {
+      const ids = snap.steps.map((s) => s.id);
+      if (new Set(ids).size !== ids.length) bad.push(row.id);
+    }
+    assert.deepEqual(bad.slice(0, 15), [], `${bad.length} churches have a duplicate step id`);
+  });
+
+  /**
+   * SIXTEEN PERCENT OF EVERY STEP LIST IS OURS, NOT THE CHURCH'S.
+   *
+   * The corpus fabricates an "Attend a Worship Service" row on every church. It
+   * has no name of its own, no quote and no source URL, so nothing else about it
+   * distinguishes it from a step we read off their site — the flag is the only
+   * carrier, and if it stops reaching the snapshot the review page starts
+   * presenting our invention as their offering with no way to tell.
+   */
+  test("a fabricated step is marked as one, and carries no quote", () => {
+    let generated = 0;
+    const spoke: string[] = [];
+    for (const { row, snap } of snaps) {
+      for (const s of snap.steps) {
+        if (!s.generated) continue;
+        generated++;
+        if (s.quote || s.sourceUrl || s.ownName) spoke.push(`${row.id}/${s.id}`);
+      }
+    }
+    assert.ok(generated > 10_000, `only ${generated} fabricated steps — the flag stopped arriving`);
+    assert.deepEqual(
+      spoke.slice(0, 10),
+      [],
+      `${spoke.length} fabricated steps claim words we did not find`,
+    );
+  });
+
+  /**
+   * The title is the decision the pipeline already made, not one we re-make. If
+   * `final_name` ever failed to reach `label`, the card would fall back to
+   * whatever else was lying around and nobody would see the difference until a
+   * church read its own demo.
+   */
+  test("the step title is the pipeline's decision, and is never empty", () => {
+    const blank: string[] = [];
+    let fromRecord = 0;
+    for (const { row, snap } of snaps) {
+      const want = (loadRecord(row.id).next_steps ?? []).map((s) => (s.final_name ?? "").trim());
+      if (want.length !== snap.steps.length) continue; // the two legacy-path records
+      snap.steps.forEach((s, i) => {
+        if (!s.label.trim()) blank.push(`${row.id}/${s.id}`);
+        else if (s.label === want[i]) fromRecord++;
+      });
+    }
+    assert.deepEqual(blank.slice(0, 10), [], `${blank.length} steps have no title`);
+    assert.ok(fromRecord > 70_000, `only ${fromRecord} titles came from final_name`);
+  });
+
+  /**
    * The roster runs to 102 entries on one church and is the largest single size
    * driver. It is reference material for the dossier, not something you put in
    * front of a church — and a group blob has a hard 4 MB ceiling.

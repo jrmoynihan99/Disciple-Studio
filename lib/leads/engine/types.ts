@@ -182,6 +182,59 @@ export interface StepCategory {
   source_url?: string;
 }
 
+/**
+ * ONE OUTREACH STEP, as the pipeline decided to present it.
+ *
+ * NOT A VIEW OVER `next_steps_by_category`, and confusing the two is the mistake
+ * this comment exists to prevent. The category summary answers "how many of our
+ * eight categories does this church cover" — a coverage measure, on a fixed
+ * taxonomy, feeding the score and the facets. This array answers "what steps
+ * would we actually put in front of this church" — a content list, on a richer
+ * taxonomy (12 categories, 14 tiers), and it can carry several entries per
+ * category or none. Measured: only half of all records have the same count on
+ * both sides. Both are correct; they are answers to different questions.
+ *
+ * `final_name` IS THE DECISION AND IT IS ALREADY MADE. The pipeline grades the
+ * church's own word (`name`) against the category and either keeps it or swaps
+ * in a standardized one, and `final_name` is the result. Do not re-derive it
+ * from `name` + `name_confidence` — that would be a second, drifting copy of a
+ * judgement that has already been made against evidence we do not have here.
+ * `name_source` records which way it went:
+ *
+ *   church           `final_name` is the church's own words (24,898 steps)
+ *   standardized     ours, replacing a word that did not survive grading
+ *   default_generic  ours, where the church named nothing usable
+ *   supplied         ours, invented — see the synthesized note below
+ *
+ * SIXTEEN PERCENT OF THESE ARE OURS, NOT THEIRS. Every church gets a fabricated
+ * "Attend a Worship Service" row: `origin:"added"`, `flags:["synthesized"]`,
+ * empty `name`, empty `quote`, empty `source_url`. Rendered without a mark it is
+ * indistinguishable from a step we found on their site, which is a claim about a
+ * real congregation that nobody checked. `flags` is the reliable key — it is
+ * biconditional with `origin:"added"` across all 73,758 steps, whereas `name_fit`
+ * is `"none"` on most of them but `""` on 518.
+ */
+export interface NextStep {
+  /** THE TITLE. Populated on every step in the corpus; never fall back. */
+  final_name?: string;
+  /** The church's own word for it. Empty on every synthesized row. */
+  name?: string;
+  name_source?: string;
+  origin?: string;
+  category?: string;
+  tier?: string;
+  rank?: number;
+  quote?: string;
+  source_url?: string;
+  /** Is the quote ABOUT this step — a different axis from whether it is on the page. */
+  quote_confidence?: string;
+  quote_category_fit?: string;
+  name_confidence?: string;
+  name_fit?: string;
+  /** `synthesized` means we invented this step. See the note above. */
+  flags?: string[];
+}
+
 export interface NextStepsByCategory {
   /** false → "not checked". NEVER "0 of 8". */
   looked?: boolean;
@@ -419,6 +472,16 @@ export interface ChurchRecord {
   q12?: QuestionView & Record<string, unknown>;
 
   next_steps_by_category?: NextStepsByCategory;
+  /**
+   * The outreach steps, per step. See `NextStep` — this is NOT the array form of
+   * the field above it.
+   *
+   * OPTIONAL BECAUSE IT IS GENUINELY ABSENT, not merely to be safe: two records
+   * in the v2 corpus (`chcc_org`, `connectatgrace_org`) omit the key entirely
+   * rather than shipping `[]`, and the ten synthetic edge-case fixtures predate
+   * it. Read it as `?? []`.
+   */
+  next_steps?: NextStep[];
   brand?: Record<string, unknown>;
   logo_palette?: Record<string, unknown>;
   contact?: Record<string, unknown>;

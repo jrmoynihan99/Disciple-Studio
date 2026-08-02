@@ -296,6 +296,15 @@ rebuild anyway.
 **Tests:** `npm run verify` runs lint, type checking and 250+ tests. It needs
 step 5 to have run first, because the tests read the real data.
 
+**`/leads/audit` shows 30 of 31 passing**
+Expected. The one red line — `every quote is traceable to a source URL` — is a
+gap in the data we were sent, not a fault in the app, and it is not hurting
+anything. It and everything else in this category are written up in
+[docs/leads/known-issues.md](docs/leads/known-issues.md). Read that before
+"fixing" anything it describes; the obvious fix for the red line is the wrong
+one, and it says why. The audit takes about two minutes to finish — it reads all
+15,274 records.
+
 ---
 
 ## Two things not to change without reading first

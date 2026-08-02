@@ -3,16 +3,12 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { resolve, staleEntries, departedEntries } from "@/lib/leads/engine/group";
-import type { GroupOp, ResolvedCard } from "@/lib/leads/engine/group-types";
 import { useGroup } from "@/lib/leads/client/useGroups";
 import { useDataset } from "@/lib/leads/client/useDataset";
 import { ChurchCard } from "./church/parts";
 import { SKIN } from "./church/skin";
-import { PASSES, PASS_ORDER, type Pass } from "./church/passes";
 import { EditableText } from "./EditableText";
 import { ExportBar } from "./ExportBar";
-// REVIEW-PASS-TEMP — three treatments of the evidence; see PassSwitch.tsx.
-import { PassSwitch, useReviewPass } from "./PassSwitch";
 
 /**
  * The review page.
@@ -41,8 +37,6 @@ const DISCLAIMER_TITLE = "WARNING: MANUALLY CHECK BEFORE SENDING";
 export function GroupReview({ id }: { id: string }) {
   const { group, loading, error, save, pending, apply, reload } = useGroup(id);
   const { rows } = useDataset();
-  // REVIEW-PASS-TEMP
-  const [mode, chooseMode] = useReviewPass();
 
   /**
    * The acknowledgement is NOT persisted, on purpose.
@@ -78,8 +72,6 @@ export function GroupReview({ id }: { id: string }) {
   // `memo()` on ChurchCard a no-op — which is exactly the kind of thing that
   // looks like it works and quietly costs nineteen re-renders per keystroke.
   const onOp = apply;
-
-  const pass: Pass = mode === "compare" ? "a" : mode;
 
   if (loading) {
     return (
@@ -180,9 +172,6 @@ export function GroupReview({ id }: { id: string }) {
         <p className={SKIN.emptyBatch}>
           This batch is empty. Press ✆ on a church in the console to collect it.
         </p>
-      ) : mode === "compare" ? (
-        /* REVIEW-PASS-TEMP */
-        <CompareStrip card={cards[0]} onOp={onOp} />
       ) : (
         cards.map((card, i) => (
           <ChurchCard
@@ -192,7 +181,6 @@ export function GroupReview({ id }: { id: string }) {
             stale={stale.has(card.orgId)}
             departed={departed.has(card.orgId)}
             onOp={onOp}
-            pass={pass}
           />
         ))
       )}
@@ -203,40 +191,6 @@ export function GroupReview({ id }: { id: string }) {
         onAcknowledge={(on) => setAck({ id, on })}
         skin={SKIN.exportBar}
       />
-
-      {/* REVIEW-PASS-TEMP */}
-      <PassSwitch mode={mode} onChoose={chooseMode} />
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   REVIEW-PASS-TEMP — Compare
-   ──────────────────────────────────────────────────────────────────────────
-   ONE CHURCH, THREE TIMES. Switching between whole pages to compare treatments
-   makes you compare a memory against a screen, and a memory of a layout is
-   mostly a memory of how you felt about it. Three renderings of the same church
-   in one scroll is the difference between "I think I prefer the second one" and
-   "the second one, but with the first one's alignment".
-
-   The first church in the batch, deliberately, rather than a fabricated one:
-   what is being judged is how a treatment copes with the data you actually
-   have, including its gaps.
-   ══════════════════════════════════════════════════════════════════════════ */
-function CompareStrip({ card, onOp }: { card: ResolvedCard; onOp: (op: GroupOp) => void }) {
-  return (
-    <div className="space-y-10">
-      {PASS_ORDER.map((p) => (
-        <section key={p}>
-          <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b-2 border-lead-brand pb-1.5 font-mono text-[11px]">
-            <b className="text-lead-ink">
-              {p.toUpperCase()} · {PASSES[p].title}
-            </b>
-            <span className="text-lead-ink2">{PASSES[p].hint}</span>
-          </div>
-          <ChurchCard card={card} index={1} stale={false} departed={false} onOp={onOp} pass={p} />
-        </section>
-      ))}
     </div>
   );
 }

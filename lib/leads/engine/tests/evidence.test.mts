@@ -101,6 +101,11 @@ describe("evidence", { skip: !HAVE_FIXTURE && "fixture not present" }, () => {
     /\.subsignals\[\d+\]\.quote$/,
     // `stepsOf` blanks the quote and keeps the category.
     /^\.next_steps_by_category\.categories\[\d+\]\.quote$/,
+    // Same rule, the v2 per-step array: `stepsOf` writes the quote only when
+    // `safeUrl(s.source_url)` survives, so these ten reach a snapshot with an
+    // empty quote and a step that still ships. Measured at 10 of 73,758 —
+    // upstream's to fix, ours to refuse to draw.
+    /^\.next_steps\[\d+\]\.quote$/,
   ];
 
   test("every unattributed quote sits where a renderer already abstains", () => {

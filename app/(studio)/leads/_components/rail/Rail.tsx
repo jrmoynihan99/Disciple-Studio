@@ -279,6 +279,24 @@ export function Rail({
 
       </div>
 
+      {/* ── every batch ──
+          THE RAIL HAD NO WAY TO REACH THE BATCH INDEX. It carried exactly two
+          links, both deep into ONE batch: "Review these N" (today's, and only
+          while it has churches in it) and the earlier-batches list below. So the
+          page that lists all of them was reachable only from inside a batch you
+          already knew the id of — a dead end at the top of the funnel.
+
+          Outside the tray card rather than in it, so it does not read as another
+          fact about today's collecting, and filled because getting to the work
+          you have already collected is a primary action, not a footnote. */}
+      <Link
+        href="/leads/groups"
+        className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-lead-brand px-4 text-[14.5px] font-semibold text-white transition-opacity hover:opacity-90"
+      >
+        All batches
+        <span aria-hidden="true">→</span>
+      </Link>
+
       {/* ── earlier batches ──
           Exported ones last: the daily job is finding the next twenty, so
           finished work should be reachable without being in the way. */}

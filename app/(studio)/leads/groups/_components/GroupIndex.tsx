@@ -3,8 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useGroupList } from "@/lib/leads/client/useGroups";
+import { SKIN } from "./church/skin";
 
-/** The list of export groups. Same column and type scale as the review page. */
+/**
+ * The list of export groups.
+ *
+ * Its chrome comes from `SKIN` rather than from hand-copied class strings. It
+ * used to duplicate the review page's nav, heading and shell by hand, which is
+ * how the two ended up with the same nav rendered two different ways — one an
+ * underline, one a button — after only one of them was restyled.
+ */
 export function GroupIndex() {
   const { groups, loading, error, create, remove } = useGroupList();
   const [name, setName] = useState("");
@@ -12,15 +20,13 @@ export function GroupIndex() {
 
   return (
     <div className="mx-auto max-w-[880px] px-6 pt-6 pb-24">
-      <nav className="mb-5 font-mono text-[11px] text-lead-ink2">
-        <Link href="/leads" className="underline underline-offset-2 hover:text-lead-ink">
+      <nav className={SKIN.nav}>
+        <Link href="/leads" className={SKIN.navLink}>
           ← Console
         </Link>
       </nav>
 
-      <h1 className="font-serif text-[32px] leading-tight font-semibold tracking-tight text-lead-ink">
-        Batches
-      </h1>
+      <h1 className={SKIN.h1}>Batches</h1>
       <p className="mt-2 max-w-[52ch] text-[13.5px] leading-relaxed text-lead-ink2">
         A batch is the churches you collected with ✆, frozen as they were when you
         collected them, with your corrections on top. Editing a church here changes

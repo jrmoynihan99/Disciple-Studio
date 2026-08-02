@@ -83,29 +83,98 @@ function nameRepairOf(rec: ChurchRecord): SnapshotNameRepair | null {
  * ------------------------------------------------------------------ */
 
 /**
- * Only the categories the church actually offers.
+ * THE STEPS THAT WOULD BE SENT, one per entry of `record.next_steps`.
  *
- * `absent_looked` is a real and useful fact in the dossier — it is how a reader
- * knows we checked — but it is not export content; nobody writes to a church
- * about a step it does not have. The "we looked at all" fact survives separately
- * as `stepsLooked`, so an empty list still reads as "we checked, found none"
- * rather than "not checked".
+ * This used to read `next_steps_by_category` and build one step per category the
+ * church offered. That answers a different question — "how many of our eight
+ * categories does this church cover", which is a coverage score — and it forced
+ * a choice this layer was never entitled to make: our category label ("Small
+ * groups") or the church's own term ("Life Groups")? `next_steps[]` arrives with
+ * that decision already taken, graded against evidence, in `final_name`. So the
+ * snapshot stops deciding and starts recording.
+ *
+ * The console keeps reading the category summary for its tile, facet, sort and
+ * score. The two counts disagree on half the corpus and that is correct: one
+ * counts coverage, this one counts content. Nothing claims they are the same
+ * number.
+ *
+ * IDS ARE DERIVED FROM THE CATEGORY, NOT THE ARRAY INDEX, and that is load
+ * bearing: an id is what an edit is attached to, so an id that shifts when a
+ * republish reorders the list silently moves somebody's correction onto a
+ * different step. An index would shift on every insertion. The category does not
+ * — but it also is not unique any more (a church can have several `misc` steps,
+ * and one has 29 steps in total), so repeats get a suffix in array order. That
+ * leaves one residual risk, stated plainly: reordering steps WITHIN one category
+ * across publishes can still reattach an edit. `rank` would not help — 2,226
+ * records carry duplicate ranks. This is the most stable key the data offers.
  */
 function stepsOf(rec: ChurchRecord): SnapshotStep[] {
+  // Genuinely absent on two records in the corpus, and on every synthetic
+  // edge-case fixture, which predate the field.
+  const steps = rec.next_steps ?? [];
+  if (steps.length === 0) return legacyStepsOf(rec);
+
+  const used = new Map<string, number>();
+
+  return steps.map((s) => {
+    const category = str(s.category) || "step";
+    const n = (used.get(category) ?? 0) + 1;
+    used.set(category, n);
+
+    const title = txt(s.final_name);
+    const own = txt(s.name);
+
+    return {
+      id: n === 1 ? `s_${category}` : `s_${category}_${n}`,
+      key: category,
+      // THE DECISION, NOT AN INPUT TO ONE. `stepTitle` in `group.ts` is a no-op
+      // on this because `ownTerms` is empty — see the note there.
+      label: title,
+      state: "present" as const,
+      ownTerms: [],
+      // Only when it says something. Identical to the title on 40% of steps and
+      // empty on every synthesized one, and a snapshot carrying up to 29 steps
+      // has a byte budget worth respecting.
+      ...(own && own !== title ? { ownName: own } : {}),
+      ...((s.flags ?? []).includes("synthesized") ? { generated: true } : {}),
+      // Cite or abstain, the same rule the pathway steps and the categories
+      // follow: ten steps in the corpus carry a quote with no `source_url`, and a
+      // snapshot is the artifact that leaves the building. The STEP still ships —
+      // "they offer baptism" is a judgement we adjudicated, not a sentence we are
+      // attributing to anybody.
+      ...(safeUrl(s.source_url)
+        ? {
+            quote: txt(s.quote),
+            quoteConfidence: str(s.quote_confidence),
+            verified: str(s.quote_category_fit),
+            sourceUrl: safeUrl(s.source_url),
+          }
+        : { quote: "", quoteConfidence: "", verified: "", sourceUrl: "" }),
+    };
+  });
+}
+
+/**
+ * The pre-v2 path, for records that carry no `next_steps` array.
+ *
+ * Two real churches and the ten synthetic fixtures are in that state. Falling
+ * back to the categories means they render a sensible list instead of an empty
+ * one; `stepTitle` still applies its own-term-versus-our-label rule to these,
+ * which is the right rule for a step built this way.
+ *
+ * `absent_looked` categories are excluded here as they always were — nobody
+ * writes to a church about a step it does not have. The "we checked" fact
+ * survives separately as `stepsLooked`, so an empty list still reads as "we
+ * looked and found none" rather than "not checked".
+ */
+function legacyStepsOf(rec: ChurchRecord): SnapshotStep[] {
   const summary = nextStepsSummary(rec);
   return summary.present.map((c: StepCategory) => ({
-    // Derived from the category key, never an array index: if a republish drops
-    // one category, index-based ids would shift every step below it and silently
-    // reattach every edit to the wrong step.
     id: `s_${c.key}`,
     key: c.key,
     label: txt(c.label),
     state: c.state ?? "present",
     ownTerms: (c.own_terms ?? []).map(txt).filter(Boolean),
-    // Cite or abstain, same rule as the pathway steps: one category in the v2
-    // corpus carries a quote with no `source_url`, and a snapshot is the artifact
-    // that leaves the building. The CATEGORY still ships — "they offer baptism"
-    // is a state we adjudicated, not a sentence we are attributing.
     ...(safeUrl(c.source_url)
       ? {
           quote: txt(c.quote),

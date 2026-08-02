@@ -530,39 +530,221 @@ describe("untrusted input", () => {
   });
 });
 
+/* ------------------------------------------------------------------ *
+ * The Title
+ * ------------------------------------------------------------------ */
+
 /**
- * THE TWO COLUMNS RENDER THROUGH ONE COMPONENT, which only works if the engine
- * gives them the same shape. Both of these were added for that.
+ * A STEP HAS ONE TITLE, AND A v2 SNAPSHOT ARRIVES WITH IT ALREADY CHOSEN.
+ *
+ * `stepsOf` reads `next_steps[].final_name`, where the pipeline has already graded
+ * the church's own word against the category and either kept it or swapped ours
+ * in, and it writes `ownTerms: []`. So `stepTitle` is a no-op on a v2 step — the
+ * first case below pins exactly that, because a rule that quietly started
+ * re-deciding would produce a title nobody chose.
+ *
+ * THE REST OF THIS BLOCK IS THE FREEZE GUARANTEE. A snapshot is frozen when a
+ * church is collected, so batches taken before v2 still hold one step per
+ * category with both candidates on them, and `stepTitle`'s original rule is still
+ * the correct one for that data. These are not dead tests for a dead rule; they
+ * are what stops somebody deleting it and silently rewriting the titles in every
+ * batch collected before the republish.
  */
-describe("pathway steps carry what next steps carry", () => {
-  test("the church's own wording rides on a pathway step, when it differs", () => {
-    const { entry } = pick();
-    const withRaw: typeof entry = {
+describe("the step title", { skip }, () => {
+  /** One snapshot step, with only the fields the title rule reads. */
+  function withStep(
+    entry: GroupEntry,
+    step: {
+      label: string;
+      ownTerms: string[];
+      titleConfidence?: string;
+      generated?: boolean;
+    },
+  ): GroupEntry {
+    return {
       ...entry,
       snapshot: {
         ...entry.snapshot,
-        pathway: {
-          ...entry.snapshot.pathway,
-          steps: [
-            {
-              id: "p1", ordinal: 1, label: "Baptism", blurb: "",
-              category: null, categoryRaw: "Get Wet", quote: "",
-              sourceUrl: "", verified: "", labelVerified: "",
-            },
-            // Same word in both slots: showing it twice is noise, not evidence.
-            {
-              id: "p2", ordinal: 2, label: "Membership", blurb: "",
-              category: null, categoryRaw: "membership", quote: "",
-              sourceUrl: "", verified: "", labelVerified: "",
-            },
-          ],
-        },
+        steps: [
+          {
+            id: "s_group",
+            key: "group",
+            label: step.label,
+            state: "present",
+            ownTerms: step.ownTerms,
+            ...(step.titleConfidence === undefined
+              ? {}
+              : { titleConfidence: step.titleConfidence }),
+            ...(step.generated ? { generated: true } : {}),
+            quote: "",
+            quoteConfidence: "",
+            verified: "",
+            sourceUrl: "",
+          },
+        ],
       },
     };
-    const steps = resolve(withRaw).pathway.steps;
-    assert.deepEqual(steps[0].ownTerms, ["Get Wet"]);
-    assert.deepEqual(steps[1].ownTerms, [], "a term identical to our label earns no chip");
+  }
+
+  const titleOf = (entry: GroupEntry) => resolve(entry).steps[0].label;
+
+  /**
+   * A v2 step. `ownTerms` is empty because the decision was made upstream, which
+   * is precisely what makes `stepTitle` return `label` untouched.
+   */
+  test("a v2 title is passed through, not re-decided", () => {
+    const { entry } = pick();
+    const title = titleOf(withStep(entry, { label: "Life Groups", ownTerms: [] }));
+    assert.equal(title.text, "Life Groups");
+    assert.equal(
+      title.attribution.kind === "uncited" ? title.attribution.note : "",
+      "our category",
+      "the note is about which SOURCE won; on v2 the pipeline already chose",
+    );
   });
+
+  /**
+   * THE FABRICATED STEP. Every church in the corpus carries one, and it must not
+   * be able to look like a step we found on their site.
+   */
+  test("a fabricated step says we invented it", () => {
+    const { entry } = pick();
+    const title = titleOf(
+      withStep(entry, { label: "Attend a Worship Service", ownTerms: [], generated: true }),
+    );
+    assert.equal(title.text, "Attend a Worship Service");
+    assert.equal(title.attribution.kind, "generated");
+  });
+
+  /**
+   * A person's correction outranks the mark, and stops claiming we wrote it —
+   * "edited" is the honest label once the words are no longer ours either.
+   */
+  test("editing a fabricated step makes it edited, not still ours", () => {
+    const { entry } = pick();
+    const base = withStep(entry, {
+      label: "Attend a Worship Service",
+      ownTerms: [],
+      generated: true,
+    });
+    const edited = applyOp(
+      group1([base]),
+      {
+        op: "field.set",
+        orgId: base.orgId,
+        path: PATH.step("s_group", "label"),
+        value: "Sunday Gathering",
+        base: "Attend a Worship Service",
+      },
+      2000,
+    );
+    const title = resolve(edited.entries[0]).steps[0].label;
+    assert.equal(title.text, "Sunday Gathering");
+    assert.equal(title.attribution.kind, "edited");
+  });
+
+  test("their wording wins when we have it and nothing argues against it", () => {
+    const { entry } = pick();
+    const title = titleOf(withStep(entry, { label: "Small groups", ownTerms: ["Life Groups"] }));
+    assert.equal(title.text, "Life Groups");
+    assert.equal(
+      title.attribution.kind === "uncited" ? title.attribution.note : "",
+      "their wording",
+      "the note records which source won, so the branch is inspectable",
+    );
+  });
+
+  test("our category is the fallback when the church named nothing", () => {
+    const { entry } = pick();
+    const title = titleOf(withStep(entry, { label: "Small groups", ownTerms: [] }));
+    assert.equal(title.text, "Small groups");
+    assert.equal(title.attribution.kind === "uncited" ? title.attribution.note : "", "our category");
+  });
+
+  /**
+   * THE FIELD IS NOT IN THE CORPUS YET. Absent must mean "no opinion", not
+   * "reject" — reading it as a veto would replace every real church word on the
+   * page with a category name on the day this shipped.
+   */
+  test("an absent confidence is not a veto", () => {
+    const { entry } = pick();
+    assert.equal(
+      titleOf(withStep(entry, { label: "Small groups", ownTerms: ["Life Groups"] })).text,
+      "Life Groups",
+    );
+    assert.equal(
+      titleOf(withStep(entry, { label: "Small groups", ownTerms: ["Life Groups"], titleConfidence: "" })).text,
+      "Life Groups",
+      "an empty string is absence, not a low rating",
+    );
+  });
+
+  test("medium and high are trusted; low and none are not", () => {
+    const { entry } = pick();
+    for (const c of ["high", "medium", "HIGH", " Medium "]) {
+      assert.equal(
+        titleOf(withStep(entry, { label: "Small groups", ownTerms: ["Life Groups"], titleConfidence: c })).text,
+        "Life Groups",
+        `${JSON.stringify(c)} should be trusted`,
+      );
+    }
+    for (const c of ["low", "none"]) {
+      assert.equal(
+        titleOf(withStep(entry, { label: "Small groups", ownTerms: ["Life Groups"], titleConfidence: c })).text,
+        "Small groups",
+        `${JSON.stringify(c)} should fall back to our category`,
+      );
+    }
+  });
+
+  /**
+   * A value we do not recognise is not a value we can act on. Degrading to our
+   * own safe generic label is the only failure this can afford — the alternative
+   * is shipping a church a title nobody vouched for.
+   */
+  test("an unrecognised rating is not trusted", () => {
+    const { entry } = pick();
+    for (const c of ["probably", "0.8", "yes"]) {
+      assert.equal(
+        titleOf(withStep(entry, { label: "Small groups", ownTerms: ["Life Groups"], titleConfidence: c })).text,
+        "Small groups",
+        `${JSON.stringify(c)} should not be trusted`,
+      );
+    }
+  });
+
+  test("an edit beats the rule, whatever the rule would have chosen", () => {
+    const { entry } = pick();
+    const base = withStep(entry, {
+      label: "Small groups",
+      ownTerms: ["Life Groups"],
+      titleConfidence: "high",
+    });
+    const edited = applyOp(
+      group1([base]),
+      { op: "field.set", orgId: base.orgId, path: PATH.step("s_group", "label"), value: "Community Groups", base: "Life Groups" },
+      2000,
+    );
+    const title = resolve(edited.entries[0]).steps[0].label;
+    assert.equal(title.text, "Community Groups");
+    assert.equal(title.attribution.kind, "edited");
+  });
+
+  /**
+   * The raw terms stay in the snapshot even though nothing renders them. The
+   * snapshot is the frozen record of what the pipeline handed us; the Title is a
+   * choice made on top of it, and keeping both is what lets the choice be
+   * re-derived or argued with later.
+   */
+  test("the snapshot keeps the church's own words after the title is chosen", () => {
+    const { entry } = pick();
+    const e = withStep(entry, { label: "Small groups", ownTerms: ["Life Groups", "LifeGroups"] });
+    assert.deepEqual(e.snapshot.steps[0].ownTerms, ["Life Groups", "LifeGroups"]);
+    assert.equal(resolve(e).steps[0].label.text, "Life Groups", "the first term is the candidate");
+  });
+});
+
+describe("pathway steps", { skip }, () => {
 
   /**
    * The path existed in `PATH` and nothing read it back, so the review sheet

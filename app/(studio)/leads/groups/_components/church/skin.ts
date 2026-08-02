@@ -53,8 +53,21 @@ export const EMPTY_TEXT = "text-lead-warn-ink not-italic";
 export const SKIN = {
   /* ── page shell ── */
   page: "mx-auto max-w-[1180px] px-6 pt-6 pb-32",
-  nav: "mb-5 flex items-center gap-3 font-mono text-[11px] text-lead-ink2",
-  navLink: "underline underline-offset-2 hover:text-lead-ink",
+  nav: "mb-5 flex items-center gap-2 font-mono text-[11px] text-lead-ink2",
+  /**
+   * A BUTTON, NOT UNDERLINED TEXT.
+   *
+   * `← Console` and `All groups` are how you get out of a batch, and they were
+   * 11px of underlined mono in the same ink as the save-state line beside them —
+   * indistinguishable from the page's chrome at a glance. They are the only
+   * navigation on the page; they get a target.
+   *
+   * `metaLink` below stays underlined on purpose: "finish collecting" is a
+   * sentence with a verb in it, not a place to go.
+   */
+  navLink:
+    "inline-flex h-8 items-center gap-1.5 rounded-lg border border-lead-line bg-lead-panel px-3 " +
+    "font-mono text-[11px] text-lead-ink transition-colors hover:border-lead-brand hover:text-lead-brand",
   h1: "font-serif text-[32px] leading-tight font-semibold tracking-tight text-lead-ink",
   meta: "mt-1.5 font-mono text-[11px] text-lead-ink2",
   metaLink: "underline underline-offset-2 hover:text-lead-ink",
@@ -105,31 +118,81 @@ export const SKIN = {
   btn:
     "inline-flex h-8 items-center gap-1.5 rounded-lg border border-lead-line bg-lead-panel px-3 " +
     "font-mono text-[11px] text-lead-ink2 transition-colors hover:border-lead-ink2 hover:text-lead-ink",
+  /**
+   * RED AT REST, not on hover.
+   *
+   * Removing a church from a batch is the one irreversible thing on this page —
+   * there is no `put back` for it — and it was drawn in the same muted ink as
+   * every other control, turning red only once the pointer was already on it. A
+   * warning you only get after you have committed to the gesture is not a
+   * warning.
+   */
   btnDanger:
-    "inline-flex h-8 items-center gap-1.5 rounded-lg border border-lead-line bg-lead-panel px-3 " +
-    "font-mono text-[11px] text-lead-ink2 transition-colors hover:border-lead-bad hover:text-lead-bad",
+    "inline-flex h-8 items-center gap-1.5 rounded-lg border border-lead-bad/60 bg-lead-bad/[0.07] px-3 " +
+    "font-mono text-[11px] text-lead-bad transition-colors hover:border-lead-bad hover:bg-lead-bad/[0.14]",
   btnSmall:
     "inline-flex h-7 items-center gap-1 rounded-md border border-lead-line bg-lead-panel px-2 " +
     "font-mono text-[10.5px] text-lead-ink2 transition-colors hover:border-lead-ink2 hover:text-lead-ink",
 
-  /* ── one field ── */
-  field:
-    "grid grid-cols-[124px_1fr] gap-x-5 border-t border-lead-line py-4 pr-5 pl-6 " +
-    "max-[820px]:grid-cols-1 max-[820px]:gap-y-2",
-  label: `${H} pt-1`,
-  value: "min-w-0",
-  count: "font-mono text-[10px] text-lead-ink2 tabular-nums",
+  /* ── one field ──
+     THE LABEL IS A HEADER NOW, NOT A GUTTER. It used to sit in a 124px left
+     track, which spent an eighth of the card's width on five words that never
+     change and pushed every value inward. As a header it costs one line and the
+     value gets the full measure.
+
+     `<details>` rather than state: it collapses with the keyboard for free, and
+     `open` is the default because the page's whole premise is that nobody gets
+     to skip a church by not expanding it. */
+  // `group/field` so the chevron can rotate off `[open]` without any state, and
+  // NAMED so it cannot collide with `group/card` (the always-visible-controls
+  // group) or `group/item` (the per-item ✕).
+  field: "group/field border-t border-lead-line px-6 py-3.5",
+  summary:
+    "flex cursor-pointer list-none items-center gap-2 py-0.5 " +
+    "[&::-webkit-details-marker]:hidden",
+  chevron: "ml-auto text-lead-ink2 transition-transform group-open/field:rotate-180",
+  label: H,
+  value: "mt-2.5 min-w-0",
+  count:
+    "rounded-full border border-lead-line px-1.5 py-px font-mono text-[10px] text-lead-ink2 tabular-nums",
   absent: "font-mono text-[11px] leading-relaxed text-lead-ink2",
+
+  /* ── one item ──
+     Pass B, "Panel": each item is its own bordered block with a tinted title
+     cell on the left and the quote to the right. Alignment holds inside an item
+     rather than across them, which is what makes an item read as a unit you can
+     strike or keep — the actual verb on this page. */
+  list: "space-y-2",
+  itemShell:
+    "group/item relative overflow-hidden rounded-lg border border-lead-line bg-lead-bg/40 pr-8",
+  itemShellStruck:
+    "group/item relative overflow-hidden rounded-lg border border-lead-bad/40 bg-lead-bad/[0.06] pr-8",
+  itemRow: "grid grid-cols-[minmax(150px,240px)_1fr] max-[900px]:grid-cols-1",
+  itemLeft: "min-w-0 bg-lead-panel2/60 px-3 py-2.5 max-[900px]:pb-1.5",
+  itemRight: "min-w-0 px-3.5 py-2.5 max-[900px]:pt-0",
+  itemTitle: "text-[16px] leading-snug font-semibold text-lead-brand",
+  quote: "font-serif text-[14px] leading-relaxed text-lead-ink",
+
+  /**
+   * The connector between two steps the church itself put in order.
+   *
+   * ONLY rendered when `pathway.numbered` — see `pathwayIsOrdered()`. An arrow
+   * makes exactly the claim a step number makes ("they said do this one first"),
+   * and where the order came from DOM position rather than the church's own
+   * numbering that claim is not ours. Next steps never get one: a category list
+   * has no first.
+   */
+  arrow: "flex justify-center py-0.5 font-mono text-[13px] leading-none text-lead-brand/50",
 
   /* ── shared item bits ── */
   ordinal: "font-mono text-[12px] font-bold text-lead-brand tabular-nums",
-  term: "rounded-full border border-lead-line px-1.5 py-px font-mono text-[9px] text-lead-ink2",
   rank: "font-mono text-[11px] text-lead-ink2 tabular-nums",
   rankFirst: "font-mono text-[11px] font-bold text-lead-brand tabular-nums",
   kindLabel: H,
+  contactName: "text-[16px] leading-snug font-semibold text-lead-brand",
   contactTitle: "text-[12.5px] text-lead-ink2",
-  contactEmail: "font-mono text-[12.5px] break-all text-lead-link",
-  contactValue: "text-[13.5px] text-lead-ink",
+  contactEmail: "font-mono text-[13px] break-all text-lead-link",
+  contactValue: "text-[14px] text-lead-ink",
 
   /* ── flags ── */
   flagChip: "rounded px-1.5 py-px font-mono text-[9px] leading-[15px]",
@@ -163,6 +226,7 @@ export const SKIN = {
     uncited: "text-lead-ink2 opacity-70",
     edited: "text-lead-warn-ink",
     user: "text-lead-brand",
+    generated: "text-lead-warn-ink",
     verified: "rounded bg-lead-panel2 px-1.5 py-px",
     link: "underline decoration-dotted underline-offset-2 hover:text-lead-link",
     revert: "underline underline-offset-2 hover:text-lead-ink",

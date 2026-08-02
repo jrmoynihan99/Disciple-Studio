@@ -7,10 +7,11 @@
  * favorCount each — 152,740 cells against the current corpus of 15,274, and it
  * was 1,340 against the 134-church sample this was written for.
  *
- * ONE QUESTION IS CURRENTLY QUARANTINED — see `GOLDEN_STALE` below. The package
- * reworked q8 without regenerating the table, so its q8 column describes the
- * previous corpus. Nine questions and both favor values are still asserted in
- * full.
+ * ALL TEN QUESTIONS ARE ASSERTED. q8 was quarantined for one package — the build
+ * reworked the answer without regenerating the table, so the table described a
+ * corpus that had been replaced — and package v2 regenerates the table from the
+ * records it ships. The quarantine and its pinned divergence counts went with it,
+ * which is what the block was written to make possible.
  *
  * The counts are stated as an ORDER OF MAGNITUDE, not as an assertion: the
  * corpus is republished and the sizes move, so the test below asserts that the
@@ -62,48 +63,22 @@ const QUESTION_KEYS = QMETA.map(([k]) => k as QuestionKey);
  * `golden-colors.json` stays untouched. It records what the reference `core.js`
  * does, and it has to keep doing that to be worth running.
  */
-/**
- * WHERE THE GOLDEN TABLE IS OLDER THAN THE CORPUS IT SHIPPED WITH.
+/*
+ * A `GOLDEN_STALE` quarantine used to live here.
  *
- * NOT a divergence. `DIVERGES` below records places we chose to stop matching the
- * reference; this records a place the reference table is stale, which is an
- * upstream packaging defect and is reported as one.
+ * The previous package reworked q8 but shipped a `golden-colors.json` that was
+ * byte-identical to the build before it, so the table described a corpus that had
+ * been replaced. q8 was exempted from the cell sweep, its divergence pinned at
+ * 11,591 mismatches against 3,683 agreements so that any NEW drift would show up
+ * as a changed number rather than as silence, and its weight was added back into
+ * the favor expectations by hand so those stayed asserted in full.
  *
- * MEASURED, not inferred. `package-v2-final` reworked q8 — 11,591 of 15,274
- * records changed their q8 answer against the previous build (ambiguous →
- * no_app_found 5,817, ambiguous → likely_yes 2,960, unknown → no_app_found 1,334,
- * and five smaller transitions) — but `dev-only/golden-colors.json` is
- * BYTE-IDENTICAL to the previous build's. So the table describes the corpus that
- * was replaced.
- *
- * The quarantine is as narrow as the evidence allows:
- *
- *   - q8 is the only question exempted; the other nine are still asserted cell
- *     for cell across all 15,274 churches, from both projections.
- *   - 3,683 churches whose q8 did not move are still asserted, so the q8 colour
- *     rule itself is under test rather than waved through.
- *   - every exempted church's golden cell is `warn` or `unk` — the colours of
- *     `ambiguous` and `unknown`, which is all the previous build emitted. A
- *     mismatch against a decisive old cell would mean our port is wrong, not that
- *     the table is old, and still fails.
- *   - favorScore and favorCount are NOT exempted. Their expected values are
- *     COMPUTED from the reference table plus q8's own weight, and they match to
- *     the last digit for all 15,274 — which is the proof that q8 is the only
- *     thing that moved.
- *
- * Delete this block the moment a package ships a regenerated golden table.
+ * Package v2 generates the golden table from the records it ships. The quarantine
+ * was deleted the moment that happened, exactly as its own comment instructed,
+ * and q8 is asserted cell for cell again like the other nine. Measured on the
+ * first run against v2: zero q8 divergences, which is the number that made the
+ * deletion safe rather than merely convenient.
  */
-const GOLDEN_STALE = {
-  key: "q8" as QuestionKey,
-  /** Pinned so a NEW drift shows up as a changed number rather than as silence. */
-  mismatches: 11591,
-  matches: 3683,
-  /** The only golden values a stale q8 cell may hold: ambiguous, and unknown. */
-  cells: ["unk", "warn"],
-  /** q8's reference weight, written out rather than imported — `favorScore`
-   *  awards the full weight for `good` and half for `good2`. */
-  appPts: 0.5,
-};
 
 const DIVERGES: Record<string, string> = {
   // A confirmed custom login is `bad`, so a possible one is the "likely" grade
@@ -212,32 +187,6 @@ describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not pr
     return reference === "no platform identified" ? name : `${reference} · ${name}`;
   }
 
-  /**
-   * What the stale q8 cell costs the reference favor values.
-   *
-   * `favorScore` awards a question's full weight for `good` and half for `good2`;
-   * `favorCount` counts it once for either. Both rules are restated here as
-   * literals rather than imported, for the same reason `DIVERGES` is: a
-   * correction derived from the code it is correcting proves nothing. Zero when
-   * the golden cell still agrees, which is 3,683 churches.
-   */
-  const scorePts = (s: string) =>
-    s === "good" ? GOLDEN_STALE.appPts : s === "good2" ? GOLDEN_STALE.appPts / 2 : 0;
-  const countPts = (s: string) => (s === "good" || s === "good2" ? 1 : 0);
-
-  function staleShift(id: string, view: ChurchView) {
-    const got = colorState(GOLDEN_STALE.key, view.q(GOLDEN_STALE.key), ctx);
-    const want = golden.churches[id].cells[GOLDEN_STALE.key];
-    if (got === want) return { score: 0, count: 0, moved: false, got, want };
-    return {
-      score: scorePts(got) - scorePts(want),
-      count: countPts(got) - countPts(want),
-      moved: true,
-      got,
-      want,
-    };
-  }
-
   function checkProjection(label: string, viewFor: (id: string) => ChurchView) {
     describe(label, () => {
       test("every cell matches", () => {
@@ -245,7 +194,6 @@ describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not pr
         for (const id of ids) {
           const view = viewFor(id);
           for (const k of QUESTION_KEYS) {
-            if (k === GOLDEN_STALE.key) continue;
             const got = colorState(k, view.q(k), ctx);
             const want = expected(id, k, view);
             if (got !== want) bad.push(`${id} ${k}: got ${got}, want ${want}`);
@@ -254,71 +202,29 @@ describe("golden colour + favor table", { skip: !HAVE_FIXTURE && "fixture not pr
         assert.deepEqual(
           bad.slice(0, 25),
           [],
-          `${bad.length} of ${ids.length * (QUESTION_KEYS.length - 1)} cells wrong` +
+          `${bad.length} of ${ids.length * QUESTION_KEYS.length} cells wrong` +
             (bad.length > 25 ? " (first 25 shown)" : ""),
         );
       });
 
-      /**
-       * The quarantine, asserted rather than assumed.
-       *
-       * Two things could hide behind "q8 is stale": a genuinely broken q8 port,
-       * and a second question drifting under cover of the first. This pins the
-       * exact size of the divergence, requires every exempted church's golden
-       * cell to be one the previous build could actually have produced, and
-       * requires thousands of churches to still agree.
-       */
-      test("the stale question diverges only where the old build was undecided", () => {
-        const decisive: string[] = [];
-        const cells = new Set<string>();
-        let moved = 0;
-        let held = 0;
-        for (const id of ids) {
-          const shift = staleShift(id, viewFor(id));
-          if (!shift.moved) {
-            held++;
-            continue;
-          }
-          moved++;
-          cells.add(shift.want);
-          if (!GOLDEN_STALE.cells.includes(shift.want)) {
-            decisive.push(`${id}: golden ${shift.want} -> ${shift.got}`);
-          }
-        }
-        assert.deepEqual(
-          decisive.slice(0, 15),
-          [],
-          `${decisive.length} churches disagree with a DECISIVE golden ${GOLDEN_STALE.key} cell — ` +
-            `that is a port bug, not a stale table`,
-        );
-        assert.deepEqual([...cells].sort(), [...GOLDEN_STALE.cells].sort());
-        assert.equal(moved, GOLDEN_STALE.mismatches, `${GOLDEN_STALE.key} divergence changed size`);
-        assert.equal(held, GOLDEN_STALE.matches, `${GOLDEN_STALE.key} agreement changed size`);
-      });
-
-      /**
-       * NOT exempted. The expected value is the reference value plus q8's own
-       * weight — so if anything other than q8 moved, this fails, and it is the
-       * assertion that makes the quarantine above safe to grant.
-       */
-      test("every favorScore matches, once the stale question is paid for", () => {
+      test("every favorScore matches", () => {
         const bad: string[] = [];
         for (const id of ids) {
           const view = viewFor(id);
           const got = favorScore(view, ctx);
-          const want = golden.churches[id].favorScore + staleShift(id, view).score;
+          const want = golden.churches[id].favorScore;
           // Float sum of 0.3125-style weights: compare at the 2dp the UI shows.
           if (Math.abs(got - want) > 1e-9) bad.push(`${id}: got ${got}, want ${want}`);
         }
         assert.deepEqual(bad.slice(0, 25), [], `${bad.length} favorScore values wrong`);
       });
 
-      test("every favorCount matches, once the stale question is paid for", () => {
+      test("every favorCount matches", () => {
         const bad: string[] = [];
         for (const id of ids) {
           const view = viewFor(id);
           const got = favorCount(view, ctx);
-          const want = golden.churches[id].favorCount + staleShift(id, view).count;
+          const want = golden.churches[id].favorCount;
           if (got !== want) bad.push(`${id}: got ${got}, want ${want}`);
         }
         assert.deepEqual(bad.slice(0, 25), [], `${bad.length} favorCount values wrong`);

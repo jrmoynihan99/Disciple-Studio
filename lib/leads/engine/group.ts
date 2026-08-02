@@ -28,6 +28,7 @@ import type {
   Membership,
   MembershipRef,
   SnapshotContact,
+  SnapshotStep,
   Voice,
 } from "./group-types.ts";
 import { PATH, isSafeGroupId, pathPrefixFor, pathwayIsOrdered } from "./group-types.ts";
@@ -109,20 +110,64 @@ function resolveSlogan(entry: GroupEntry): ResolvedSlogan {
   return s.scope ? { kind: "homepage_only" } : { kind: "none" };
 }
 
+/**
+ * A step has ONE Title, and this returns it.
+ *
+ * ON A v2 SNAPSHOT THIS DOES NOTHING, BY CONSTRUCTION. `stepsOf` reads
+ * `next_steps[].final_name`, where the pipeline has already graded the church's
+ * own word against the category and either kept it or swapped ours in, and it
+ * writes `ownTerms: []`. So the first branch fires and the title is returned
+ * unchanged. Re-deriving the choice here would be a second, drifting copy of a
+ * judgement made against evidence this layer does not have.
+ *
+ * IT STILL MATTERS FOR EVERY BATCH FROZEN BEFORE v2. Those snapshots were built
+ * one-step-per-category and stored both candidates, because back then nothing
+ * upstream had chosen between them:
+ *
+ *   no own term                    → our category   ("Small groups")
+ *   own term, no confidence field  → their wording  — no opinion is not a veto
+ *   own term, confidence trusted   → their wording  ("Life Groups")
+ *   own term, confidence not       → our category   — a button label or a fragment
+ *
+ * A snapshot is frozen at collect time, so those batches keep resolving by the
+ * rule that was correct when they were taken. That is the whole point of freezing
+ * one, and it is why this function is kept rather than deleted.
+ */
+const TRUSTED_TITLE_CONFIDENCE = new Set(["high", "medium"]);
+
+function stepTitle(s: SnapshotStep): { text: string; note: string } {
+  const own = s.ownTerms[0]?.trim() ?? "";
+  if (!own) return { text: s.label, note: "our category" };
+
+  const confidence = (s.titleConfidence ?? "").trim().toLowerCase();
+  if (confidence && !TRUSTED_TITLE_CONFIDENCE.has(confidence)) {
+    return { text: s.label, note: "our category" };
+  }
+  return { text: own, note: "their wording" };
+}
+
 function resolveSteps(entry: GroupEntry): ResolvedStep[] {
   const out: ResolvedStep[] = entry.snapshot.steps.map((s) => {
     const labelEdit = edit(entry, PATH.step(s.id, "label"));
     const quoteEdit = edit(entry, PATH.step(s.id, "quote"));
+    const title = stepTitle(s);
     return {
       id: s.id,
       provenance: "source",
       suppressed: isSuppressed(entry, s.id),
       key: s.key,
       state: s.state,
-      ownTerms: s.ownTerms,
       label: labelEdit
         ? editedVoice(labelEdit.value, labelEdit.base)
-        : { text: s.label, attribution: { kind: "uncited", note: "our category" } },
+        : s.generated
+          ? // WE INVENTED THIS ONE. `generated` renders, always, because the
+            // alternative is a fabricated step sitting in a list of observed ones
+            // looking exactly like them — see `Attribution`.
+            { text: title.text, attribution: { kind: "generated" } }
+          : // The note is not rendered — it records WHICH SOURCE WON, so the
+            // choice is inspectable in a test and in a stored group rather than
+            // being an invisible branch. See `stepTitle`.
+            { text: title.text, attribution: { kind: "uncited", note: title.note } },
       quote: quoteEdit
         ? editedVoice(quoteEdit.value, quoteEdit.base)
         : s.quote
@@ -142,7 +187,6 @@ function resolveSteps(entry: GroupEntry): ResolvedStep[] {
       suppressed: false,
       key: "",
       state: null,
-      ownTerms: [],
       // A hand-added item stays `user` however often it is edited. It was never
       // the church's words, so "edited" would be the wrong correction to make.
       label: userVoice(labelEdit ? labelEdit.value : item.label),
@@ -181,18 +225,11 @@ function resolvePathwaySteps(entry: GroupEntry): { steps: ResolvedPathwayStep[];
         : s.quote
           ? sourceVoice(s.quote, s.sourceUrl, s.verified, "no page recorded")
           : null,
-      /**
-       * The church's own wording, when it differs from the label we show.
-       *
-       * `categoryRaw` is what the page called this step; `label` is what we call
-       * it. Where they match, showing both is noise, so only a genuine
-       * difference earns the chip — the same rule `resolveSteps` applies to next
-       * steps, which is what lets one component render both columns.
-       */
-      ownTerms:
-        s.categoryRaw && s.categoryRaw.toLowerCase() !== s.label.toLowerCase()
-          ? [s.categoryRaw]
-          : [],
+      /* `categoryRaw` — what the page called this step, where that differs from
+         `label` — used to ride along here as a chip. A pathway step's `label` is
+         ALREADY the church's own name for it ("Adult Inquirers Class"), so the
+         chip was showing a second-order detail beside a first-order one. It went
+         with the chips; the snapshot still holds it. */
     };
   });
 
@@ -207,9 +244,6 @@ function resolvePathwaySteps(entry: GroupEntry): { steps: ResolvedPathwayStep[];
       label: userVoice(labelEdit ? labelEdit.value : item.label),
       blurb: blurbEdit ? blurbEdit.value : item.blurb,
       quote: null,
-      // A step somebody typed has no "the church's own wording" — they ARE the
-      // author, and the attribution line already says so.
-      ownTerms: [],
     });
   });
 

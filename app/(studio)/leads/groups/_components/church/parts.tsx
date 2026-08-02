@@ -17,10 +17,10 @@ import type {
 } from "@/lib/leads/engine/group-types";
 import { newAddedId } from "@/lib/leads/client/useGroups";
 import { SafeLink } from "../../../_components/SafeLink";
+import { Chevron } from "../../../_components/Chevron";
 import { AttributionLine } from "../Attribution";
 import { EditableText } from "../EditableText";
 import { EMPTY_TEXT, EMPTY_VALUE, SKIN } from "./skin";
-import { PASSES, type Pass, type PassSkin } from "./passes";
 
 /**
  * ONE CHURCH, TOP TO BOTTOM.
@@ -33,18 +33,18 @@ import { PASSES, type Pass, type PassSkin } from "./passes";
  * which column you were in. It read as a spreadsheet, and a spreadsheet is a
  * thing you scan for outliers rather than a thing you review.
  *
- * A church is a list of labelled facts now, read downward, and the alignment is
- * bought a different way:
+ * A church is now an identity band you land on and three labelled fields below
+ * it, and the alignment is bought a different way:
  *
  *   EVERY CHURCH RENDERS ALL FIVE FIELDS, IN ONE ORDER, ALWAYS.
  *
  * `REVIEW_FIELDS` in the engine owns that order and `/leads/audit` asserts it.
  * Nothing is dropped for being empty — the old card omitted a block when it had
- * nothing in it, so a church with no discipleship pathway simply rendered
- * shorter than the one above it, and an absence you can only detect by noticing
- * that a card ended early is an absence nobody notices. Held constant, the
- * fields become a rhythm, and a break in a rhythm is the cheapest signal there
- * is: you do not read for it, you trip over it.
+ * nothing in it, so a church with no discipleship pathway simply rendered shorter
+ * than the one above it, and an absence you can only detect by noticing that a
+ * card ended early is an absence nobody notices. Held constant, the fields become
+ * a rhythm, and a break in a rhythm is the cheapest signal there is: you do not
+ * read for it, you trip over it.
  *
  * ────────────────────────────────────────────────────────────────────────────
  * NO PER-QUOTE CITATION, AND THAT IS A REAL TRADE.
@@ -55,26 +55,16 @@ import { PASSES, type Pass, type PassSkin } from "./passes";
  * content, and the same few words repeated under everything stopped being read
  * within a screen.
  *
- * What is lost is genuine and worth naming: a reviewer could open the exact page
- * a sentence came from, and now they get the church's site via the Visit button
- * and have to find it. On a site with a /next-steps page that costs nothing; on
- * a large one it costs a minute.
- *
- * What is kept is the part that would make a FALSE CLAIM if dropped:
- *   · `edited` — "no longer the church's words", with revert. A sentence we have
- *                changed must never look like one we transcribed.
- *   · `user`   — "added by you, not from the church's site".
- * Both still render everywhere, and `/leads/audit` still asserts that an edited
- * quote carries no source link and a hand-added item carries no verified badge.
- * `AttributionLine` is still the only component that may render a source line —
- * the two dropped kinds are dropped at the CALL SITE, so the union that makes
- * citing a page for an edited quote a type error is untouched.
+ * What is lost is genuine: a reviewer could open the exact page a sentence came
+ * from, and now they get the church's site via the Visit button and have to find
+ * it. What is kept is the part that would make a FALSE CLAIM if dropped —
+ * `edited` ("no longer the church's words", with revert) and `user` ("added by
+ * you"). Both still render everywhere, and `/leads/audit` still asserts that an
+ * edited quote carries no source link and a hand-added item carries no verified
+ * badge. `AttributionLine` remains the only component that may render a source
+ * line; the two dropped kinds are dropped at the CALL SITE, so the union that
+ * makes citing a page for an edited quote a type error is untouched.
  * ────────────────────────────────────────────────────────────────────────────
- *
- * ALL THE COPY LIVES HERE. Three passes arranging the same components could
- * otherwise each grow their own wording for "we never looked at this", and the
- * difference between "not checked" and "none found" is the difference between a
- * fact about our crawler and a claim about a church.
  */
 
 /* ------------------------------------------------------------------ *
@@ -162,10 +152,17 @@ function opsFor(orgId: string, onOp: (op: GroupOp) => void): Ops {
   };
 }
 
-/** The provenance line, in the two cases where it still says something. */
+/**
+ * The provenance line, in the cases where it still says something.
+ *
+ * `cited` and `uncited` are dropped at the call site — see the header. The three
+ * that remain all make the same kind of claim: this is not a sentence we
+ * transcribed off the church's site. `generated` is the newest and the loudest
+ * reason for the rule, since the corpus fabricates one step per church.
+ */
 function Provenance({ voice, onRevert }: { voice: Voice; onRevert?: () => void }) {
   const kind = voice.attribution.kind;
-  if (kind !== "edited" && kind !== "user") return null;
+  if (kind !== "edited" && kind !== "user" && kind !== "generated") return null;
   return (
     <AttributionLine
       attribution={voice.attribution}
@@ -215,20 +212,13 @@ function Flags({ flags }: { flags: CardFlag[] }) {
   );
 }
 
-/**
- * Struck out, not gone: a suppression is a judgement someone can revisit.
- *
- * The shell classes come from the pass, because "what one item looks like" IS
- * the thing the three passes disagree about. The controls do not vary: they sit
- * at the top-right of whatever shape the pass drew.
- */
+/** Struck out, not gone: a suppression is a judgement someone can revisit. */
 function SuppressShell({
   suppressed,
   provenance,
   onSuppress,
   onRestore,
   onDelete,
-  pass,
   children,
 }: {
   suppressed: boolean;
@@ -236,14 +226,13 @@ function SuppressShell({
   onSuppress: () => void;
   onRestore: () => void;
   onDelete: () => void;
-  pass: PassSkin;
   children: React.ReactNode;
 }) {
   return (
     <div
       data-provenance={provenance}
       data-suppressed={suppressed ? "true" : "false"}
-      className={suppressed ? pass.shellStruck : pass.shell}
+      className={suppressed ? SKIN.itemShellStruck : SKIN.itemShell}
     >
       <div
         className={
@@ -259,13 +248,12 @@ function SuppressShell({
         {children}
       </div>
 
-      {/* THE ONE CONTROL THAT STAYS ON HOVER, and it is a deliberate exception
-          to the "make the controls visible" pass. `Remove church` and `Add a
-          step` are things you go looking for. A per-item ✕ is not: eight steps
-          across twenty churches is 160 delete buttons on screen at once, which
-          is noise and an invitation at the same time. It appears on the item the
-          pointer is on, and `put back` is always visible once something has been
-          struck — the way out of a destructive action is never hidden. */}
+      {/* THE ONE CONTROL STILL ON HOVER, and a deliberate exception to the rest
+          of this card. `Remove church` and `Add a step` are things you go looking
+          for; a per-item ✕ is not — eight steps across twenty churches is 160
+          delete buttons on screen at once, which is noise and an invitation at
+          the same time. `put back` is the opposite case and is always visible:
+          the way out of a destructive action is never hidden. */}
       <div
         className={`absolute top-1 right-1 flex items-center gap-2 transition-opacity ${
           suppressed
@@ -274,9 +262,7 @@ function SuppressShell({
         }`}
       >
         {suppressed ? (
-          // KEEPS ITS WORDS. This is the way back and it has to be readable
-          // without hovering to find out what a glyph meant. The audit checks
-          // for the literal text.
+          // KEEPS ITS WORDS — the audit checks for the literal text.
           <button type="button" onClick={onRestore} className={SKIN.btnSmall}>
             put back
           </button>
@@ -308,26 +294,23 @@ function SuppressShell({
  * relationship, so the nesting is not free to change even though it looks like
  * plain markup.
  *
- * The quote marks are printed rather than styled on, because they carry the
- * claim ("these are their words") and have to survive being copied out of the
- * page into an email.
+ * The quote marks are printed rather than styled on, because they carry the claim
+ * ("these are their words") and have to survive being copied out of the page.
  */
 function Quote({
   voice,
   ariaLabel,
   onCommit,
   onRevert,
-  className,
 }: {
   voice: Voice;
   ariaLabel: string;
   onCommit: (next: string) => void;
   onRevert: () => void;
-  className: string;
 }) {
   return (
     <div>
-      <div data-quote className={className}>
+      <div data-quote className={SKIN.quote}>
         <EditableText
           value={quoted(voice.text)}
           onCommit={(next) => onCommit(stripQuotes(next))}
@@ -343,26 +326,28 @@ function Quote({
 }
 
 /**
- * ONE CLAIM ABOUT A CHURCH — a named thing, optionally numbered, optionally in
- * the church's own words, optionally quoted. Both evidence fields render through
- * this, so a reviewer comparing "what they offer" against "the order they put it
- * in" reads one shape rather than learning two.
+ * ONE CLAIM ABOUT A CHURCH — a Title, optionally numbered, optionally quoted.
+ * Both evidence fields render through this, so a reviewer comparing "what they
+ * offer" against "the order they put it in" reads one shape rather than two.
  *
- * TITLE LEFT, QUOTE RIGHT, and the title is big and in brand ink. It used to be
- * 13px in the body colour with its quote underneath it, which made eight steps
- * one grey block with no entry point. Split into two cells the titles form a
- * column you run your eye down, and the quotes form one you only enter when a
- * title makes you want to.
+ * TITLE LEFT AND BIG, QUOTE RIGHT. The title used to be 13px in the body colour
+ * with its quote underneath, which made eight steps one grey block with no entry
+ * point. Split into two cells the titles form a column you run your eye down, and
+ * the quotes form one you only enter when a title makes you want to.
+ *
+ * THERE IS ONLY ONE TITLE, AND IT IS EDITABLE. It used to be our category name
+ * with the church's own words beside it as read-only chips, and nobody could tell
+ * which of the two would be sent — the answer was the generic one, because it was
+ * the only writable field. `stepTitle()` in `group.ts` now picks between them
+ * once, and this renders the result.
  *
  * THE ORDINAL IS NOT AN INDEX. It is printed only when the church's own page put
- * a number there; DOM order is not a sequence, and `resolvePathwaySteps` owns
- * that rule. Next steps pass `null` and always will — a category list has no
- * first.
+ * a number there; DOM order is not a sequence, and `resolvePathwaySteps` owns that
+ * rule. Next steps pass `null` and always will — a category list has no first.
  */
 function Claim({
   ordinal,
   label,
-  terms,
   quote,
   labelAriaLabel,
   quoteAriaLabel,
@@ -370,11 +355,9 @@ function Claim({
   onLabelRevert,
   onQuoteCommit,
   onQuoteRevert,
-  pass,
 }: {
   ordinal: number | null;
   label: Voice;
-  terms: readonly string[];
   quote: Voice | null;
   labelAriaLabel: string;
   quoteAriaLabel: string;
@@ -382,14 +365,13 @@ function Claim({
   onLabelRevert: () => void;
   onQuoteCommit: (next: string) => void;
   onQuoteRevert: () => void;
-  pass: PassSkin;
 }) {
   return (
-    <div className={pass.row}>
-      <div className={pass.left}>
+    <div className={SKIN.itemRow}>
+      <div className={SKIN.itemLeft}>
         <div className="flex flex-wrap items-baseline gap-x-2">
           {ordinal != null && <span className={`shrink-0 ${SKIN.ordinal}`}>{ordinal}.</span>}
-          <div className={`min-w-0 flex-1 ${pass.itemTitle}`}>
+          <div className={`min-w-0 flex-1 ${SKIN.itemTitle}`}>
             <EditableText
               value={label.text}
               onCommit={onLabelCommit}
@@ -399,33 +381,21 @@ function Claim({
             />
           </div>
         </div>
-        {terms.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1 px-2">
-            {terms.map((t) => (
-              // Their words, verbatim and read-only. Editing these would be
-              // editing a quotation without the affordances of one.
-              <span key={t} title="the church's own wording" className={SKIN.term}>
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
         <Provenance voice={label} onRevert={onLabelRevert} />
       </div>
 
-      <div className={pass.right}>
+      <div className={SKIN.itemRight}>
         {quote ? (
           <Quote
             voice={quote}
             ariaLabel={quoteAriaLabel}
             onCommit={onQuoteCommit}
             onRevert={onQuoteRevert}
-            className={pass.quote}
           />
         ) : (
-          // The right-hand cell is never blank. An empty column reads as a
-          // rendering fault; "we hold this category but captured no sentence for
-          // it" is a fact, and a short one.
+          // The right cell is never blank. An empty column reads as a rendering
+          // fault; "we hold this category but captured no sentence for it" is a
+          // fact, and a short one.
           <p className={`${SKIN.absent} opacity-70`}>{COPY.noQuote}</p>
         )}
       </div>
@@ -437,8 +407,8 @@ function Claim({
  * `<ol>` ONLY WHEN THE SOURCE LICENSED A SEQUENCE.
  *
  * On screen these render identically — the ordinals are printed by `Claim`, not
- * by list markers. To a screen reader they are different claims: "ordered list
- * of 4" says these steps have an order, and where the pathway's basis was page
+ * by list markers. To a screen reader they are different claims: "ordered list of
+ * 4" says these steps have an order, and where the pathway's basis was page
  * position rather than the church's own numbering, that is a claim we are not
  * entitled to make. `resolvePathwaySteps` decides; this obeys.
  */
@@ -508,11 +478,11 @@ function AddForm({
 /**
  * ALWAYS ON SCREEN, and that reverses what the old card did.
  *
- * These appeared on hover, on the theory that twenty always-visible "+ add"
- * links read as a form to fill in rather than a proof sheet to check. The theory
- * was reasonable and the effect was not: a control nobody can see is a control
- * nobody uses, and adding the contact the pipeline missed is one of the things
- * this page exists to let somebody do.
+ * These appeared on hover, on the theory that twenty always-visible "+ add" links
+ * read as a form to fill in rather than a proof sheet to check. The theory was
+ * reasonable and the effect was not: a control nobody can see is a control nobody
+ * uses, and adding the contact the pipeline missed is one of the things this page
+ * exists to let somebody do.
  */
 function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -543,10 +513,10 @@ function NameBody({ card, ops }: { card: ResolvedCard; ops: Ops }) {
           restingClassName={SKIN.editResting}
         />
       </div>
-      {/* The pipeline's name repair used to print `was "…"` here under a
-          citation for the page it read the correction off. Both are gone: the
-          repair is a fact about our extraction, the reviewer is looking at the
-          name that will actually be sent, and if it is wrong they retype it. */}
+      {/* The pipeline's name repair used to print `was "…"` here under a citation
+          for the page it read the correction off. Both are gone: the repair is a
+          fact about our extraction, the reviewer is looking at the name that will
+          actually be sent, and if it is wrong they retype it. */}
       <Provenance voice={card.name} onRevert={ops.revert(PATH.name)} />
     </>
   );
@@ -583,8 +553,8 @@ function SloganBody({ card, ops }: { card: ResolvedCard; ops: Ops }) {
     <>
       {/* QUOTATION MARKS AND A BLOCK, NOT ITALICS. Italics were carrying "these
           are their words" on their own, which reads as emphasis rather than as
-          attribution. Quote marks say it literally; the tinted block with a
-          brand rule gives the line a shape you can find without reading it. */}
+          attribution. Quote marks say it literally; the tinted block with a brand
+          rule gives the line a shape you can find without reading it. */}
       <div className={SKIN.sloganBox}>
         <div className={SKIN.slogan}>
           <EditableText
@@ -605,13 +575,11 @@ function SloganBody({ card, ops }: { card: ResolvedCard; ops: Ops }) {
 function StepsBody({
   card,
   ops,
-  pass,
   adding,
   setAdding,
 }: {
   card: ResolvedCard;
   ops: Ops;
-  pass: PassSkin;
   adding: boolean;
   setAdding: (on: boolean) => void;
 }) {
@@ -620,7 +588,7 @@ function StepsBody({
       {!card.stepsLooked && <Absent>{COPY.stepsNotRead}</Absent>}
       {card.stepsLooked && card.steps.length === 0 && <Absent>{COPY.stepsNoneFound}</Absent>}
 
-      <div className={pass.list}>
+      <div className={SKIN.list}>
         {card.steps.map((s: ResolvedStep) => (
           <SuppressShell
             key={s.id}
@@ -629,21 +597,18 @@ function StepsBody({
             onSuppress={ops.suppress(s.id)}
             onRestore={ops.restore(s.id)}
             onDelete={ops.del(s.id)}
-            pass={pass}
           >
-            {/* A category list has no first, so no ordinal — see `Claim`. */}
+            {/* A category list has no first, so no ordinal and no arrows. */}
             <Claim
               ordinal={null}
               label={s.label}
-              terms={s.ownTerms}
               quote={s.quote}
-              labelAriaLabel="step name"
+              labelAriaLabel="step title"
               quoteAriaLabel="step quote"
               onLabelCommit={ops.set(PATH.step(s.id, "label"), s.label.text)}
               onLabelRevert={ops.revert(PATH.step(s.id, "label"))}
               onQuoteCommit={ops.set(PATH.step(s.id, "quote"), s.quote?.text ?? "")}
               onQuoteRevert={ops.revert(PATH.step(s.id, "quote"))}
-              pass={pass}
             />
           </SuppressShell>
         ))}
@@ -652,7 +617,7 @@ function StepsBody({
       {adding ? (
         <AddForm
           fields={[
-            { key: "label", label: "Step name" },
+            { key: "label", label: "Step title" },
             { key: "quote", label: "Quote (optional)" },
           ]}
           onCancel={() => setAdding(false)}
@@ -677,72 +642,72 @@ function StepsBody({
 function PathwayBody({
   card,
   ops,
-  pass,
   adding,
   setAdding,
 }: {
   card: ResolvedCard;
   ops: Ops;
-  pass: PassSkin;
   adding: boolean;
   setAdding: (on: boolean) => void;
 }) {
+  const steps = card.pathway.steps;
   return (
     <>
       {!card.pathway.finding && !card.pathway.name && <Absent>{COPY.pathwayNothing}</Absent>}
-      {card.pathway.name && card.pathway.steps.length === 0 && (
-        <Absent>{COPY.pathwayNoSteps}</Absent>
-      )}
+      {card.pathway.name && steps.length === 0 && <Absent>{COPY.pathwayNoSteps}</Absent>}
 
-      {/* THE FINDING IS A CLAIM LIKE ANY OTHER. It used to float above the list
-          as a bare quote in no container, with the pathway's name in a prose
-          sentence above that — two shapes this field had and next steps did not,
-          which is most of why the two never looked alike. The name is the
-          claim's title; the finding is its quote. */}
+      {/* THE FINDING IS A CLAIM LIKE ANY OTHER. It used to float above the list as
+          a bare quote in no container, with the pathway's name in a prose sentence
+          above that — two shapes this field had and next steps did not, which is
+          most of why the two never looked alike. The name is the claim's title;
+          the finding is its quote. */}
       {card.pathway.finding && (
-        <div className={pass.list}>
-          <div className={pass.shell}>
-            <Claim
-              ordinal={null}
-              label={{ text: card.pathway.name, attribution: { kind: "uncited", note: "" } }}
-              terms={[]}
-              quote={card.pathway.finding}
-              labelAriaLabel="pathway name"
-              quoteAriaLabel="discipleship finding"
-              onLabelCommit={ops.set(PATH.finding("label"), card.pathway.name)}
-              onLabelRevert={ops.revert(PATH.finding("label"))}
-              onQuoteCommit={ops.set(PATH.finding("quote"), card.pathway.finding.text)}
-              onQuoteRevert={ops.revert(PATH.finding("quote"))}
-              pass={pass}
-            />
-          </div>
+        <div className={SKIN.itemShell}>
+          <Claim
+            ordinal={null}
+            label={{ text: card.pathway.name, attribution: { kind: "uncited", note: "" } }}
+            quote={card.pathway.finding}
+            labelAriaLabel="pathway name"
+            quoteAriaLabel="discipleship finding"
+            onLabelCommit={ops.set(PATH.finding("label"), card.pathway.name)}
+            onLabelRevert={ops.revert(PATH.finding("label"))}
+            onQuoteCommit={ops.set(PATH.finding("quote"), card.pathway.finding.text)}
+            onQuoteRevert={ops.revert(PATH.finding("quote"))}
+          />
         </div>
       )}
 
-      {card.pathway.steps.length > 0 && (
-        <Numbered numbered={card.pathway.numbered} className={`mt-2 ${pass.list}`}>
-          {card.pathway.steps.map((s: ResolvedPathwayStep) => (
+      {steps.length > 0 && (
+        <Numbered numbered={card.pathway.numbered} className={`mt-2 ${SKIN.list}`}>
+          {steps.map((s: ResolvedPathwayStep, i) => (
             <li key={s.id}>
+              {/* THE ARROW IS THE SAME CLAIM A NUMBER IS. It says the church told
+                  us to do this one before that one, so it renders only where they
+                  did — `pathway.numbered` is `pathwayIsOrdered(orderBasis)`, and
+                  where the basis was DOM position there is no arrow and no
+                  ordinal. Between items, never before the first. */}
+              {i > 0 && card.pathway.numbered && (
+                <div aria-hidden className={SKIN.arrow}>
+                  ↓
+                </div>
+              )}
               <SuppressShell
                 suppressed={s.suppressed}
                 provenance={s.provenance}
                 onSuppress={ops.suppress(s.id)}
                 onRestore={ops.restore(s.id)}
                 onDelete={ops.del(s.id)}
-                pass={pass}
               >
                 <Claim
                   ordinal={s.ordinal}
                   label={s.label}
-                  terms={s.ownTerms}
                   quote={s.quote}
-                  labelAriaLabel="pathway step"
+                  labelAriaLabel="pathway step title"
                   quoteAriaLabel="pathway step quote"
                   onLabelCommit={ops.set(PATH.pathwayStep(s.id, "label"), s.label.text)}
                   onLabelRevert={ops.revert(PATH.pathwayStep(s.id, "label"))}
                   onQuoteCommit={ops.set(PATH.pathwayStep(s.id, "quote"), s.quote?.text ?? "")}
                   onQuoteRevert={ops.revert(PATH.pathwayStep(s.id, "quote"))}
-                  pass={pass}
                 />
               </SuppressShell>
             </li>
@@ -753,7 +718,7 @@ function PathwayBody({
       {adding ? (
         <AddForm
           fields={[
-            { key: "label", label: "Step name" },
+            { key: "label", label: "Step title" },
             { key: "blurb", label: "Note (optional)" },
           ]}
           onCancel={() => setAdding(false)}
@@ -778,24 +743,21 @@ function PathwayBody({
 function ContactsBody({
   card,
   ops,
-  pass,
   adding,
   setAdding,
 }: {
   card: ResolvedCard;
   ops: Ops;
-  pass: PassSkin;
   adding: boolean;
   setAdding: (on: boolean) => void;
 }) {
   /**
    * WHAT SHIPS, NOT WHAT WE HOLD.
    *
-   * The exported package carries at most four contacts, on one channel.
-   * Rendering everything the snapshot happens to hold meant a reviewer read six
-   * social profiles that would never be sent and could miss the address that
-   * would. `exportContacts` is the single rule this card and the exporter both
-   * read — see `lib/leads/engine/contacts.ts`.
+   * The exported package carries at most four contacts, on one channel. Rendering
+   * everything the snapshot happens to hold meant a reviewer read six social
+   * profiles that would never be sent and could miss the address that would.
+   * `exportContacts` is the single rule this card and the exporter both read.
    */
   const shipping = exportContacts(card.contacts);
 
@@ -803,14 +765,14 @@ function ContactsBody({
     <>
       {card.contactNote && <p className={`mb-2 ${SKIN.absent}`}>{card.contactNote}</p>}
       {shipping.length === 0 && (
-        // Actionable, not measured: nobody to send to is the reviewer's problem
-        // to solve, so it gets the shape rather than the muted prose.
+        // Actionable, not measured: nobody to send to is the reviewer's problem to
+        // solve, so it gets the shape rather than the muted prose.
         <Blank>
           <p className={`px-2 py-1 ${EMPTY_TEXT}`}>{COPY.noContacts}</p>
         </Blank>
       )}
 
-      <div className={pass.list}>
+      <div className={SKIN.list}>
         {shipping.map(({ contact: c, rank }) => {
           const isDetail = c.kind === "phone" || c.kind === "social";
           return (
@@ -821,20 +783,19 @@ function ContactsBody({
               onSuppress={ops.suppress(c.id)}
               onRestore={ops.restore(c.id)}
               onDelete={ops.del(c.id)}
-              pass={pass}
             >
-              {/* WHO ON THE LEFT, HOW TO REACH THEM ON THE RIGHT — the same
-                  split as a claim, on purpose. A reviewer moving from steps to
-                  contacts should not have to re-learn where to look. */}
-              <div className={pass.row}>
-                <div className={pass.left}>
+              {/* WHO ON THE LEFT, HOW TO REACH THEM ON THE RIGHT — the same split
+                  as a claim, on purpose. A reviewer moving from steps to contacts
+                  should not have to re-learn where to look. */}
+              <div className={SKIN.itemRow}>
+                <div className={SKIN.itemLeft}>
                   <div className="flex items-baseline gap-2">
                     {/* THE ORDER IS THE POINT, so it is on screen rather than
-                        implied by position. `rank` is renumbered over the
-                        contacts that survived, so the first line always reads 1
-                        — nobody should have to reason about the ones filtered
-                        out above it. Rank 1 is written to first, and is the only
-                        one in brand ink. */}
+                        implied by position. `rank` is renumbered over the contacts
+                        that survived, so the first line always reads 1 — nobody
+                        should have to reason about the ones filtered out above it.
+                        Rank 1 is written to first, and is the only one in brand
+                        ink. */}
                     <span
                       aria-hidden="true"
                       title={
@@ -850,7 +811,7 @@ function ContactsBody({
                     </span>
 
                     {c.kind === "person" ? (
-                      <div className={`min-w-0 flex-1 ${pass.contactName}`}>
+                      <div className={`min-w-0 flex-1 ${SKIN.contactName}`}>
                         <EditableText
                           value={c.name}
                           onCommit={ops.set(PATH.contact(c.id, "name"), c.name)}
@@ -861,10 +822,10 @@ function ContactsBody({
                         />
                       </div>
                     ) : (
-                      // THREE SHAPES, NOT TWO. A church address has no name and
-                      // no job title — it is an address. Giving it the person
-                      // layout printed "(church address)" and "(no title)" as
-                      // two empty rows apiece.
+                      // THREE SHAPES, NOT TWO. A church address has no name and no
+                      // job title — it is an address. Giving it the person layout
+                      // printed "(church address)" and "(no title)" as two empty
+                      // rows apiece.
                       <span className={SKIN.kindLabel}>
                         {c.kind === "churchEmail" ? "church" : c.network || "phone"}
                       </span>
@@ -885,7 +846,7 @@ function ContactsBody({
                   )}
                 </div>
 
-                <div className={pass.right}>
+                <div className={SKIN.itemRight}>
                   <div className={isDetail ? SKIN.contactValue : SKIN.contactEmail}>
                     <EditableText
                       value={isDetail ? c.value : c.email}
@@ -952,20 +913,18 @@ export interface ChurchCardProps {
   stale: boolean;
   departed: boolean;
   /**
-   * The ONLY callback. It used to take an `onRemoveChurch` beside it, which
-   * every caller supplied as a fresh inline closure — enough on its own to make
-   * the `memo()` below do nothing. The card already knows its own `orgId`.
+   * The ONLY callback. It used to take an `onRemoveChurch` beside it, which every
+   * caller supplied as a fresh inline closure — enough on its own to make the
+   * `memo()` below do nothing. The card already knows its own `orgId`.
    */
   onOp: (op: GroupOp) => void;
-  pass: Pass;
 }
 
-function ChurchCardInner({ card, index, stale, departed, onOp, pass: passId }: ChurchCardProps) {
+function ChurchCardInner({ card, index, stale, departed, onOp }: ChurchCardProps) {
   const [addingStep, setAddingStep] = useState(false);
   const [addingPathway, setAddingPathway] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
 
-  const pass = PASSES[passId];
   const ops = opsFor(card.orgId, onOp);
   const plate = PLATE_CLASS[logoPlate(card.logo?.theme)];
   const touched = card.editedCount > 0 || card.suppressedCount > 0;
@@ -973,45 +932,22 @@ function ChurchCardInner({ card, index, stale, departed, onOp, pass: passId }: C
   const liveContacts = exportContacts(card.contacts).filter((r) => r.rank !== null).length;
   const host = hostOf(card.churchUrl);
 
-  /**
-   * ALL FIVE, ALWAYS, IN `REVIEW_FIELDS` ORDER.
-   *
-   * `name` and `slogan` render inside the identity band and the other three in
-   * the stream below it, but every one of them carries its `data-field` and they
-   * appear in this order in the DOM. `/leads/audit` reads the engine's constant
-   * and asserts the rendered order against it, so no redesign can quietly drop
-   * one for being empty.
-   */
   const bodies: Record<ReviewField, React.ReactNode> = {
     name: <NameBody card={card} ops={ops} />,
     slogan: <SloganBody card={card} ops={ops} />,
-    steps: (
-      <StepsBody card={card} ops={ops} pass={pass} adding={addingStep} setAdding={setAddingStep} />
-    ),
+    steps: <StepsBody card={card} ops={ops} adding={addingStep} setAdding={setAddingStep} />,
     pathway: (
-      <PathwayBody
-        card={card}
-        ops={ops}
-        pass={pass}
-        adding={addingPathway}
-        setAdding={setAddingPathway}
-      />
+      <PathwayBody card={card} ops={ops} adding={addingPathway} setAdding={setAddingPathway} />
     ),
     contacts: (
-      <ContactsBody
-        card={card}
-        ops={ops}
-        pass={pass}
-        adding={addingContact}
-        setAdding={setAddingContact}
-      />
+      <ContactsBody card={card} ops={ops} adding={addingContact} setAdding={setAddingContact} />
     ),
   };
 
   // Counts earn their place: they differ per church, and "0" is a thing you want
-  // to catch while skimming. `undefined` where a number would be a claim we
-  // cannot make — next-step pages that were never read have no count, and
-  // printing 0 would say we looked.
+  // to catch while skimming. `undefined` where a number would be a claim we cannot
+  // make — next-step pages that were never read have no count, and printing 0
+  // would say we looked.
   const counts: Partial<Record<ReviewField, number | undefined>> = {
     steps: card.stepsLooked ? liveSteps : undefined,
     pathway: card.pathway.steps.length || undefined,
@@ -1032,78 +968,92 @@ function ChurchCardInner({ card, index, stale, departed, onOp, pass: passId }: C
       {(stale || departed) && <p className={SKIN.banner}>{departed ? COPY.departed : COPY.stale}</p>}
 
       {/* ── the identity band ──
-          Logo at 72px, the name large, the slogan in quotation marks in its own
-          block, and the way out to the church's own site. This is what you land
-          on and what you decide from; the evidence below is what you check once
-          you have decided to. The website used to be a labelled row of its own
-          with a citation under the name — it is one button now, and it is the
-          only outbound link on the card. */}
+          Logo, name, quoted slogan, and the way out to the church's own site, all
+          in the block you land on. The website used to be a labelled row of its
+          own with a citation under the name; it is one button now, sitting under
+          the identity it belongs to rather than floating top-right, and it is the
+          only outbound link on the card.
+
+          `Remove church` keeps the top-right corner to itself — it is the one
+          irreversible action here and it should not share a cluster with the
+          control you press forty times a day. */}
       <div data-identity className={SKIN.head}>
         <span className={`${SKIN.index} pt-1`}>{String(index).padStart(2, "0")}</span>
 
-        <div className={`${SKIN.logoBox} ${plate}`}>
-          {card.logo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/api/leads/asset/logos-thumb/${card.logo.sha}.webp`}
-              alt=""
-              className="h-full w-full object-contain p-1.5"
-            />
-          ) : (
-            /* INITIALS, NOT A 7px EXPLANATION. The reason used to be printed
-               inside the plate at a size nobody can read. The distinction it
-               preserved ("none found" vs "found one and rejected it") rides on
-               the flag chips instead, where it is legible. */
-            <span className={SKIN.logoInitials}>{initialsOf(card.name.text)}</span>
-          )}
+        <div className="flex min-w-0 flex-1 basis-[420px] flex-col gap-3">
+          <div className="flex min-w-0 items-start gap-4">
+            <div className={`${SKIN.logoBox} ${plate}`}>
+              {card.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/leads/asset/logos-thumb/${card.logo.sha}.webp`}
+                  alt=""
+                  className="h-full w-full object-contain p-1.5"
+                />
+              ) : (
+                /* INITIALS, NOT A 7px EXPLANATION. The reason used to be printed
+                   inside the plate at a size nobody can read. The distinction it
+                   preserved ("none found" vs "found one and rejected it") rides on
+                   the flag chips instead, where it is legible. */
+                <span className={SKIN.logoInitials}>{initialsOf(card.name.text)}</span>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-2">
+              <div data-field="name">{bodies.name}</div>
+              <div data-field="slogan">{bodies.slogan}</div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {card.churchUrl ? (
+              <SafeLink
+                href={card.churchUrl}
+                title={`Open ${host || card.churchUrl} in a new tab`}
+                // THE ONLY OUTBOUND LINK ON A CARD, and `/leads/audit` asserts
+                // exactly that by checking no `a[href]` renders outside
+                // `[data-identity]`. That is what dropping the per-quote citations
+                // turned from a design decision into a checkable claim.
+                className={SKIN.visit}
+              >
+                <span aria-hidden="true" className="text-[15px] leading-none">
+                  ↗
+                </span>
+                <span className="truncate">Visit {host || "website"}</span>
+              </SafeLink>
+            ) : (
+              // A real answer, so it keeps the control's footprint rather than
+              // collapsing and leaving the reviewer to wonder where the button is.
+              <span className={SKIN.visitAbsent}>no website on file</span>
+            )}
+            <Flags flags={cardFlags(card)} />
+          </div>
         </div>
 
-        <div className="min-w-0 flex-1 basis-[340px] space-y-2">
-          <div data-field="name">{bodies.name}</div>
-          <div data-field="slogan">{bodies.slogan}</div>
-          <Flags flags={cardFlags(card)} />
-        </div>
-
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          {card.churchUrl ? (
-            <SafeLink
-              href={card.churchUrl}
-              title={`Open ${host || card.churchUrl} in a new tab`}
-              // THE ONLY OUTBOUND LINK ON A CARD, and `/leads/audit` asserts
-              // exactly that by checking no `a[href]` renders outside
-              // `[data-identity]`. That is what dropping the per-quote citations
-              // turned from a design decision into a checkable claim.
-              className={SKIN.visit}
-            >
-              <span aria-hidden="true" className="text-[15px] leading-none">
-                ↗
-              </span>
-              <span className="truncate">Visit {host || "website"}</span>
-            </SafeLink>
-          ) : (
-            // A real answer, so it keeps the control's footprint rather than
-            // collapsing and leaving the reviewer to wonder where the button is.
-            <span className={SKIN.visitAbsent}>no website on file</span>
-          )}
-          <button
-            type="button"
-            onClick={() => onOp({ op: "church.remove", orgId: card.orgId })}
-            title="Remove this church from the batch"
-            className={SKIN.btnDanger}
-          >
-            ✕ Remove church
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onOp({ op: "church.remove", orgId: card.orgId })}
+          title="Remove this church from the batch"
+          className={SKIN.btnDanger}
+        >
+          ✕ Remove church
+        </button>
       </div>
 
+      {/* ALL FIVE FIELDS, ALWAYS, IN `REVIEW_FIELDS` ORDER. `name` and `slogan`
+          render inside the band above and the other three below it, but every one
+          carries its `data-field` and they appear in this order in the DOM.
+          `/leads/audit` reads the engine's constant and asserts the rendered order
+          against it, so no redesign can quietly drop one for being empty. */}
       {REVIEW_FIELDS.filter((id) => id !== "name" && id !== "slogan").map((id) => (
-        <section key={id} data-field={id} className={SKIN.field}>
-          <div className="flex items-baseline gap-2">
+        <details key={id} data-field={id} open className={SKIN.field}>
+          <summary className={SKIN.summary}>
             <h3 className={SKIN.label}>{FIELD_LABEL[id]}</h3>
             {counts[id] != null && <span className={SKIN.count}>{counts[id]}</span>}
-          </div>
+            <Chevron className={SKIN.chevron} />
+          </summary>
           <div className={SKIN.value}>{bodies[id]}</div>
-        </section>
+        </details>
       ))}
     </article>
   );

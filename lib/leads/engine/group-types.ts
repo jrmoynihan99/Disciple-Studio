@@ -57,12 +57,22 @@ export function isSafeGroupId(v: unknown): v is string {
  *             usually lifted from a <title>; there is no anchor to point at)
  *   edited    we changed the text. It is no longer a quotation of anything.
  *   user      a person typed it. The church never said it at all.
+ *   generated WE invented it. The church never said it at all either.
+ *
+ * `generated` is `user` with a different author, and it exists because the v2
+ * corpus fabricates one next step per church — an "Attend a Worship Service" row
+ * with `flags:["synthesized"]`, no name of its own, no quote and no source URL,
+ * on all 15,273 churches. Rendered like a found step it reads as something we
+ * observed on their site. It is not. A reviewer about to write to a congregation
+ * has to be able to tell the two apart at a glance, which is the whole reason
+ * this union is a union.
  */
 export type Attribution =
   | { kind: "cited"; sourceUrl: string; verified: string }
   | { kind: "uncited"; note: string }
   | { kind: "edited"; wasVerbatim: string }
-  | { kind: "user" };
+  | { kind: "user" }
+  | { kind: "generated" };
 
 /** A rendered string together with the claim it is allowed to make. */
 export interface Voice {
@@ -125,8 +135,44 @@ export interface SnapshotStep {
   key: string;
   label: string;
   state: StepState;
-  /** THE CHURCH'S OWN WORDS. Verbatim — never normalised or title-cased. */
+  /**
+   * THE CHURCH'S OWN WORDS, on a v1 snapshot only.
+   *
+   * v1 built a step per CATEGORY and had to choose between our category label and
+   * the church's own term; `stepTitle` in `group.ts` still makes that choice for
+   * batches frozen back then. v2 reads `next_steps[]`, where the choice is
+   * already made and lands in `label`, so it writes `[]` here — which is exactly
+   * what makes `stepTitle` a no-op on a v2 step. The field stays because a
+   * snapshot is frozen and those older batches must keep resolving as they did.
+   */
   ownTerms: string[];
+  /**
+   * LEGACY, and read only by `stepTitle` on a v1 snapshot.
+   *
+   * It briefly held a rating for `ownTerms[0]` that the corpus never actually
+   * shipped. v2 moved the whole decision upstream into `final_name`, so nothing
+   * writes this any more — but a batch collected while it existed still has it on
+   * disk, and dropping it from the type would make that stored value invisible to
+   * the rule that is still supposed to read it.
+   */
+  titleConfidence?: string;
+  /**
+   * The church's own word for this step, when it differs from the title we chose.
+   *
+   * NOT RENDERED. It is the audit trail — "we are calling this Get Connected;
+   * they call it Connect Card" — and the thing a future "use their word" control
+   * would need. Stored now rather than later because a snapshot freezes at collect
+   * time: a batch taken without it can never gain it.
+   */
+  ownName?: string;
+  /**
+   * WE INVENTED THIS STEP. `flags` contained `synthesized`.
+   *
+   * Optional so batches frozen before v2 read as `undefined`, which is correct
+   * for them — v1 built steps only from categories the church actually offered,
+   * so none of them was ever fabricated.
+   */
+  generated?: boolean;
   quote: string;
   /** Whether the quote is ABOUT this category — a different axis from
    *  `verified`, which only says the span is on the page. Never merge them. */
@@ -566,13 +612,22 @@ export type GroupOp =
  * The resolved render model
  * ------------------------------------------------------------------ */
 
+/**
+ * NO `ownTerms` HERE, AND THAT IS THE POINT.
+ *
+ * A step used to resolve to our category name plus a row of read-only chips
+ * carrying the church's own words, and nobody reading the page could tell which
+ * of the two was the thing that would actually be sent. `label` is now THE
+ * Title — one string, already chosen between the two sources by `stepTitle`,
+ * editable, and the only candidate. The chips are gone and the raw terms stay in
+ * the snapshot where they belong.
+ */
 export interface ResolvedStep {
   id: string;
   provenance: Provenance;
   suppressed: boolean;
   key: string;
   state: StepState | null;
-  ownTerms: string[];
   label: Voice;
   quote: Voice | null;
 }
@@ -583,19 +638,15 @@ export interface ResolvedPathwayStep {
   suppressed: boolean;
   /** null when the order basis does not license a number. */
   ordinal: number | null;
+  /**
+   * Already the church's own step name ("Adult Inquirers Class"), not a category
+   * of ours — so unlike `ResolvedStep.label` it needs no rule to choose it. It
+   * carried a `categoryRaw` chip beside it for symmetry with next steps; that
+   * went when the chips did.
+   */
   label: Voice;
   blurb: string;
   quote: Voice | null;
-  /**
-   * The church's own wording for this step, when the snapshot captured one.
-   *
-   * Shaped as an array to match `ResolvedStep.ownTerms`, because the review
-   * sheet renders both through ONE component. Without it, pathway steps could
-   * never show the church's-own-words chip while next steps usually do — same
-   * markup, visibly different columns, which is the whole thing the shared
-   * component exists to prevent.
-   */
-  ownTerms: string[];
 }
 
 export interface ResolvedContact {

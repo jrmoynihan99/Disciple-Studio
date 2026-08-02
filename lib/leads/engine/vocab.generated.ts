@@ -11,7 +11,7 @@
  * variant that shipped.
  *
  * Provenance recorded by the generator:
- * dev/handoff/build_handoff.py -- EXECUTED out of pipeline/step3_assemble/templates/core.js. Import this; never retype it.
+ * (none recorded)
  */
 
 export const VOCAB = {
