@@ -113,13 +113,22 @@ export type Mutation =
 
 export type RowTint = "issue" | "collecting" | "exported" | "star";
 
-/** Where a row's collect state comes from now — batch membership, not a mark. */
+/**
+ * Where a row's collect state comes from now — batch membership, not a mark.
+ *
+ * `sent` JOINED THEM for the same reason `collecting` did. It was read off
+ * `lastExportedAt`, a log this module appends to and never removes from, so a
+ * row kept its ◎ after the batch that produced it had been deleted — a claim
+ * about the world with nothing left behind it. See `wasSent`, which is now the
+ * only thing that answers this question, everywhere it is asked.
+ */
 export interface CollectView {
   collecting: boolean;
   earlier: boolean;
+  sent: boolean;
 }
 
-const NOT_COLLECTED: CollectView = { collecting: false, earlier: false };
+const NOT_COLLECTED: CollectView = { collecting: false, earlier: false, sent: false };
 
 /* ------------------------------------------------------------- selectors */
 
@@ -132,8 +141,18 @@ export function isMarked(s: LeadState, kind: MarkKind, id: OrgId): boolean {
   return markedAt(s, kind, id) > 0;
 }
 
-export function isDownloaded(s: LeadState, id: OrgId): boolean {
-  return id in s.lastExportedAt;
+/**
+ * WHEN a church was sent one, or 0. NOT "whether" — see `wasSent`.
+ *
+ * The log this reads is append-only and per-device, so it can say a church was
+ * written to on Tuesday and cannot say that the record of it has since been
+ * deleted. Every surface that draws a conclusion — the counter, the filter, the
+ * ◎ badge — now asks the batches instead. This is left for the one thing the
+ * batches cannot supply, a per-church timestamp, and for the migration in
+ * `EXPORT_LOG_ERA` that has to keep working on logs already on disk.
+ */
+export function exportedAt(s: LeadState, id: OrgId): number {
+  return s.lastExportedAt[id] ?? 0;
 }
 
 /**
@@ -164,7 +183,7 @@ export function rowTints(
   const out: RowTint[] = [];
   if (isMarked(s, "issue", id)) out.push("issue");
   if (collect.collecting) out.push("collecting");
-  if (isDownloaded(s, id)) out.push("exported");
+  if (collect.sent) out.push("exported");
   if (isMarked(s, "star", id)) out.push("star");
   return out;
 }

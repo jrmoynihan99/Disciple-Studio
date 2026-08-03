@@ -4,8 +4,7 @@ Everything you need to get `/leads` running on your machine and on
 `disciple.studio`. Follow it top to bottom — about 30 minutes, most of it waiting
 on uploads.
 
-**What you are setting up.** The console shows 15,273 churches. That data is a bit big and contains real contact details (that might not be great to expose on a public github repo like Disciple Studio), so it lives in cloud storage (Cloudflare R2) and the repo holds only a small receipt naming which build to serve. You will upload the data to *your own* Cloudflare account once, and after
-that it just works.
+**What you are setting up.** The console shows 15,273 churches. That data is a bit big and contains real contact details (that might not be great to expose on a public github repo like Disciple Studio), so it lives in cloud storage (Cloudflare R2) and the repo holds only a small receipt naming which build to serve. You will upload the data to *your own* Cloudflare account once to use for production, and after that it just works.
 
 ---
 
@@ -38,7 +37,7 @@ npm install
 ## 2. Get the church data
 
 **Download `disciple-studio-leads-package.zip`** from the Google Drive folder
-shared with you. It is about **138 MB**.
+shared with you.
 
 Optional but worth 10 seconds — check it downloaded intact. In PowerShell:
 
@@ -75,8 +74,7 @@ The folder name does not matter — the build finds any folder containing a
 be under `incoming/`.
 
 > This data is real: names, emails and phone numbers for 15,273 churches. It is
-> already excluded from git, so you cannot commit it by accident. Please delete
-> the Google Drive copy once step 5 succeeds.
+> already excluded from git, so you cannot commit it by accident. 
 
 ---
 
@@ -131,11 +129,11 @@ You are creating **two** storage buckets and one access key.
 
 ---
 
-## 4. Create `.env.local`
+## 4. Update `.env.local`
 
-In the repo root, copy `.env.example` to a new file called **`.env.local`**, then
-fill in the blanks. `.env.local` is excluded from git, so your secrets stay on
-your machine.
+Review `.env.example` to see the new environmental variables. Copy the new variables to your env file.
+
+**For production, add these environmental variables using whatever instructions your hosting service provides.**
 
 ```bash
 cp .env.example .env.local
@@ -319,7 +317,7 @@ one, and it says why. The audit takes about two minutes to finish — it reads a
 ## Two things not to change without reading first
 
 - **Never make `disciple-studio-leads` public.** It holds real contact details
-  for 15,273 congregations. While it's all publicly collected data, it's best practice not to release a curation. The logos bucket is the one that can safely go on a
+  for 15,273 congregations. While it's all publicly collected data, it's best practice not to release a curation like this. The logos bucket is the one that can safely go on a
   CDN.
 - **Never commit the church data.** `data/leads/.gitignore` blocks everything in
   that folder except four small files, deliberately. This repository is public.

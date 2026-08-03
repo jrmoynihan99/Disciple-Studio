@@ -117,6 +117,7 @@ export function Rail({
   state,
   openBatch,
   collecting,
+  sent,
   onSwitchBatch,
   onResetFilters,
   onRecolour,
@@ -142,6 +143,14 @@ export function Rail({
   /** The batch ✆ collects into, or null before the first church of the day. */
   openBatch: ExportGroupSummary | null;
   collecting: number;
+  /**
+   * Churches in a batch that has been sent, counted over the batches that still
+   * exist. It used to be `Object.keys(state.lastExportedAt).length` — an
+   * append-only log in this browser's storage that nothing could correct — so
+   * deleting every sent batch left the counter claiming forty churches had been
+   * contacted with no record on the server behind it. See `sentCount`.
+   */
+  sent: number;
   /** Opens the picker. The dialog itself lives in `LeadConsole`, which owns the
    *  group list and the membership store it has to refresh. */
   onSwitchBatch: () => void;
@@ -290,11 +299,7 @@ export function Rail({
           <Counter n={countMarked(state, "star")} label="Starred" className="text-lead-brand" />
           <Counter n={countMarked(state, "issue")} label="Issue" className="text-lead-bad" />
           <div title={SENT_MARK}>
-            <Counter
-              n={Object.keys(state.lastExportedAt).length}
-              label="Sent"
-              className="text-lead-dl"
-            />
+            <Counter n={sent} label="Sent" className="text-lead-dl" />
           </div>
         </div>
         <div className="mb-1.5" />
@@ -338,6 +343,25 @@ export function Rail({
         className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-lead-brand px-4 text-[14.5px] font-semibold text-white transition-opacity hover:opacity-90"
       >
         All batches
+        <span aria-hidden="true">→</span>
+      </Link>
+
+      {/* ── every demo ──
+          THE OTHER END OF THE SAME PIPELINE. A batch is churches you are about to
+          write to; a demo is the page one of them received. Reviewing and sending
+          is this console's job and looking at what went out is `/studio`'s, and
+          the console had no link to it — the only way across was a `/studio/g/…`
+          link buried in one sent batch's export receipt.
+
+          OUTLINED, NOT FILLED, and that is the whole difference between the two.
+          `All batches` is the work; this is where the work ended up. Two solid
+          brand-coloured buttons stacked would say they are equally the next thing
+          to do, and they are not. */}
+      <Link
+        href="/studio"
+        className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-lead-line bg-lead-panel px-4 text-[14.5px] font-semibold text-lead-ink transition-colors hover:border-lead-ink2"
+      >
+        All demos
         <span aria-hidden="true">→</span>
       </Link>
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Pencil, Trash2, Plus, Copy, Check, Layers } from "lucide-react";
+import { ExternalLink, Pencil, Trash2, Plus, Copy, Check, Layers, Users } from "lucide-react";
 
 type Row = {
   slug: string;
@@ -86,6 +86,17 @@ export default function Home() {
             in. Everything below — the demos, the groups, `Download JSON` — is
             untouched. */}
         <div className="flex items-center gap-2">
+          {/* BACK TO WHERE DEMOS COME FROM. Every demo below was generated from a
+              reviewed lead batch, and until now the two halves of the studio only
+              linked one way: the console can reach these pages, and this page
+              could not reach the console. Outlined rather than filled — the
+              primary action here is still making a demo. */}
+          <Link
+            href="/leads"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-fg hover:bg-surface-raised"
+          >
+            <Users className="h-4 w-4" /> Lead console
+          </Link>
           <Link
             href="/admin"
             className="inline-flex items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90"

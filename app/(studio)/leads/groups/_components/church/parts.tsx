@@ -1551,7 +1551,11 @@ function ChurchCardInner({
                 to remove the whole church. It strikes out like any other item —
                 same confirmation, same reversibility — and a struck logo resolves
                 to no logo, so the demo is built without one. */}
-            <div className="group/logo relative shrink-0">
+            {/* A FIXED COLUMN, not a shrink-wrapped one. The controls under the
+                plate are wider or narrower depending on how many options a
+                church has, and a column that sized itself to them would put the
+                church's name at a different left edge on every card. */}
+            <div className="group/logo relative w-[72px] shrink-0">
               <div className={`${SKIN.logoBox} ${plate}`}>
                 {card.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -1645,19 +1649,26 @@ function ChurchCardInner({
                   Shown ONLY when there is somewhere to go, and hidden entirely
                   while the batch's preview request is still in flight, so it
                   never appears and then vanishes. On a struck-out logo it is
-                  hidden too: `put back` occupies that spot and is the move. */}
+                  hidden too: `put back` occupies that spot and is the move.
+
+                  BELOW THE PLATE, IN FLOW — not floated over its bottom edge the
+                  way `put back` is. This one is always on screen rather than a
+                  momentary state, so a permanent control was permanently
+                  covering the picture it is asking you to judge. */}
               {!frozen && !card.logoRemoved && (logoOptions?.length ?? 0) > 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPicking(true);
-                  }}
-                  title="This church published more than one usable mark. Choose which one their demo is built with."
-                  className={`absolute -bottom-2 left-1/2 -translate-x-1/2 ${SKIN.btnSmall}`}
-                >
-                  {logoOptions!.length} options
-                </button>
+                <div className="mt-1.5 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPicking(true);
+                    }}
+                    title="This church published more than one usable mark. Choose which one their demo is built with."
+                    className={`whitespace-nowrap ${SKIN.btnSmall}`}
+                  >
+                    {logoOptions!.length} options
+                  </button>
+                </div>
               )}
             </div>
 

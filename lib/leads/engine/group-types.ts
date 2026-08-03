@@ -617,6 +617,50 @@ export function earlierBatches(m: Membership, orgId: string): MembershipRef[] {
   return (m.byOrg[orgId] ?? []).filter((g) => g.id !== m.openGroupId);
 }
 
+/**
+ * HAS THIS CHURCH BEEN SENT A DEMO — asked of the batches that still exist.
+ *
+ * This used to be answered by `lastExportedAt`, an append-only log in the
+ * browser's own storage that the export wrote to and nothing ever removed from.
+ * That made the Sent counter, the "Sent only" filter and the ◎ badge unfalsifiable:
+ * delete every sent batch and the console still reported forty churches sent,
+ * because the only evidence it consulted was a log with no way to say "that
+ * never happened" or "that record is gone".
+ *
+ * Batches are the record. Deleting one is explicitly allowed and explicitly
+ * meaningful — `DELETE /api/leads/groups/<id>` calls it "a decision about the
+ * record, not a silent revision of it" — so a console that kept the mark after
+ * the record was destroyed was reporting from a source its owner could not
+ * correct. Derived from membership it follows the batches, on every surface, with
+ * no reconciliation step to forget.
+ *
+ * WHAT THIS GIVES UP, said plainly: delete a sent batch and the console stops
+ * warning you that those churches were contacted. The demos themselves live on
+ * at `/c/<slug>` — deleting the batch does not delete them. That is the trade the
+ * owner chose, and it is the honest one: the mark now claims exactly as much as
+ * the evidence behind it.
+ */
+export function wasSent(m: Membership, orgId: string): boolean {
+  return (m.byOrg[orgId] ?? []).some((g) => g.status === "exported");
+}
+
+/**
+ * How many churches have been sent, counted the way `collectingCount` counts —
+ * over `byOrg`, which is proportional to what you have collected rather than to
+ * the corpus.
+ *
+ * UNLIKE `collectingCount` THIS TAKES NO `present` PREDICATE. That counter exists
+ * to agree with the rows on screen; this one is a claim about churches that have
+ * been contacted, and a church that has since left the dataset was still
+ * contacted. Filtering it to the current publish would quietly under-report the
+ * one number whose whole job is to stop somebody being emailed twice.
+ */
+export function sentCount(m: Membership): number {
+  let n = 0;
+  for (const orgId of Object.keys(m.byOrg)) if (wasSent(m, orgId)) n++;
+  return n;
+}
+
 /* ------------------------------------------------------------------ *
  * Field paths
  * ------------------------------------------------------------------ */

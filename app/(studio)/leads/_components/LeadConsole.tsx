@@ -13,13 +13,15 @@ import { defaultFavorModel, favorBase } from "@/lib/leads/engine/favor";
 import type { EngineCtx, VerdictState } from "@/lib/leads/engine/types";
 import { useDataset } from "@/lib/leads/client/useDataset";
 import { useLeadState } from "@/lib/leads/client/useLeadState";
-import { isDownloaded, isMarked, rowTints, type MarkKind } from "@/lib/leads/client/state";
+import { isMarked, rowTints, type MarkKind } from "@/lib/leads/client/state";
 import { useGroupList, useMembership } from "@/lib/leads/client/useGroups";
 import {
   collectingCount as countCollecting,
   earlierBatches,
   editsInOpenBatch,
   isCollecting,
+  sentCount as countSent,
+  wasSent,
   type MembershipRef,
 } from "@/lib/leads/engine/group-types";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -179,6 +181,16 @@ export function LeadConsole() {
     [membership, rowById],
   );
 
+  /**
+   * How many churches have been sent a demo, from the batches that still exist.
+   *
+   * NOT FILTERED TO THE CURRENT PUBLISH, unlike the counter above — see
+   * `sentCount`. That one exists to agree with the rows on screen; this one is
+   * about who has been contacted, and a church that has since left the dataset
+   * was still contacted.
+   */
+  const sentCount = useMemo(() => countSent(membership), [membership]);
+
   const ctx: EngineCtx = useMemo(
     () => ({
       overrides: state.config.colors,
@@ -222,7 +234,10 @@ export function LeadConsole() {
 
   const isMarkedFor = useCallback(
     (kind: MarkFilter, id: string) => {
-      if (kind === "exported") return isDownloaded(state, id);
+      // "Sent" is answered by the batches that still exist, not by the export
+      // log — delete a sent batch and this filter stops matching those churches,
+      // which is the whole point of `wasSent`.
+      if (kind === "exported") return wasSent(membership, id);
       // "Collected" is answered by batch membership, not by a mark — including
       // the open batch, so filtering to it shows today's work.
       if (kind === "collected") return (membership.byOrg[id]?.length ?? 0) > 0;
@@ -516,6 +531,7 @@ export function LeadConsole() {
           state={state}
           openBatch={openBatch}
           collecting={collectingCount}
+          sent={sentCount}
           onSwitchBatch={() => setSwitching(true)}
           onResetFilters={() => setFilters(defaultFilters())}
           onRecolour={onRecolour}
@@ -553,6 +569,7 @@ export function LeadConsole() {
                 const tints = rowTints(state, v.id, {
                   collecting: isCollecting(membership, v.id),
                   earlier: isEarlier(v.id),
+                  sent: wasSent(membership, v.id),
                 });
                 return (
                   <LeadRow
@@ -566,7 +583,7 @@ export function LeadConsole() {
                     tintKey={tints.join(" ")}
                     star={isMarked(state, "star", v.id)}
                     issue={isMarked(state, "issue", v.id)}
-                    downloaded={isDownloaded(state, v.id)}
+                    downloaded={wasSent(membership, v.id)}
                     collecting={isCollecting(membership, v.id)}
                     batchName={openBatch?.name ?? ""}
                     earlier={earlierByOrg.get(v.id) ?? NO_BATCHES}

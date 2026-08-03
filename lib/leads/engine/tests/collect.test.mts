@@ -24,6 +24,8 @@ import {
   earlierBatches,
   editsInOpenBatch,
   isCollecting,
+  sentCount,
+  wasSent,
   type ExportGroup,
   type GroupEntry,
   type GroupStatus,
@@ -407,5 +409,73 @@ describe("automatic batch names", () => {
     const names = ["Aug 2", "Aug 2 · 2", "Aug 2 · 3"];
     const next = nextBatchName(names, aug2);
     assert.ok(!names.includes(next), `${next} collides with an existing batch`);
+  });
+});
+
+/**
+ * WAS THIS CHURCH SENT A DEMO — and, more to the point, can the answer ever
+ * become "no" again?
+ *
+ * It used to be read off `lastExportedAt`, an append-only log in the browser's
+ * own storage which the export wrote to and nothing ever removed from. That made
+ * the console's three Sent surfaces — the counter, the "Sent only" filter and the
+ * ◎ badge — unfalsifiable: delete every sent batch and it still reported forty
+ * churches contacted, from a source its owner had no way to correct.
+ *
+ * Batches ARE the record, and deleting one is a decision the product explicitly
+ * allows. So the answer is derived from the batches that still exist, and these
+ * pin the consequence in both directions: it goes true when a batch is sent, and
+ * false again when that batch is gone.
+ */
+describe("sent, derived from the batches that exist", () => {
+  const open = group("aug-2", "Aug 2", "open", ["a", "b"]);
+  const sent = group("aug-1", "Aug 1", "exported", ["b", "c"]);
+
+  test("a church in a sent batch was sent; one in an open batch was not", () => {
+    const m = membershipFrom([open, sent]);
+    assert.equal(wasSent(m, "a"), false, "collected today, not sent");
+    assert.equal(wasSent(m, "c"), true);
+    assert.equal(wasSent(m, "never_collected_org"), false);
+  });
+
+  /** `b` is in both. Being collected again does not un-send it. */
+  test("collecting a church again does not undo having sent it", () => {
+    assert.equal(wasSent(membershipFrom([open, sent]), "b"), true);
+  });
+
+  /**
+   * THE ONE THE OWNER ASKED FOR. Deleting the sent batches is what the console
+   * sees as `membershipFrom` over what is left, and the count has to follow it
+   * down — including to zero.
+   */
+  test("deleting the sent batches takes the count with them", () => {
+    assert.equal(sentCount(membershipFrom([open, sent])), 2, "b and c");
+    const afterDelete = membershipFrom([open]);
+    assert.equal(sentCount(afterDelete), 0);
+    assert.equal(wasSent(afterDelete, "b"), false);
+    assert.equal(wasSent(afterDelete, "c"), false);
+    assert.equal(sentCount(EMPTY_MEMBERSHIP), 0);
+  });
+
+  /**
+   * A church is counted once however many sent batches it is in — this is a
+   * count of churches contacted, not of times contacted, and the label says
+   * "Sent" beside "Starred" and "Issue", which are both counts of churches.
+   */
+  test("a church in two sent batches counts once", () => {
+    const also = group("jul-9", "Jul 9", "exported", ["c"]);
+    assert.equal(sentCount(membershipFrom([sent, also])), 2, "b and c, not three");
+  });
+
+  /**
+   * NOT FILTERED TO THE CURRENT PUBLISH, unlike `collectingCount`. That one has
+   * to agree with the rows on screen; this one says who has been contacted, and a
+   * church that has since left the dataset was still contacted. Under-reporting
+   * it would break the only thing standing between a reviewer and emailing the
+   * same church twice.
+   */
+  test("a church that has left the dataset is still counted", () => {
+    const m = membershipFrom([group("aug-1", "Aug 1", "exported", ["departed_org"])]);
+    assert.equal(sentCount(m), 1);
   });
 });

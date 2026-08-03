@@ -19,9 +19,9 @@ import assert from "node:assert/strict";
 import {
   countMarked,
   emptyState,
+  exportedAt,
   EXPORT_LOG_ERA,
   hydrate,
-  isDownloaded,
   legacyGoodLeadIds,
   persistable,
   reduce,
@@ -36,18 +36,18 @@ const mark = (s: LeadState, kind: "star" | "issue", id: string, at = 1000) =>
   reduce(s, { type: "mark.toggle", kind, orgId: id }, at);
 
 describe("row tint precedence", () => {
-  const none = { collecting: false, earlier: false };
+  const none = { collecting: false, earlier: false, sent: false };
 
   test("issue > collecting > exported > star", () => {
     let s = fresh();
     s = mark(s, "star", "a");
     assert.equal(rowTint(s, "a", none), "star");
 
-    assert.equal(rowTint(s, "a", { collecting: true, earlier: false }), "collecting");
+    assert.equal(rowTint(s, "a", { ...none, collecting: true }), "collecting");
 
     s = mark(s, "issue", "a");
     assert.equal(
-      rowTint(s, "a", { collecting: true, earlier: false }),
+      rowTint(s, "a", { ...none, collecting: true }),
       "issue",
       "a data problem outranks everything — it is the one that says do not send this",
     );
@@ -59,10 +59,27 @@ describe("row tint precedence", () => {
    * visible change and read as a dead control.
    */
   test("collecting outranks exported", () => {
-    const s = reduce(fresh(), { type: "export.commit", ids: ["a"], at: 500 }, 500);
-    assert.equal(isDownloaded(s, "a"), true);
-    assert.equal(rowTint(s, "a", none), "exported");
-    assert.equal(rowTint(s, "a", { collecting: true, earlier: false }), "collecting");
+    assert.equal(rowTint(fresh(), "a", { ...none, sent: true }), "exported");
+    assert.equal(rowTint(fresh(), "a", { ...none, sent: true, collecting: true }), "collecting");
+  });
+
+  /**
+   * THE TINT COMES FROM THE BATCHES, NOT FROM THE LOG.
+   *
+   * ◎ used to be read off `lastExportedAt`, which this reducer appends to and
+   * never removes from — so a row kept its wash after the batch that produced it
+   * had been deleted, and there was no gesture anywhere that could take it off.
+   * Deleting a sent batch is explicitly allowed and explicitly means something,
+   * so the mark has to be able to go away with it.
+   */
+  test("the export log alone no longer tints a row", () => {
+    const logged = reduce(fresh(), { type: "export.commit", ids: ["a"], at: 500 }, 500);
+    assert.equal(exportedAt(logged, "a"), 500, "the timestamp is still recorded");
+    assert.equal(
+      rowTint(logged, "a", none),
+      null,
+      "…but with no sent batch behind it, nothing on the row claims it was sent",
+    );
   });
 
   /**
@@ -72,7 +89,7 @@ describe("row tint precedence", () => {
    * today?" unanswerable, which is the one question the wash exists to answer.
    */
   test("an earlier batch does not tint the row", () => {
-    assert.equal(rowTint(fresh(), "a", { collecting: false, earlier: true }), null);
+    assert.equal(rowTint(fresh(), "a", { ...none, earlier: true }), null);
   });
 
   test("an unmarked, uncollected church has no tint", () => {
@@ -169,7 +186,7 @@ describe("the stub export's ◎ marks", () => {
   test("they do not survive a load", () => {
     const loaded = hydrate(sent, "u_0000000000000000");
     assert.deepEqual(loaded.lastExportedAt, {});
-    assert.equal(isDownloaded(loaded, "trbc_org"), false);
+    assert.equal(exportedAt(loaded, "trbc_org"), 0);
   });
 
   /**
@@ -185,7 +202,10 @@ describe("the stub export's ◎ marks", () => {
 
   test("no row can tint itself exported off a stale profile", () => {
     const loaded = hydrate(sent, "u_1");
-    assert.equal(rowTint(loaded, "trbc_org", { collecting: false, earlier: false }), null);
+    assert.equal(
+      rowTint(loaded, "trbc_org", { collecting: false, earlier: false, sent: false }),
+      null,
+    );
   });
 
   /** Surgical, not `reset()`. Stars, issues, notes and the favor model are real. */
@@ -204,7 +224,7 @@ describe("the stub export's ◎ marks", () => {
   test("a real export would still mark a church", () => {
     const loaded = hydrate(sent, "u_1");
     const after = reduce(loaded, { type: "export.commit", ids: ["trbc_org"], at: 99 }, 99);
-    assert.equal(isDownloaded(after, "trbc_org"), true);
+    assert.equal(exportedAt(after, "trbc_org"), 99);
   });
 
   /**
@@ -281,7 +301,7 @@ describe("the export log, once something real writes it", () => {
   test("an era-marked log survives the load", () => {
     const loaded = hydrate(real, "u_1");
     assert.deepEqual(loaded.lastExportedAt, { trbc_org: 1712000000000 });
-    assert.equal(isDownloaded(loaded, "trbc_org"), true);
+    assert.equal(exportedAt(loaded, "trbc_org"), 1712000000000);
   });
 
   test("and is written back out, so it survives the NEXT load too", () => {
@@ -318,8 +338,8 @@ describe("the export log, once something real writes it", () => {
   test("commit → persist → reload keeps the mark", () => {
     const after = reduce(fresh(), { type: "export.commit", ids: ["a_org", "b_org"] , at: 99 }, 0);
     const reloaded = hydrate(persistable(after), "u_1");
-    assert.equal(isDownloaded(reloaded, "a_org"), true);
-    assert.equal(isDownloaded(reloaded, "b_org"), true);
+    assert.equal(exportedAt(reloaded, "a_org"), 99);
+    assert.equal(exportedAt(reloaded, "b_org"), 99);
     assert.equal(reloaded.lastExportedAt.a_org, 99);
   });
 });
