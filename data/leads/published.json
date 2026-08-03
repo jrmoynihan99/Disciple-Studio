@@ -7,6 +7,6 @@
   "n_logos": 33371,
   "index_sha256": "ee35d2beb8aecb00703e70573a6a2b2a84989f24e69c060893489689a572929e",
   "index_bytes": 2733743,
-  "published_at": "2026-08-03T05:19:01.694Z",
+  "published_at": "2026-08-03T20:36:21.716Z",
   "note": "Written by scripts/leads-publish.mts. Names the build this deployment serves; every key is derived from publish_id (logos are content-addressed and shared across publishes). Contains no church data and no account-specific URL — see data/leads/README.md."
 }
