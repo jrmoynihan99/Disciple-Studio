@@ -44,6 +44,9 @@ export async function POST(req: Request, ctx: Ctx) {
     return Response.json(summarize(await markExported(userId, id, demoGroupId)));
   } catch (e) {
     const message = e instanceof Error ? e.message : "Could not finish the export";
+    // 409 for "already sent", matching the other writers — the export dialog
+    // classifies that as permanent and stops offering a retry that cannot work.
+    if (/already been sent/.test(message)) return bad(message, 409);
     return bad(message, /no batch named/.test(message) ? 404 : 500);
   }
 }

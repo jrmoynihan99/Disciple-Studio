@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { getChurch } from "@/churches";
+import { churchBlobExists, getChurch } from "@/churches";
 import DemoExperience from "@/components/DemoExperience";
 
 /**
@@ -29,9 +29,26 @@ export default async function ChurchDemoPage({
 }) {
   const { slug } = await params;
   let config = await getChurch(slug);
-  for (let i = 0; !config && i < RETRY_ATTEMPTS; i++) {
-    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-    config = await getChurch(slug);
+
+  /**
+   * THE WAIT IS FOR A DEMO THAT EXISTS, NOT FOR EVERY MISS.
+   *
+   * The loop ran unconditionally, with no signal separating "just written" from
+   * "never existed" — so every crawler, every guessed URL and every church
+   * holding a link to a deleted demo spent 8 × 700ms before being told no.
+   * Measured: 6.5s for a garbage slug against 0.13s for a real one, all of it
+   * billed instance-time, and it is exactly the request a church gets after a
+   * group delete.
+   *
+   * `churchBlobExists` asks the store's index rather than the CDN, so it can
+   * tell the two apart — and it answers `true` when it cannot tell, which keeps
+   * the patient path for anything ambiguous.
+   */
+  if (!config && (await churchBlobExists(slug))) {
+    for (let i = 0; !config && i < RETRY_ATTEMPTS; i++) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      config = await getChurch(slug);
+    }
   }
   if (!config) notFound();
 

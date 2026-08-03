@@ -673,16 +673,26 @@ class MembershipStore {
     return { ...this.snap, byOrg };
   }
 
-  /** Put these churches in the open batch. Already-present ones are left alone. */
-  collect = async (ids: string[]): Promise<void> => {
-    if (!ids.length) return;
+  /**
+   * Put these churches in the open batch. Already-present ones are left alone.
+   *
+   * IT REPORTS WHETHER THE SERVER TOOK THEM. The row click ignores the answer —
+   * gating a ✆ on a round trip is what the optimistic path exists to avoid — but
+   * the legacy-marks bar cannot: it DELETES the retired marks from localStorage
+   * once the move is done, and it was doing that while the POST was still in
+   * flight, because the handle it awaited returned synchronously. Offline, the
+   * bar reported success, the batch got nothing, and the marks were gone. That
+   * bar's whole stated purpose is that they must not simply vanish.
+   */
+  collect = async (ids: string[]): Promise<boolean> => {
+    if (!ids.length) return true;
     const groupId = await this.ensureOpen();
     if (!groupId) {
       this.set(this.snap, "Could not open a batch.");
-      return;
+      return false;
     }
     const fresh = ids.filter((id) => !(this.snap.byOrg[id] ?? []).some((g) => g.id === groupId));
-    if (!fresh.length) return;
+    if (!fresh.length) return true;
 
     const before = this.snap;
     const name = getListStore().nameOf(groupId) ?? "this batch";
@@ -696,14 +706,16 @@ class MembershipStore {
       });
       if (!res.ok) {
         this.set(before, "Could not add to the batch.");
-        return;
+        return false;
       }
       void getListStore().reload();
       // Re-read rather than trusting the optimistic copy: the server is the only
       // thing that knows what it actually skipped.
       void this.reload();
+      return true;
     } catch {
       this.set(before, "Offline — that church was not collected.");
+      return false;
     }
   };
 
@@ -743,8 +755,14 @@ export interface MembershipHandle {
   error: string;
   /** Toggle one church in or out of the open batch. */
   toggle: (orgId: string) => void;
-  /** Bulk add — what shift-click produces. */
-  collect: (ids: string[]) => void;
+  /**
+   * Bulk add — a deliberate action with a count in front of it, not a keystroke.
+   *
+   * AWAITABLE, unlike `toggle`. Its one caller discards local data on success,
+   * so it has to be able to find out whether there was one. `false` means the
+   * churches are NOT in the batch and the store is showing why.
+   */
+  collect: (ids: string[]) => Promise<boolean>;
   reload: () => void;
 }
 
@@ -760,7 +778,7 @@ export function useMembership(): MembershipHandle {
     },
     [s, membership],
   );
-  const collect = useCallback((ids: string[]) => void s.collect(ids), [s]);
+  const collect = useCallback((ids: string[]) => s.collect(ids), [s]);
   const reload = useCallback(() => void s.reload(), [s]);
 
   return useMemo(

@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ChurchView } from "@/lib/leads/engine/adapt";
 import type { EngineCtx, VerdictState } from "@/lib/leads/engine/types";
 import { VALID_STATES } from "@/lib/leads/engine/types";
 import { answerLabel, VERDICT_WORD } from "@/lib/leads/engine/labels";
-import { facetCounts, optionState, visibleFacetValues } from "@/lib/leads/engine/filter";
+import {
+  facetCounts,
+  optionStateFrom,
+  optionStates,
+  visibleFacetValues,
+} from "@/lib/leads/engine/filter";
 import { fillClass } from "../verdict";
 import { Chevron } from "../Chevron";
 import { facetValues, facetValueLabel, type FacetDef } from "./facets";
@@ -50,6 +55,23 @@ export function FacetPanel({
   // the reason live in `visibleFacetValues`, where a test can reach them.
   const shown = visibleFacetValues(values, counts, selected);
 
+  /**
+   * ONE PASS FOR THE WHOLE FACET, AND ONLY WHILE IT IS OPEN.
+   *
+   * This was `optionState(...)` inside the option loop, which walks all 15,273
+   * churches per option. The staff facet has 137 of them: 463ms, measured, on
+   * every render of the rail — and `Rail` is not memoised, so it re-ran on every
+   * keystroke in the search box, long after the facet had been collapsed again.
+   *
+   * `allViews` and `ctx` are what the colours depend on; `views` narrows the
+   * COUNTS and deliberately does not appear here, or typing would recompute the
+   * swatches too.
+   */
+  const states = useMemo(
+    () => (open ? optionStates(facet.key, allViews, ctx) : new Map()),
+    [open, facet.key, allViews, ctx],
+  );
+
   // Deliberately `values`, not `shown`. A facet whose options are all empty
   // right now still belongs in the rail — collapsed, reading "any" — because it
   // comes back the moment the reader loosens something else. Only a facet the
@@ -84,7 +106,7 @@ export function FacetPanel({
             </p>
           )}
           {shown.map((v) => {
-            const { state, mixed } = optionState(facet.key, v, allViews, ctx);
+            const { state, mixed } = optionStateFrom(states, facet.key, v);
             const on = selected.includes(v);
             // `facetValueLabel` owns the per-facet wording; a fact with no
             // entry there shows its raw value, and everything else is an answer.

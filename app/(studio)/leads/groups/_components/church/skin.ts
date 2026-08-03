@@ -267,6 +267,14 @@ export const SKIN = {
   pathwayCaption: "font-mono text-[10px] font-bold tracking-[0.14em] text-lead-brand uppercase",
   pathwayName: "mt-1 font-serif text-[21px] leading-snug font-semibold text-lead-ink",
   pathwayFinding: "font-serif text-[15px] leading-relaxed text-lead-ink",
+  /**
+   * A reviewer's own note on a step they added.
+   *
+   * Deliberately quieter than a quote and set in the mono face the other
+   * "we are telling you something about this row" lines use — it is not the
+   * church's copy and must not be mistaken for it. Nothing sends it anywhere.
+   */
+  stepNote: "mt-1 px-3 pb-2 font-mono text-[11px] leading-relaxed text-lead-ink2",
 
   /* ── shared item bits ── */
   rank: "font-mono text-[11px] text-lead-ink2 tabular-nums",

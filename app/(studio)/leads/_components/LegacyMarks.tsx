@@ -15,7 +15,7 @@ import { legacyGoodLeadIds } from "@/lib/leads/client/state";
  * failure than losing it: you would find a batch you never made, dated today,
  * full of churches you flagged weeks ago and might already have contacted.
  */
-export function LegacyMarks({ onMove }: { onMove: (ids: string[]) => Promise<void> }) {
+export function LegacyMarks({ onMove }: { onMove: (ids: string[]) => Promise<boolean> }) {
   const [ids] = useState<string[]>(() => {
     if (typeof localStorage === "undefined") return [];
     try {
@@ -27,6 +27,7 @@ export function LegacyMarks({ onMove }: { onMove: (ids: string[]) => Promise<voi
   });
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   if (!ids.length || done) return null;
 
@@ -50,13 +51,30 @@ export function LegacyMarks({ onMove }: { onMove: (ids: string[]) => Promise<voi
         {ids.length} church{ids.length === 1 ? "" : "es"} still carry the old ✆ mark. ✆
         now collects into a batch.
       </span>
+      {failed && (
+        <span className="text-lead-bad">
+          They were not collected — nothing was discarded. Try again.
+        </span>
+      )}
       <button
         type="button"
         disabled={busy}
+        /**
+         * FORGET ONLY IF THE SERVER TOOK THEM.
+         *
+         * `forget()` deletes the retired marks from localStorage, and it ran
+         * unconditionally after an `await` that could not wait: `collect` was
+         * declared `(ids) => void` and returned synchronously, so the delete
+         * raced the POST. Offline, this bar reported success, the batch got
+         * nothing, and the marks — the only record of that work — were gone.
+         * It is the one bar whose stated purpose is that they must not vanish.
+         */
         onClick={async () => {
           setBusy(true);
-          await onMove(ids);
-          forget();
+          setFailed(false);
+          const moved = await onMove(ids);
+          if (moved) forget();
+          else setFailed(true);
           setBusy(false);
         }}
         className="rounded-md bg-lead-brand px-3 py-1 text-white disabled:opacity-45"

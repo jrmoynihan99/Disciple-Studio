@@ -76,8 +76,13 @@ export function LeadConsole() {
   const headerRef = useRef<HTMLElement>(null);
 
   const groupList = useGroupList();
-  const { membership, collect, toggle: toggleCollect, reload: reloadMembership } =
-    useMembership();
+  const {
+    membership,
+    error: membershipError,
+    collect,
+    toggle: toggleCollect,
+    reload: reloadMembership,
+  } = useMembership();
 
   const openBatch = useMemo(
     () => groupList.groups.find((g) => g.id === membership.openGroupId) ?? null,
@@ -445,7 +450,7 @@ export function LeadConsole() {
               placeholder="search"
               aria-label="Search church name"
               autoComplete="off"
-              className="w-[230px] rounded-lg border border-l ead-line bg-lead-panel px-3 py-2 text-[13.5px] text-lead-ink"
+              className="w-[230px] rounded-lg border border-lead-line bg-lead-panel px-3 py-2 text-[13.5px] text-lead-ink"
             />
           </div>
           <button
@@ -459,7 +464,29 @@ export function LeadConsole() {
         </div>
       </header>
 
-      <LegacyMarks onMove={async (ids) => collect(ids)} />
+      {/* THE ONE CONTROL ON THIS PAGE THAT WRITES TO THE SERVER, AND ITS FAILURES
+          WERE SILENT.
+
+          `MembershipStore` sets a real message on every failure path — "Could
+          not add to the batch", "Offline — that church was not collected",
+          "Could not remove that church" — and rolls the optimistic change back.
+          Nothing read it. The row went green, then grey, and no reason appeared
+          anywhere: indistinguishable from a misclick. Now that un-collecting
+          opens a dialog promising the church will be removed, a rollback nobody
+          is told about is worse still. */}
+      {membershipError && (
+        <div
+          role="status"
+          className="flex items-center justify-center gap-3 border-b border-lead-bad/40 bg-lead-bad/[0.08] px-4 py-2 font-mono text-xs text-lead-bad"
+        >
+          {membershipError}
+          <button type="button" onClick={reloadMembership} className="underline">
+            retry
+          </button>
+        </div>
+      )}
+
+      <LegacyMarks onMove={collect} />
 
       {updateAvailable && (
         // Never hot-swap the dataset under someone mid-scroll, and never with a

@@ -130,31 +130,30 @@ export function facetVal(key: string, view: ChurchView): string {
   return view.q(key as QuestionKey)?.answer ?? "";
 }
 
-/** The colour a facet OPTION paints, so the swatch can never disagree with the cell. */
-export function optionState(
-  key: string,
-  value: string,
-  views: readonly ChurchView[],
-  ctx: EngineCtx,
-): { state: VerdictState | ""; mixed: boolean } {
+export interface OptionState {
+  state: VerdictState | "";
+  mixed: boolean;
+}
+
+const NO_SWATCH: OptionState = { state: "", mixed: false };
+
+/** The value-independent answers, so both entry points agree by construction. */
+function fixedOptionState(key: string, value: string): OptionState | null {
   // A platform is a fact, not a verdict — no swatch. The two backend facets are
   // the same kind of thing: "runs Breeze" is not good or bad, it is true.
   if (key.endsWith("_platform") || key === "lang" || key === "chms" || key === "tooling") {
-    return { state: "", mixed: false };
+    return NO_SWATCH;
   }
   if (key === "steps") return { state: stepsCountState(Number(value) || 0), mixed: false };
   // The discipleship states carry the same colours the tile does, from one map.
   if (key === "pathway") {
     return { state: PATHWAY_STATE[value as PathwayKnowledge] ?? "", mixed: false };
   }
+  return null;
+}
 
-  const qk = key as QuestionKey;
-  const tally = new Map<VerdictState, number>();
-  for (const v of views) {
-    if (facetVal(key, v) !== value) continue;
-    const s = colorState(qk, v.q(qk), ctx);
-    tally.set(s, (tally.get(s) ?? 0) + 1);
-  }
+/** The dominant colour in a tally, and whether the option is not unanimous. */
+function dominant(tally: Map<VerdictState, number>): OptionState {
   let best: VerdictState | "" = "";
   let n = -1;
   for (const [s, c] of tally) {
@@ -167,6 +166,75 @@ export function optionState(
   // colour is computed rather than looked up. Report the dominant one and say
   // it is mixed, rather than letting a sample of one speak for all.
   return { state: best, mixed: tally.size > 1 };
+}
+
+/**
+ * EVERY OPTION OF ONE FACET, IN ONE PASS — not one pass per option.
+ *
+ * `optionState` walks all 15,273 churches to answer for a single value, and the
+ * rail called it once per shown option. The staff facet yields 137 options, so
+ * expanding it cost 137 full scans — measured at 463ms per Rail render — and
+ * `Rail` is not memoised, so that ran again on every keystroke in the search
+ * box. Same answers, one scan.
+ */
+export function optionStates(
+  key: string,
+  views: readonly ChurchView[],
+  ctx: EngineCtx,
+): Map<string, OptionState> {
+  const out = new Map<string, OptionState>();
+  // A facet whose colour is a function of the VALUE needs no scan at all —
+  // `optionStateFrom` answers those from `fixedOptionState` per option, which is
+  // also why they are not enumerated here (`steps` is any integer).
+  if (fixedOptionState(key, "")) return out;
+
+  const qk = key as QuestionKey;
+  const byValue = new Map<string, Map<VerdictState, number>>();
+  for (const v of views) {
+    const value = facetVal(key, v);
+    if (!value) continue;
+    let tally = byValue.get(value);
+    if (!tally) byValue.set(value, (tally = new Map()));
+    const s = colorState(qk, v.q(qk), ctx);
+    tally.set(s, (tally.get(s) ?? 0) + 1);
+  }
+  for (const [value, tally] of byValue) out.set(value, dominant(tally));
+  return out;
+}
+
+/**
+ * One option's answer, given the map `optionStates` built.
+ *
+ * The value-independent facets are answered here rather than being pre-filled,
+ * because their option lists are open-ended (`steps` is any integer) and there
+ * is nothing to enumerate.
+ */
+export function optionStateFrom(
+  states: Map<string, OptionState>,
+  key: string,
+  value: string,
+): OptionState {
+  return fixedOptionState(key, value) ?? states.get(value) ?? NO_SWATCH;
+}
+
+/** The colour a facet OPTION paints, so the swatch can never disagree with the cell. */
+export function optionState(
+  key: string,
+  value: string,
+  views: readonly ChurchView[],
+  ctx: EngineCtx,
+): OptionState {
+  const fixed = fixedOptionState(key, value);
+  if (fixed) return fixed;
+
+  const qk = key as QuestionKey;
+  const tally = new Map<VerdictState, number>();
+  for (const v of views) {
+    if (facetVal(key, v) !== value) continue;
+    const s = colorState(qk, v.q(qk), ctx);
+    tally.set(s, (tally.get(s) ?? 0) + 1);
+  }
+  return dominant(tally);
 }
 
 /** How many churches sit in each option of a facet, over the currently-narrowed set. */
@@ -385,19 +453,66 @@ export function computeView(
     unlocatedCount(views, f, ctx, isMarked),
   );
 
+  /**
+   * A SELECTED BUCKET THAT NO LONGER HAS A BAR IS IGNORED.
+   *
+   * The axis is derived from the tuning model, so lowering any weight in the
+   * Favor panel shrinks it — and a bucket selected before that can end up past
+   * the end of `dist`. What the user saw was: the list empties, the selected
+   * bar is GONE from the histogram, and the only control that could clear the
+   * filter went with it. The escape was "reset all filters", which discards the
+   * region, the facets and everything else they had set up.
+   *
+   * Dropping it here rather than in the component means the histogram, the count
+   * and the rows cannot disagree about whether it is still in force — this is
+   * the same rule `visibleFacetValues` applies to a facet whose values vanish.
+   */
+  const bucket =
+    f.favorBucket != null && f.favorBucket < summary.dist.length ? f.favorBucket : null;
+
   let rows = base;
-  if (f.favorBucket != null) {
-    rows = base.filter((v) => favorBucket(scores.get(v.id) ?? 0, axisMax) === f.favorBucket);
+  if (bucket != null) {
+    rows = base.filter((v) => favorBucket(scores.get(v.id) ?? 0, axisMax) === bucket);
   }
 
   const sort = comparator(f.sort, scores);
   rows = rows.slice().sort(f.newFirst ? demoteCollected(sort, isEarlier) : sort);
-  return { base, rows, summary, scores };
+
+  /**
+   * THE HEADLINE COUNTS THE ROWS ON SCREEN.
+   *
+   * `summarize` runs over `base`, which is everything except the bucket — so
+   * with a bar selected the deck read "15,273 / 15,273 churches" above fifteen
+   * rows. `dist` and `noRegion` stay measured against `base` on purpose: the
+   * bars must not rescale when you click one, and the region note is about what
+   * the region filter cost, not about the bucket.
+   */
+  return { base, rows, summary: { ...summary, n: rows.length }, scores };
 }
 
 /* ------------------------------------------------------------------- sorts */
 
-const byName = (a: ChurchView, b: ChurchView) => a.name.localeCompare(b.name);
+/**
+ * MISSING SORTS LAST, AND A SENTINEL CHARACTER CANNOT SAY THAT.
+ *
+ * The state sort substituted `"~"` for an absent subdivision on the theory that
+ * tilde sorts after every letter. It does not: `"~".localeCompare("Z") === -1`
+ * under ICU root collation, which ignores punctuation at the primary level. So
+ * the sentinel did the exact opposite of its comment and promoted all 4,701
+ * region-less churches to the TOP of Sort by State — the first row with an
+ * actual state was at position 4,702.
+ *
+ * `byName` had the same shape with no sentinel at all, so the 12 unnamed
+ * churches led Sort by Name AND led every tie group in every other sort, since
+ * every sort falls back to name.
+ *
+ * A boolean compared first is the only version that cannot be wrong about the
+ * collation, because it never asks the collator about the missing case.
+ */
+const absent = (s: string | undefined) => (s && s.trim() ? 0 : 1);
+
+const byName = (a: ChurchView, b: ChurchView) =>
+  absent(a.name) - absent(b.name) || a.name.localeCompare(b.name);
 
 /** Unparseable dates sort LAST — never first, and never in the middle. */
 function scrapedAt(v: ChurchView): number {
@@ -448,8 +563,12 @@ export function comparator(
     case "paid":
       return (a, b) => (b.q("q2")?.count ?? -1) - (a.q("q2")?.count ?? -1) || byName(a, b);
     case "state":
-      // "~" sorts after every letter, so churches with no subdivision go last.
-      return (a, b) => (a.subdiv || "~").localeCompare(b.subdiv || "~") || byName(a, b);
+      // Churches with no subdivision go last — see `absent`, and do not go back
+      // to a sentinel character.
+      return (a, b) =>
+        absent(a.subdiv) - absent(b.subdiv) ||
+        (a.subdiv ?? "").localeCompare(b.subdiv ?? "") ||
+        byName(a, b);
     case "scraped":
       return (a, b) => scrapedAt(b) - scrapedAt(a) || byName(a, b);
     case "opp":

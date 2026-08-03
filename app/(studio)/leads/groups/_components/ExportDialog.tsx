@@ -193,6 +193,17 @@ export function ExportDialog({
     // skipped" into "18 built" — the exact silent loss this list exists for.
     const skipped = [...progress.skipped];
     const failed: ExportTarget[] = [];
+    /**
+     * A 409 IS A VERDICT, NOT A DROPPED CONNECTION.
+     *
+     * Export in one tab, then press Export in a stale second tab: every church
+     * 409s with "this batch has already been sent", `failed.length` fires before
+     * the `!built.size` check, and the dialog rendered the "partial" copy —
+     * "Nothing has been sent. The batch is untouched and still collectable…
+     * This is usually a dropped connection" — over a Retry button that
+     * reproduces the identical 409 forever. Every clause of that is false.
+     */
+    let alreadySent = false;
     let done = 0;
     setProgress({ ...EMPTY_PROGRESS, total: targets.length, ok: built.current.size, skipped });
 
@@ -208,6 +219,7 @@ export function ExportDialog({
           reason?: string;
           churchName?: string;
         };
+        if (res.status === 409) alreadySent = true;
         if (!res.ok) failed.push(church);
         else if (data.skipped) {
           skipped.push({ name: data.churchName ?? church.name, reason: data.reason ?? "" });
@@ -239,6 +251,18 @@ export function ExportDialog({
      * that DID build are already written and are simply picked up by the retry —
      * `built` keeps them, and the slugs are deterministic either way.
      */
+    /**
+     * The permanent refusal is checked FIRST, because it is the one failure a
+     * retry cannot help with — see `alreadySent`. Terminal state, no Retry.
+     */
+    if (alreadySent) {
+      setPhase("error");
+      setError(
+        "This batch has already been sent, so its demos already exist — most likely from another tab or an earlier attempt. Nothing was changed. Close this and reload the page to see the link to them.",
+      );
+      return;
+    }
+
     if (failed.length) {
       setPhase("partial");
       return;

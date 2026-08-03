@@ -58,6 +58,21 @@ export function isSafeGroupId(v: unknown): v is string {
  *   edited    we changed the text. It is no longer a quotation of anything.
  *   user      a person typed it. The church never said it at all.
  *   generated WE invented it. The church never said it at all either.
+ *   editedGenerated
+ *             we invented it AND a person then rewrote it. Still not the
+ *             church's words — see below.
+ *
+ * WHY `editedGenerated` IS ITS OWN VARIANT AND NOT JUST `edited`.
+ *
+ * `resolveSteps` tested the label edit before `s.generated`, so one keystroke on
+ * a fabricated step's title turned `{kind:"generated"}` into
+ * `{kind:"edited", wasVerbatim:"Attend a Worship Service"}` — a string WE wrote.
+ * The card then said "edited — no longer the church's words" over a revert
+ * button titled `Original: Attend a Worship Service`, which asserts twice over
+ * that the church ever said it. It did not; the pipeline fabricates that step on
+ * all 15,273 records. This is precisely the confusion the union exists to make
+ * impossible, so the honest answer keeps the fabrication visible and still
+ * offers our text back.
  *
  * `generated` is `user` with a different author, and it exists because the v2
  * corpus fabricates one next step per church — an "Attend a Worship Service" row
@@ -72,7 +87,10 @@ export type Attribution =
   | { kind: "uncited"; note: string }
   | { kind: "edited"; wasVerbatim: string }
   | { kind: "user" }
-  | { kind: "generated" };
+  | { kind: "generated" }
+  /** `wasGenerated` is OUR fabricated text, never a church's. Deliberately not
+   *  named `wasVerbatim`: nothing here was ever verbatim anything. */
+  | { kind: "editedGenerated"; wasGenerated: string };
 
 /** A rendered string together with the claim it is allowed to make. */
 export interface Voice {

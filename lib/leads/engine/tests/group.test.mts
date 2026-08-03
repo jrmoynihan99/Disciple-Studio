@@ -219,6 +219,62 @@ describe("provenance", { skip }, () => {
     assert.equal(mine.label.text, "Call the office");
   });
 
+  /**
+   * A HAND-ADDED PATHWAY STEP KEEPS THE QUOTE SOMEBODY TYPED INTO IT.
+   *
+   * `resolvePathwaySteps` hard-coded `quote: null` for added steps and never read
+   * `PATH.pathwayStep(id, "quote")` — while the card drew the same editable quote
+   * cell it draws on a pipeline step, `sanitizeOp` accepted the op, and the
+   * server wrote it to R2. So the text was saved, permanently, and disappeared
+   * from the screen on the next render. Three branches resolve an edit like this
+   * and only this one was missing it.
+   */
+  test("a quote typed onto a hand-added pathway step survives the render", () => {
+    const { entry, group } = pick();
+    const item: AddedItem = {
+      id: "u_path01",
+      at: 5000,
+      kind: "pathwayStep",
+      label: "Meet with a mentor",
+      blurb: "",
+    };
+    const g = applyOps(
+      group,
+      [
+        { op: "item.add", orgId: entry.orgId, item },
+        {
+          op: "field.set",
+          orgId: entry.orgId,
+          path: PATH.pathwayStep("u_path01", "quote"),
+          value: "They pair you with someone for a season.",
+          base: "",
+        },
+      ],
+      5000,
+    );
+    const mine = resolve(g.entries[0]).pathway.steps.find((s) => s.id === "u_path01")!;
+    assert.equal(mine.quote?.text, "They pair you with someone for a season.");
+    // `user`, never `edited`: a person typed it and there was no earlier version
+    // belonging to anybody else. Above all, no `sourceUrl` may appear.
+    assert.equal(mine.quote?.attribution.kind, "user");
+    assert.ok(!("sourceUrl" in (mine.quote?.attribution ?? {})));
+  });
+
+  /** An added step with no quote still resolves to none, not to an empty quote. */
+  test("a hand-added pathway step with no quote has none", () => {
+    const { entry, group } = pick();
+    const item: AddedItem = {
+      id: "u_path02",
+      at: 5000,
+      kind: "pathwayStep",
+      label: "Meet with a mentor",
+      blurb: "",
+    };
+    const g = applyOp(group, { op: "item.add", orgId: entry.orgId, item }, 5000);
+    const mine = resolve(g.entries[0]).pathway.steps.find((s) => s.id === "u_path02")!;
+    assert.equal(mine.quote, null);
+  });
+
   /** The asymmetry the whole feature turns on. */
   test("pipeline items are suppressed and revertible; yours are deleted", () => {
     const { entry, group } = pick();
@@ -617,10 +673,24 @@ describe("the step title", { skip }, () => {
   });
 
   /**
-   * A person's correction outranks the mark, and stops claiming we wrote it —
-   * "edited" is the honest label once the words are no longer ours either.
+   * THIS TEST USED TO ASSERT THE OPPOSITE, and its reasoning was wrong.
+   *
+   * It said: "a person's correction outranks the mark, and stops claiming we
+   * wrote it — `edited` is the honest label once the words are no longer ours
+   * either." The first half is right and the conclusion does not follow, because
+   * `edited` does not mean "somebody changed this". It means "this WAS the
+   * church's words and is not any more" — it renders as "edited — no longer the
+   * church's words" over a revert button titled `Original: <wasVerbatim>`.
+   *
+   * On a fabricated step that original is a string the PIPELINE made up, on all
+   * 15,273 records. So one keystroke turned an honest "added by us" into two
+   * separate assertions that the church had published something it never did,
+   * which is precisely what the `Attribution` union exists to make unspellable.
+   *
+   * `editedGenerated` keeps the fabrication visible and still offers our wording
+   * back. Compare the added-item rule below: what a thing IS survives editing.
    */
-  test("editing a fabricated step makes it edited, not still ours", () => {
+  test("editing a fabricated step keeps it ours, and never claims it was theirs", () => {
     const { entry } = pick();
     const base = withStep(entry, {
       label: "Attend a Worship Service",
@@ -640,7 +710,43 @@ describe("the step title", { skip }, () => {
     );
     const title = resolve(edited.entries[0]).steps[0].label;
     assert.equal(title.text, "Sunday Gathering");
+    assert.equal(title.attribution.kind, "editedGenerated");
+    assert.equal(
+      title.attribution.kind === "editedGenerated" ? title.attribution.wasGenerated : "",
+      "Attend a Worship Service",
+      "our wording is offered back — as OURS, not as the church's",
+    );
+    // THE ASSERTION THAT MATTERS: nothing anywhere on this voice can be read as
+    // a claim about what the church published.
+    assert.notEqual(title.attribution.kind, "edited");
+    assert.ok(
+      !("wasVerbatim" in title.attribution),
+      "`wasVerbatim` would be a lie here — nothing was ever verbatim anything",
+    );
+  });
+
+  /** A real found step is unaffected: editing one is still `edited`, because
+   *  there genuinely was a church sentence and it genuinely is gone. */
+  test("editing a step the church DID publish is still `edited`", () => {
+    const { entry } = pick();
+    const base = withStep(entry, { label: "Life Groups", ownTerms: [] });
+    const edited = applyOp(
+      group1([base]),
+      {
+        op: "field.set",
+        orgId: base.orgId,
+        path: PATH.step("s_group", "label"),
+        value: "Small Groups",
+        base: "Life Groups",
+      },
+      2000,
+    );
+    const title = resolve(edited.entries[0]).steps[0].label;
     assert.equal(title.attribution.kind, "edited");
+    assert.equal(
+      title.attribution.kind === "edited" ? title.attribution.wasVerbatim : "",
+      "Life Groups",
+    );
   });
 
   test("their wording wins when we have it and nothing argues against it", () => {

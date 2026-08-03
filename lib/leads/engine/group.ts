@@ -39,6 +39,9 @@ import {
   pathPrefixFor,
   pathwayIsOrdered,
 } from "./group-types.ts";
+// ONE mapping of "why is there no logo" for every surface — the console's list
+// tile reads the same function, so the two cannot word it differently.
+import { logoAbsence } from "./logo.ts";
 
 const MAX_FIELD_LEN = 4000;
 const ADDED_ID = /^u_[a-z0-9]{4,32}$/;
@@ -164,13 +167,28 @@ function resolveSteps(entry: GroupEntry): ResolvedStep[] {
       suppressed: isSuppressed(entry, s.id),
       key: s.key,
       state: s.state,
-      label: labelEdit
-        ? editedVoice(labelEdit.value, labelEdit.base)
-        : s.generated
-          ? // WE INVENTED THIS ONE. `generated` renders, always, because the
+      /**
+       * `generated` IS TESTED BEFORE THE EDIT, and the order is the whole point.
+       *
+       * It was the other way round, so one keystroke on a fabricated step's
+       * title produced `{kind:"edited", wasVerbatim:"Attend a Worship Service"}`
+       * — and that string is OURS. The card then read "edited — no longer the
+       * church's words" above a revert button titled `Original: Attend a Worship
+       * Service`, asserting twice that the church had said it. 12,221 of 15,273
+       * cards resolve at least one generated label, so this is not a corner.
+       *
+       * The same shape as the added-item branch below, for the same reason: what
+       * a thing IS survives being edited. See `Attribution`.
+       */
+      label: s.generated
+        ? labelEdit
+          ? { text: labelEdit.value, attribution: { kind: "editedGenerated", wasGenerated: labelEdit.base } }
+          : // WE INVENTED THIS ONE. `generated` renders, always, because the
             // alternative is a fabricated step sitting in a list of observed ones
-            // looking exactly like them — see `Attribution`.
+            // looking exactly like them.
             { text: title.text, attribution: { kind: "generated" } }
+        : labelEdit
+          ? editedVoice(labelEdit.value, labelEdit.base)
           : // The note is not rendered — it records WHICH SOURCE WON, so the
             // choice is inspectable in a test and in a stored group rather than
             // being an invisible branch. See `stepTitle`.
@@ -243,6 +261,20 @@ function resolvePathwaySteps(entry: GroupEntry): { steps: ResolvedPathwayStep[];
   added.forEach((item, i) => {
     const labelEdit = edit(entry, PATH.pathwayStep(item.id, "label"));
     const blurbEdit = edit(entry, PATH.pathwayStep(item.id, "blurb"));
+    /**
+     * THE QUOTE EDIT IS READ HERE TOO, and it used to be hard-coded `null`.
+     *
+     * The card draws the same editable quote cell on a hand-added pathway step
+     * as on a pipeline one, `sanitizeOp` accepts the op and the server writes it
+     * to R2 — and then this branch discarded it, so the text vanished on the
+     * next render while sitting in the stored batch forever. The source-step
+     * branch above reads it correctly, and so does the added-NEXT-step branch in
+     * `resolveSteps`; this was the one place out of three that did not.
+     *
+     * `userVoice`, never `editedVoice`: a person typed it, and there is no
+     * earlier version of it that belonged to anybody else.
+     */
+    const quoteEdit = edit(entry, PATH.pathwayStep(item.id, "quote"));
     steps.push({
       id: item.id,
       provenance: "user",
@@ -250,7 +282,7 @@ function resolvePathwaySteps(entry: GroupEntry): { steps: ResolvedPathwayStep[];
       ordinal: numbered ? p.steps.length + i + 1 : null,
       label: userVoice(labelEdit ? labelEdit.value : item.label),
       blurb: blurbEdit ? blurbEdit.value : item.blurb,
-      quote: null,
+      quote: quoteEdit?.value ? userVoice(quoteEdit.value) : null,
     });
   });
 
@@ -492,6 +524,30 @@ export function cardFlags(card: ResolvedCard): CardFlag[] {
       label: "logo removed",
       tone: "plain",
       title: "You took this logo off the card, so the demo will be built without one. Expand the church to put it back.",
+    });
+  }
+
+  /**
+   * THE PIPELINE FOUND NO LOGO, AND WHY — the flag this file's own comment
+   * promised and never delivered.
+   *
+   * `SnapshotNoLogo.reason` exists solely to keep "we found nothing" apart from
+   * "we found one and rejected it", `buildSnapshot` populates it and `resolve`
+   * carries it — and no component read it. The note beside the logo plate said
+   * the distinction "rides on the flag chips instead"; there was no logo chip.
+   * So the one fact the type was created to preserve was reachable only by
+   * reading the stored blob.
+   *
+   * `logoAbsence` is the same mapping the console's list tile uses, so the two
+   * surfaces cannot describe one church's missing logo differently.
+   */
+  if (!card.logoRemoved && !card.logo) {
+    const absence = logoAbsence(card.noLogo?.reason);
+    out.push({
+      key: "noLogo",
+      label: "no logo",
+      tone: card.noLogo ? "plain" : "unk",
+      title: absence.title,
     });
   }
 

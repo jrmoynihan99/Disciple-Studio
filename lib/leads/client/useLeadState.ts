@@ -106,6 +106,33 @@ class LocalLeadStore {
     }
   };
 
+  /**
+   * ANOTHER TAB WROTE. Re-read rather than carrying on over the top of it.
+   *
+   * `flush()` writes the WHOLE blob, so a tab that loaded an hour ago and then
+   * stars one church silently erases every star, flag and note the other tab has
+   * made since. The loss is session-scale and completely silent — the `GroupStore`
+   * next door solves exactly this with a BroadcastChannel; this store had no
+   * equivalent at all.
+   *
+   * WHAT THIS DOES AND DOES NOT FIX. It closes the session-scale window down to
+   * the flush debounce: a mutation made in this tab within `FLUSH_IDLE_MS` of the
+   * other tab's write is still lost, because there is no operation log to replay
+   * and a blind union of the mark maps would RESURRECT marks somebody had just
+   * toggled off. Trading 400ms of exposure for an hour of it is the right trade;
+   * closing it completely needs the server backend this file is a placeholder
+   * for, where `reduce` runs against a fetched snapshot.
+   *
+   * A pending local write is flushed FIRST, so this tab's own recent edit reaches
+   * the disk before it re-reads — otherwise the re-read would discard it outright
+   * and the debounce window would be a guaranteed loss rather than a race.
+   */
+  adoptExternalWrite = (): void => {
+    if (this.timer) this.flush();
+    this.snapshot = this.load();
+    this.emit();
+  };
+
   private emit() {
     for (const fn of this.listeners) fn();
   }
@@ -147,6 +174,15 @@ function getStore(): LocalLeadStore {
       };
       document.addEventListener("visibilitychange", onHide);
       window.addEventListener("pagehide", () => store?.flush());
+      /**
+       * `storage` fires only in the OTHER tabs, never in the one that wrote —
+       * which is exactly the signal wanted here and why no echo guard is needed.
+       * `e.key === null` is a `localStorage.clear()` from anywhere; re-read for
+       * that too rather than keeping a snapshot of something that is gone.
+       */
+      window.addEventListener("storage", (e) => {
+        if (e.key === KEY || e.key === null) store?.adoptExternalWrite();
+      });
     }
   }
   return store;

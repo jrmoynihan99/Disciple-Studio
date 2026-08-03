@@ -393,6 +393,21 @@ export async function markExported(
 ): Promise<ExportGroup> {
   const target = await readGroup(userId, groupId);
   if (!target) throw new Error(`groups: no batch named ${groupId}`);
+  /**
+   * A SECOND FINISH IS REFUSED, like every other write to a sent batch.
+   *
+   * This was the one writer without the guard the other three have, and the
+   * consequence is worse here than a stray edit: a second call overwrote
+   * `demoGroupId` with a NEW demo group, orphaning the demos the batch actually
+   * produced. That field is described in its own type as the only link between a
+   * reviewed batch and its demos, and the demo group's id carries a random
+   * suffix — so it cannot be recomputed and the real one is simply lost.
+   *
+   * Reproduced by curl: a second POST returned 200 and flipped the id.
+   */
+  if (statusOf(target) === "exported") {
+    throw new Error("That batch has already been sent, and its demos are already recorded.");
+  }
 
   const iso = new Date().toISOString();
   const next: ExportGroup = {

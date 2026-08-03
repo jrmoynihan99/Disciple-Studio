@@ -5,7 +5,7 @@ import { resolve, statusOf } from "@/lib/leads/engine/group";
 import { isSafeGroupId } from "@/lib/leads/engine/group-types";
 import type { ExportGroup } from "@/lib/leads/engine/group-types";
 import { extrasOf, toRawChurch } from "@/lib/leads/engine/demo-export";
-import { getChurch, saveChurch } from "@/churches";
+import { getChurchStrict, saveChurch } from "@/churches";
 import { baseSlugFor, generateDemo, slugify, type RawChurch } from "@/lib/generateDemo";
 import { LogoError, putLogo } from "@/lib/logo";
 
@@ -82,7 +82,23 @@ async function slugFor(
   );
   if (twinInBatch) return `${base}-${slugify(orgId)}`;
 
-  const existing = await getChurch(base);
+  /**
+   * A READ THAT FAILED IS NOT AN EMPTY SLUG. See `getChurchStrict`.
+   *
+   * The plain `getChurch` swallows a store fault into `null`, and `null` here
+   * means "nothing is there, take the bare slug" — which `saveChurch` then
+   * writes over with `allowOverwrite: true`. So one dropped GET could destroy a
+   * different church's live demo. Suffixing on the unknown case costs a spare
+   * demo, which is the same direction every other decision in this function
+   * fails towards, and for the same reason: the thing at stake is a URL that
+   * may already be with a congregation.
+   */
+  let existing;
+  try {
+    existing = await getChurchStrict(base);
+  } catch {
+    return `${base}-${slugify(orgId)}`;
+  }
   return existing && existing.sourceOrgId !== orgId ? `${base}-${slugify(orgId)}` : base;
 }
 

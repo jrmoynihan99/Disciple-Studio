@@ -121,5 +121,32 @@ export function AttributionLine({
           added by us — not found on the church&rsquo;s site
         </p>
       );
+
+    case "editedGenerated":
+      /**
+       * STILL "ADDED BY US", because it still is — a person rewriting our
+       * invented step does not make the church have published one.
+       *
+       * This used to render as `edited`, whose copy says "no longer the church's
+       * words" over a revert button offering the ORIGINAL — both of which claim
+       * the church once said a sentence the pipeline made up. The revert is kept
+       * because our text is a real thing to go back to; the title just no longer
+       * calls it the church's.
+       */
+      return (
+        <p data-attribution="editedGenerated" className={`${base} ${skin.generated}`}>
+          <span>added by us, then edited by you — not from the church&rsquo;s site</span>
+          {onRevert && (
+            <button
+              type="button"
+              onClick={onRevert}
+              className={skin.revert}
+              title={`Back to our wording: ${attribution.wasGenerated || "(empty)"}`}
+            >
+              revert
+            </button>
+          )}
+        </p>
+      );
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
-import { logoPlate, PLATE_CLASS } from "@/lib/leads/engine/logo";
+import { logoAbsence, logoPlate, PLATE_CLASS } from "@/lib/leads/engine/logo";
 import { hostOf } from "@/lib/leads/engine/url";
 import { cardFlags, type CardFlag } from "@/lib/leads/engine/group";
 import { exportContacts } from "@/lib/leads/engine/contacts";
@@ -217,18 +217,24 @@ function opsFor(
 /**
  * The provenance line, in the cases where it still says something.
  *
- * `cited` and `uncited` are dropped at the call site — see the header. The three
+ * `cited` and `uncited` are dropped at the call site — see the header. The four
  * that remain all make the same kind of claim: this is not a sentence we
- * transcribed off the church's site. `generated` is the newest and the loudest
- * reason for the rule, since the corpus fabricates one step per church.
+ * transcribed off the church's site. `generated` is the loudest reason for the
+ * rule, since the corpus fabricates one step per church, and `editedGenerated`
+ * is what that becomes once somebody rewrites it — still ours, still not
+ * theirs.
  */
+const SHOWS_PROVENANCE = new Set(["edited", "user", "generated", "editedGenerated"]);
+/** The two that have something real to go back to. */
+const CAN_REVERT = new Set(["edited", "editedGenerated"]);
+
 function Provenance({ voice, onRevert }: { voice: Voice; onRevert?: () => void }) {
   const kind = voice.attribution.kind;
-  if (kind !== "edited" && kind !== "user" && kind !== "generated") return null;
+  if (!SHOWS_PROVENANCE.has(kind)) return null;
   return (
     <AttributionLine
       attribution={voice.attribution}
-      onRevert={kind === "edited" ? onRevert : undefined}
+      onRevert={CAN_REVERT.has(kind) ? onRevert : undefined}
       skin={SKIN.attribution}
     />
   );
@@ -878,6 +884,20 @@ function PathwayBody({
                   onQuoteCommit={ops.set(PATH.pathwayStep(s.id, "quote"), s.quote?.text ?? "")}
                   onQuoteRevert={ops.revert(PATH.pathwayStep(s.id, "quote"))}
                 />
+                {/* THE NOTE, WHICH NOTHING RENDERED.
+
+                    The add-step form has always collected "Note (optional)" into
+                    `blurb`; `sanitizeOp` accepted it, the server stored it,
+                    `resolve()` carried it, and no component on this page read it
+                    — so a reviewer typed a note, it was saved, and it was never
+                    seen again. `snapshot.ts` even says in a comment that "the
+                    batch card renders it when it exists". Now it does.
+
+                    IT IS REVIEW-ONLY and does not reach the demo: the field is
+                    labelled a note, and a note is as likely to say "check this
+                    one" as it is to be prose for a church to read. Making it
+                    export copy would be a different, deliberate decision. */}
+                {s.blurb && <p className={SKIN.stepNote}>{s.blurb}</p>}
               </SuppressShell>
             </li>
           ))}
@@ -1230,8 +1250,23 @@ function ChurchCardInner({
                   /* INITIALS, NOT A 7px EXPLANATION. The reason used to be printed
                      inside the plate at a size nobody can read. The distinction it
                      preserved ("none found" vs "found one and rejected it") rides on
-                     the flag chips instead, where it is legible. */
-                  <span className={SKIN.logoInitials}>{initialsOf(card.name.text)}</span>
+                     the flag chips instead, where it is legible — see the `noLogo`
+                     flag in `cardFlags`, which for a long time this comment
+                     promised and nothing produced.
+
+                     It is ALSO the plate's tooltip, because the plate is where
+                     somebody notices the logo is missing and therefore where they
+                     ask why. Same `logoAbsence` sentence in both places. */
+                  <span
+                    className={SKIN.logoInitials}
+                    title={
+                      card.logoRemoved
+                        ? "You removed this logo. The demo will be built without one."
+                        : logoAbsence(card.noLogo?.reason).title
+                    }
+                  >
+                    {initialsOf(card.name.text)}
+                  </span>
                 )}
               </div>
 
