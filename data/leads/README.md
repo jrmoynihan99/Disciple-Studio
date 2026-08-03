@@ -1,11 +1,11 @@
 # The lead corpus
 
-15,274 churches. Everything the `/leads` console renders comes from here.
+15,273 churches. Everything the `/leads` console renders comes from here.
 
 ## Why the data is not in this repository
 
 `Peashooter8890/Disciple-Studio` is **public**. The corpus carries staff names,
-email addresses, phone numbers and postal addresses for 15,274 real
+email addresses, phone numbers and postal addresses for 15,273 real
 congregations. Committed once, it is in every clone and every fork forever, and
 `git rm` does not remove it from history.
 

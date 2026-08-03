@@ -64,10 +64,10 @@ that changes an answer, not separately.
 
 **Status:** working as intended, just slow. Not a bug.
 
-The corpus sweep fetches all 15,274 records one request at a time, ~13 ms each. It
+The corpus sweep fetches all 15,273 records one request at a time, ~13 ms each. It
 is bounded to 16 in flight and folds each record as it arrives rather than
 collecting them, so it neither crashes the tab nor eats several hundred MB — but
-it is still 15,274 round trips.
+it is still 15,273 round trips.
 
 If it ever needs to be faster, the fix is a bulk endpoint returning many records
 per request; the per-request overhead is the whole cost, not the data. Not worth

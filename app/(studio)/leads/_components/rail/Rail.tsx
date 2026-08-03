@@ -27,8 +27,20 @@ const MARK_FILTERS: [MarkFilter, string][] = [
  * happened; removing it is right, and saying so is the difference between
  * dormant and rotten.
  */
-const DORMANT =
-  "Dormant until the export ships. ◎ is folded from the export log, and nothing writes to it yet — it is never settable by hand.";
+/**
+ * ◎ IS EARNED, NOT SET.
+ *
+ * It used to say "dormant until the export ships" and the filter was disabled,
+ * because `export.commit` had no dispatcher and the count could only ever be 0.
+ * Exporting a batch now writes it — for the churches a demo was actually built
+ * for, from the export result rather than from the list that was submitted.
+ *
+ * What has NOT changed is the half that matters: there is still no way to tick
+ * this by hand. A mark you can set yourself stops being evidence of anything, and
+ * `/leads/audit` asserts that no group operation can reach this store.
+ */
+const SENT_MARK =
+  "Set when a demo is generated for this church. It cannot be ticked by hand — that is what makes it evidence.";
 
 function Counter({ n, label, className }: { n: number; label: string; className: string }) {
   return (
@@ -286,7 +298,7 @@ export function Rail({
         <div className="mt-3 grid grid-cols-3 gap-x-2 border-t border-lead-line pt-2.5">
           <Counter n={countMarked(state, "star")} label="Starred" className="text-lead-brand" />
           <Counter n={countMarked(state, "issue")} label="Issue" className="text-lead-bad" />
-          <div title={DORMANT} className="opacity-45">
+          <div title={SENT_MARK}>
             <Counter
               n={Object.keys(state.lastExportedAt).length}
               label="Sent"
@@ -296,31 +308,20 @@ export function Rail({
         </div>
         <div className="mb-1.5" />
 
-        {MARK_FILTERS.map(([kind, label]) => {
-          // ◎ is fed by the export log, and no export writes one yet. Rather than
-          // leave a filter that silently matches nothing, say so: a dormant
-          // subsystem that looks live is how one rots unnoticed.
-          const dormant = kind === "exported";
-          return (
-            <label
-              key={kind}
-              title={dormant ? DORMANT : undefined}
-              className={`flex items-center gap-2 py-0.5 text-xs text-lead-ink2 ${
-                dormant ? "cursor-not-allowed opacity-45" : "cursor-pointer"
-              }`}
-            >
-              <input
-                type="checkbox"
-                disabled={dormant}
-                checked={filters.marks[kind]}
-                onChange={(e) => set({ marks: { ...filters.marks, [kind]: e.target.checked } })}
-              />
-              {label}
-              {dormant && <span className="font-mono text-[9px]">· dormant</span>}
-            </label>
-          );
-        })}
-
+        {MARK_FILTERS.map(([kind, label]) => (
+          <label
+            key={kind}
+            title={kind === "exported" ? SENT_MARK : undefined}
+            className="flex cursor-pointer items-center gap-2 py-0.5 text-xs text-lead-ink2"
+          >
+            <input
+              type="checkbox"
+              checked={filters.marks[kind]}
+              onChange={(e) => set({ marks: { ...filters.marks, [kind]: e.target.checked } })}
+            />
+            {label}
+          </label>
+        ))}
       </div>
 
       {/* ── every batch ──

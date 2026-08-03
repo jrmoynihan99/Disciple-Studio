@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { GENERIC_DEMO_URL } from "@/lib/config";
+import { useLeadState } from "@/lib/leads/client/useLeadState";
 import type { GroupRow } from "@/lib/groups";
 
 /**
@@ -88,6 +89,15 @@ export function ExportDialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(batchName);
+  /**
+   * The console's mark store, for the ONE mark a person may not set by hand.
+   *
+   * `◎ Sent` is folded from the export log, and until now nothing wrote to it —
+   * `export.commit` had a reducer case and no dispatcher, so the counter read 0
+   * for ever and the rail drew its filter as `· dormant`. That was honest while
+   * there was no export. There is one now, and this is it.
+   */
+  const { mutate } = useLeadState();
   /**
    * `leaving` is the beat between the last write and the new page.
    *
@@ -271,6 +281,20 @@ export function ExportDialog({
         );
         return;
       }
+      /**
+       * ◎ IS WRITTEN FROM THE RESULT, NOT FROM THE INTENT.
+       *
+       * The churches marked are the ones a demo was actually BUILT for — the keys
+       * of `built`, not `churches` — so a batch where two were skipped marks
+       * eighteen. That is the whole value of this mark: it answers "have we
+       * already sent this church something", and it may only ever be as true as
+       * what happened.
+       *
+       * After `finish`, deliberately. Before it, a bookkeeping failure would leave
+       * churches marked sent inside a batch that is still collectable.
+       */
+      mutate({ type: "export.commit", ids: [...built.current.keys()], at: Date.now() });
+
       setPhase("leaving");
       onExported(group.id);
     } catch (e) {

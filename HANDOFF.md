@@ -4,7 +4,7 @@ Everything you need to get `/leads` running on your machine and on
 `disciple.studio`. Follow it top to bottom — about 30 minutes, most of it waiting
 on uploads.
 
-**What you are setting up.** The console shows 15,274 churches. That data is a bit big and contains real contact details (that might not be great to expose on a public github repo like Disciple Studio), so it lives in cloud storage (Cloudflare R2) and the repo holds only a small receipt naming which build to serve. You will upload the data to *your own* Cloudflare account once, and after
+**What you are setting up.** The console shows 15,273 churches. That data is a bit big and contains real contact details (that might not be great to expose on a public github repo like Disciple Studio), so it lives in cloud storage (Cloudflare R2) and the repo holds only a small receipt naming which build to serve. You will upload the data to *your own* Cloudflare account once, and after
 that it just works.
 
 ---
@@ -38,7 +38,7 @@ npm install
 ## 2. Get the church data
 
 **Download `disciple-studio-leads-package.zip`** from the Google Drive folder
-shared with you. It is about **68 MB**.
+shared with you. It is about **74 MB**.
 
 Optional but worth 10 seconds — check it downloaded intact. In PowerShell:
 
@@ -49,7 +49,7 @@ Get-FileHash disciple-studio-leads-package.zip -Algorithm SHA256
 It should print:
 
 ```
-8b51b10113db3268856952d71633ed9b0a6055d6cbb8c8259aeef11c59b555cd
+5b3d2dfa3016386419b6de46492c123f11c5d58823f9327d8ff4e9aa56328905
 ```
 
 **Extract it into `data/leads/incoming/`** inside the repo. That folder does not
@@ -73,7 +73,7 @@ The folder name does not matter — the build finds any folder containing a
 **not** fine is the five items sitting loose directly in `data/leads/`; they must
 be under `incoming/`.
 
-> This data is real: names, emails and phone numbers for 15,274 churches. It is
+> This data is real: names, emails and phone numbers for 15,273 churches. It is
 > already excluded from git, so you cannot commit it by accident. Please delete
 > the Google Drive copy once step 5 succeeds.
 
@@ -172,13 +172,13 @@ npm run leads:pack
 Takes about 10 seconds. You should see:
 
 ```
-records/            15274 records · 256 shards · 29.0 MB · sha256 verified
-index.json.gz       15274 rows · 2.6 MB
+records/            15273 records · 256 shards · 34.5 MB · sha256 verified
+index.json.gz       15273 rows · 2.6 MB
 logos-thumb/        14254 files
                     p1-7f297a94e41f5d9b
 ```
 
-`sha256 verified` means every one of the 15,274 records matched its expected
+`sha256 verified` means every one of the 15,273 records matched its expected
 checksum — if the download had been corrupted, this would have stopped here.
 
 Then:
@@ -211,7 +211,7 @@ npm run dev
 ```
 
 Open **http://localhost:3000/leads** and sign in with the username and password
-from `.env.local`. You should see **15,274 churches**.
+from `.env.local`. You should see **15,273 churches**.
 
 That is reading from the local copy on your disk. To confirm Cloudflare is
 serving it — which is what production will do — add this line to `.env.local` and
@@ -224,7 +224,7 @@ LEADS_DATASET_SOURCE=r2
 Then visit **http://localhost:3000/api/leads/dataset/current**. It should say:
 
 ```json
-{"publish_id":"p1-7f297a94e41f5d9b","n_churches":15274,"source":"r2"}
+{"publish_id":"p1-390544a4d3885558","n_churches":15273,"source":"r2"}
 ```
 
 `"source":"r2"` is the confirmation. Click into a church and check its logo
@@ -303,14 +303,14 @@ anything. It and everything else in this category are written up in
 [docs/leads/known-issues.md](docs/leads/known-issues.md). Read that before
 "fixing" anything it describes; the obvious fix for the red line is the wrong
 one, and it says why. The audit takes about two minutes to finish — it reads all
-15,274 records.
+15,273 records.
 
 ---
 
 ## Two things not to change without reading first
 
 - **Never make `disciple-studio-leads` public.** It holds real contact details
-  for 15,274 congregations. While it's all publicly collected data, it's best practice not to release a curation. The logos bucket is the one that can safely go on a
+  for 15,273 congregations. While it's all publicly collected data, it's best practice not to release a curation. The logos bucket is the one that can safely go on a
   CDN.
 - **Never commit the church data.** `data/leads/.gitignore` blocks everything in
   that folder except four small files, deliberately. This repository is public.

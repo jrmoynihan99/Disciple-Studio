@@ -189,7 +189,36 @@ function demoFirstName(contacts: unknown): string {
   }
 
   const first = (best?.name ?? "").trim().split(/\s+/)[0];
-  return first || DEMO_MEMBER.firstName;
+  return first ? properCase(first) : DEMO_MEMBER.firstName;
+}
+
+/**
+ * A first name as it should be READ ALOUD, because the demo greets somebody with
+ * it: "Welcome back, Mark."
+ *
+ * The corpus takes staff names as the page spelled them, and church websites
+ * shout: 5,291 of 164,370 named contacts have an ALL-CAPS first name (staff
+ * directories set in uppercase), and 739 are entirely lowercase. Passed through,
+ * those become "Welcome back, MARK." and "Welcome back, alex." on a page being
+ * sent to that person's own church.
+ *
+ * TWO RULES, AND THE SECOND IS THE CAREFUL ONE.
+ *
+ *  · ALL CAPS is a styling decision on their website, not a spelling, so it is
+ *    undone: `MARK` -> `Mark`.
+ *  · Anything else has only its FIRST LETTER raised, and the rest is left
+ *    exactly as given: `alex` -> `Alex`, while `McKenzie`, `DeShawn` and
+ *    `O'Brien` keep the capitals a person chose. Title-casing the whole token
+ *    would "fix" those into `Mckenzie` and `Deshawn`, which is a different way
+ *    of getting somebody's name wrong.
+ *
+ * Not a general name formatter, and deliberately not applied to surnames or
+ * contact lists — this is the one string a demo says TO a reader.
+ */
+function properCase(word: string): string {
+  const shouted = word.length > 1 && word === word.toUpperCase() && word !== word.toLowerCase();
+  const rest = shouted ? word.slice(1).toLowerCase() : word.slice(1);
+  return word[0].toUpperCase() + rest;
 }
 
 /** A rating "passes" only when it's medium or high (blank/none/low all fail). */
