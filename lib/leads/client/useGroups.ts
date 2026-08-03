@@ -21,16 +21,17 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { applyOp } from "@/lib/leads/engine/group";
-import { EMPTY_MEMBERSHIP, isCollecting } from "@/lib/leads/engine/group-types";
+import { EMPTY_MEMBERSHIP, isCollecting, refoldMembership } from "@/lib/leads/engine/group-types";
 import type {
   ExportGroup,
   ExportGroupSummary,
   GroupOp,
   Membership,
   MembershipRef,
+  PendingCollect,
 } from "@/lib/leads/engine/group-types";
 
-/** Idle debounce, matching the notes contract in docs/05-SHARED-STATE.md. */
+/** Idle debounce, matching the notes contract in the package's dev-only docs. */
 const FLUSH_IDLE_MS = 1_500;
 /** …and its ceiling, so continuous typing still reaches the server. */
 const FLUSH_MAX_MS = 10_000;
@@ -600,6 +601,31 @@ class MembershipStore {
   private listeners = new Set<() => void>();
   private started = false;
   private error = "";
+  /**
+   * The presses the server has not acknowledged, keyed `groupId:orgId`.
+   *
+   * KEYED RATHER THAN A LIST, so collecting a church, un-collecting it and
+   * collecting it again while all three are in flight leaves ONE entry saying
+   * what the row currently claims — a list would stack three and replay them in
+   * arrival order over the next server read.
+   *
+   * See `refoldMembership`, which is what these are for: without them a read
+   * that was already in flight when ✆ was pressed comes back without the church
+   * and un-marks the row, and the press's own read marks it again a second later.
+   */
+  private pending = new Map<string, PendingCollect>();
+  /**
+   * Which read is the current one.
+   *
+   * Nothing orders overlapping fetches, so an older membership response can
+   * resolve last and win — the same flicker by a different route, and one that
+   * can strand a row un-marked until something else triggers a read. A response
+   * that is not from the newest request is dropped.
+   */
+  private seq = 0;
+  private reading = false;
+  /** A read asked for while one was already in flight. See `reload`. */
+  private again = false;
 
   getSnapshot = (): Membership => this.snap;
   getServerSnapshot = (): Membership => EMPTY_MEMBERSHIP;
@@ -624,18 +650,45 @@ class MembershipStore {
     this.emit();
   }
 
+  /**
+   * Re-read the map, and put anything still travelling back on top of it.
+   *
+   * COALESCED. Every collect and un-collect asks for one of these, so working
+   * down a list used to fire a read per click — each one a chance to land out of
+   * order and each one competing with the writes for the same connection. A read
+   * requested while one is in flight sets a flag instead, and runs once when the
+   * current one lands. Ten presses cost two reads and the last one is still the
+   * authoritative one, because it starts after the last write was sent.
+   */
   reload = async (): Promise<void> => {
+    if (this.reading) {
+      this.again = true;
+      return;
+    }
+    this.reading = true;
+    const mine = ++this.seq;
     try {
       const res = await fetch("/api/leads/groups/membership", { cache: "no-store" });
+      // A response from a superseded request says nothing about now. Dropped
+      // rather than merged: it is a photograph of a moment that has passed.
+      if (mine !== this.seq) return;
       if (!res.ok) {
         // Never fall back to an empty map: that would silently un-mark every row
         // and invite collecting the same church twice.
         this.set(this.snap, "Could not read your batches.");
         return;
       }
-      this.set((await res.json()) as Membership);
+      const server = (await res.json()) as Membership;
+      if (mine !== this.seq) return;
+      this.set(refoldMembership(server, [...this.pending.values()]));
     } catch {
-      this.set(this.snap, "Could not reach the server.");
+      if (mine === this.seq) this.set(this.snap, "Could not reach the server.");
+    } finally {
+      this.reading = false;
+      if (this.again) {
+        this.again = false;
+        void this.reload();
+      }
     }
   };
 
@@ -674,6 +727,33 @@ class MembershipStore {
   }
 
   /**
+   * Hold what is on the wire, and hand back the release.
+   *
+   * RELEASED WHETHER THE WRITE SUCCEEDED OR FAILED, and both are correct for the
+   * same reason: once the request has settled, the snapshot the caller set — the
+   * server's answer folded in, or the rollback — is the truth, and a pending entry
+   * outliving it would keep overriding every future read with a press that is no
+   * longer in flight. That is the failure mode of this fix, and it is worse than
+   * the bug: a permanently wrong row instead of a briefly wrong one.
+   *
+   * RELEASING ALSO RETIRES EVERY READ CURRENTLY IN FLIGHT, and without that the
+   * flicker survives the fix. A read issued before this write cannot describe the
+   * world after it, so if one were still travelling when the hold was dropped it
+   * would land carrying a map that predates the press, with nothing left to fold
+   * back on top — un-marking the row exactly as before. Bumping the sequence
+   * makes that response unusable and lets the coalesced read behind it, which
+   * starts after the acknowledgement, be the one that answers.
+   */
+  private hold(pending: PendingCollect[]): () => void {
+    const keys = pending.map((p) => `${p.groupId}:${p.orgId}`);
+    keys.forEach((k, i) => this.pending.set(k, pending[i]));
+    return () => {
+      keys.forEach((k) => this.pending.delete(k));
+      this.seq++;
+    };
+  }
+
+  /**
    * Put these churches in the open batch. Already-present ones are left alone.
    *
    * IT REPORTS WHETHER THE SERVER TOOK THEM. The row click ignores the answer —
@@ -696,7 +776,13 @@ class MembershipStore {
 
     const before = this.snap;
     const name = getListStore().nameOf(groupId) ?? "this batch";
-    this.set(this.localAdd(fresh, { id: groupId, name, status: "open" }));
+    const ref: MembershipRef = { id: groupId, name, status: "open" };
+    // HELD BEFORE THE OPTIMISTIC WRITE, so a read already in flight cannot land
+    // in the gap between the row turning green and this being recorded.
+    const release = this.hold(
+      fresh.map((orgId) => ({ orgId, groupId, kind: "add" as const, ref })),
+    );
+    this.set(this.localAdd(fresh, ref));
 
     try {
       const res = await fetch(`/api/leads/groups/${groupId}/churches`, {
@@ -705,15 +791,18 @@ class MembershipStore {
         body: JSON.stringify({ ids: fresh }),
       });
       if (!res.ok) {
+        release();
         this.set(before, "Could not add to the batch.");
         return false;
       }
+      release();
       void getListStore().reload();
       // Re-read rather than trusting the optimistic copy: the server is the only
       // thing that knows what it actually skipped.
       void this.reload();
       return true;
     } catch {
+      release();
       this.set(before, "Offline — that church was not collected.");
       return false;
     }
@@ -724,6 +813,12 @@ class MembershipStore {
     const groupId = this.snap.openGroupId;
     if (!groupId) return;
     const before = this.snap;
+    // An un-collect has to be held for the same reason an add does, and the same
+    // key: pressing ✆ twice quickly must leave one entry saying what the row now
+    // claims, not an add and a remove that replay in whichever order they arrive.
+    const release = this.hold([
+      { orgId, groupId, kind: "remove", ref: { id: groupId, name: "", status: "open" } },
+    ]);
     this.set(this.localRemove([orgId], groupId));
 
     try {
@@ -733,11 +828,17 @@ class MembershipStore {
         body: JSON.stringify({ ops: [{ op: "church.remove", orgId }] }),
       });
       if (!res.ok) {
+        release();
         this.set(before, "Could not remove that church.");
         return;
       }
+      release();
       void getListStore().reload();
+      // The server is what knows the batch's real state after a removal — the
+      // same reason `collect` re-reads.
+      void this.reload();
     } catch {
+      release();
       this.set(before, "Offline — that church was not removed.");
     }
   };

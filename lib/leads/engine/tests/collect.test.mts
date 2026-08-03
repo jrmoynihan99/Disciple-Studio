@@ -24,12 +24,15 @@ import {
   earlierBatches,
   editsInOpenBatch,
   isCollecting,
+  refoldMembership,
   sentCount,
   wasSent,
   type ExportGroup,
   type GroupEntry,
   type GroupStatus,
   type Membership,
+  type MembershipRef,
+  type PendingCollect,
 } from "../group-types.ts";
 import type { ChurchView } from "../adapt.ts";
 
@@ -477,5 +480,100 @@ describe("sent, derived from the batches that exist", () => {
   test("a church that has left the dataset is still counted", () => {
     const m = membershipFrom([group("aug-1", "Aug 1", "exported", ["departed_org"])]);
     assert.equal(sentCount(m), 1);
+  });
+});
+
+/**
+ * THE ✆ THAT FLICKERED ON, OFF, AND ON AGAIN.
+ *
+ * Collecting is optimistic — the row turns green on the click and the write
+ * follows — and the console re-reads the membership map afterwards. That re-read
+ * REPLACED the whole snapshot, so a read already in flight when the click landed
+ * came back without the church, un-marked the row, and the click's own re-read
+ * marked it again a second later. Measured, the window is about as long as the
+ * gap between two clicks: the collect POST is ~650 ms warm and near a second on
+ * the first press after an idle gap, and the read another 260-500.
+ *
+ * `refoldMembership` is the fix, and it is the same idea `GroupStore.refold`
+ * already applies to the review page's edits: whatever the server says, put back
+ * the presses it cannot have heard about yet.
+ */
+describe("refolding an optimistic ✆ over a server read", () => {
+  const ref = (id: string, name = id): MembershipRef => ({ id, name, status: "open" });
+  const add = (orgId: string, groupId: string): PendingCollect =>
+    ({ orgId, groupId, kind: "add", ref: ref(groupId) });
+  const drop = (orgId: string, groupId: string): PendingCollect =>
+    ({ orgId, groupId, kind: "remove", ref: ref(groupId) });
+
+  const server: Membership = {
+    openGroupId: "aug-2",
+    byOrg: { a: [ref("aug-2")] },
+    edited: { a: 3 },
+  };
+
+  /** The bug, in one assertion. */
+  test("a church whose collect is still travelling stays collected", () => {
+    const out = refoldMembership(server, [add("b", "aug-2")]);
+    assert.equal(isCollecting(out, "b"), true, "the row must not un-mark mid-flight");
+    assert.equal(isCollecting(out, "a"), true, "and the server's own answer survives");
+  });
+
+  /**
+   * The server may already have taken it — the read that un-marked the row and
+   * the read that would confirm it are the same request, arriving twice. Its copy
+   * carries the real batch name, so the pending one must not be layered on top.
+   */
+  test("a press the server has already taken is not duplicated", () => {
+    const out = refoldMembership(server, [add("a", "aug-2")]);
+    assert.equal(out.byOrg.a.length, 1);
+    assert.equal(out.byOrg.a[0].name, "aug-2");
+  });
+
+  test("an un-collect still travelling is not resurrected", () => {
+    const out = refoldMembership(server, [drop("a", "aug-2")]);
+    assert.equal(isCollecting(out, "a"), false);
+    assert.ok(!("a" in out.byOrg), "the key goes, exactly as membershipFrom would leave it");
+  });
+
+  /** A church in two batches loses only the one it was un-collected from. */
+  test("an un-collect touches one batch, not the church", () => {
+    const both: Membership = {
+      openGroupId: "aug-2",
+      byOrg: { a: [ref("aug-1"), ref("aug-2")] },
+      edited: {},
+    };
+    const out = refoldMembership(both, [drop("a", "aug-2")]);
+    assert.deepEqual(out.byOrg.a.map((g) => g.id), ["aug-1"]);
+  });
+
+  /**
+   * THE FIRST ✆ OF THE DAY CREATES THE BATCH, and for one round trip the server
+   * still answers `openGroupId: null`. Without this the rail flashes back to
+   * "Press ✆ on a church to start collecting" while a church is visibly being
+   * collected into one.
+   */
+  test("the batch being collected into is held until the server has it", () => {
+    const empty: Membership = { openGroupId: null, byOrg: {}, edited: {} };
+    const out = refoldMembership(empty, [add("a", "aug-3")]);
+    assert.equal(out.openGroupId, "aug-3");
+    assert.equal(isCollecting(out, "a"), true);
+  });
+
+  /** …but the server's answer wins the moment it has one. */
+  test("the server's own open batch is never overridden", () => {
+    assert.equal(refoldMembership(server, [add("b", "aug-9")]).openGroupId, "aug-2");
+  });
+
+  /**
+   * The common path is nothing in flight, and it must cost nothing: a fresh
+   * object every read would re-render twenty memoised rows for no change.
+   */
+  test("with nothing in flight the server's answer is passed through untouched", () => {
+    assert.equal(refoldMembership(server, []), server, "the same object, not a copy");
+  });
+
+  test("everything else on the payload is left alone", () => {
+    const out = refoldMembership(server, [add("b", "aug-2")]);
+    assert.deepEqual(out.edited, { a: 3 }, "edit counts are the server's to report");
   });
 });

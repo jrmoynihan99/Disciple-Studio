@@ -662,6 +662,84 @@ export function sentCount(m: Membership): number {
 }
 
 /* ------------------------------------------------------------------ *
+ * Reconciling an optimistic ✆ with what the server last said
+ * ------------------------------------------------------------------ */
+
+/**
+ * One press of ✆ that the server has not acknowledged yet.
+ *
+ * `ref` is only meaningful for an add — it is what goes back into `byOrg`. Its
+ * `name` is cosmetic (the row prints it as "collected into <batch>") and its
+ * `status` is always `open`, because the batch being collected into is by
+ * definition not sent.
+ */
+export interface PendingCollect {
+  orgId: string;
+  groupId: string;
+  kind: "add" | "remove";
+  ref: MembershipRef;
+}
+
+/**
+ * THE SERVER'S ANSWER, WITH THE PRESSES IT HAS NOT HEARD ABOUT YET PUT BACK.
+ *
+ * ✆ is optimistic: the row turns green on the click and the write follows. The
+ * console then re-reads the membership map, and until this existed that re-read
+ * REPLACED the whole snapshot — so a read that had been in flight since before
+ * the click came back without the church and un-marked the row, and the click's
+ * own re-read a second later marked it again. Mark, unmark, mark, at roughly the
+ * rhythm of working down a list.
+ *
+ * The window is not narrow. A collect POST takes ~650 ms warm and near a second
+ * on the first press after an idle gap, and the membership read another 260-500;
+ * anyone pressing ✆ once a second is inside it continuously.
+ *
+ * SAME SHAPE AS `GroupStore.refold`, deliberately — the review page hit this bug
+ * first and solved it by folding unacknowledged operations back over every server
+ * read. This is that idea for the one store that never got it.
+ *
+ * Pure and here rather than in the store, because the store sits behind `fetch`
+ * and could only be tested by re-implementing it.
+ */
+export function refoldMembership(
+  server: Membership,
+  pending: readonly PendingCollect[],
+): Membership {
+  // The overwhelmingly common case: nothing in flight, nothing to reconcile, and
+  // no new object for twenty memoised rows to re-render against.
+  if (!pending.length) return server;
+
+  const byOrg: Record<string, MembershipRef[]> = { ...server.byOrg };
+
+  for (const p of pending) {
+    const cur = byOrg[p.orgId] ?? [];
+    if (p.kind === "add") {
+      // Not duplicated: the server may already have taken this one, in which case
+      // its copy — with the real batch name — is the one to keep.
+      if (!cur.some((g) => g.id === p.groupId)) byOrg[p.orgId] = [...cur, p.ref];
+    } else {
+      const next = cur.filter((g) => g.id !== p.groupId);
+      // Delete rather than leave `[]`, so `byOrg[id]?.length` and every other
+      // presence test agrees with what `membershipFrom` would have produced.
+      if (next.length) byOrg[p.orgId] = next;
+      else delete byOrg[p.orgId];
+    }
+  }
+
+  return {
+    ...server,
+    byOrg,
+    /**
+     * HOLD THE BATCH WE ARE COLLECTING INTO. The first ✆ of the day creates the
+     * batch, and until the server has it there is a window where the server still
+     * answers `null` — during which the rail would flash back to "Press ✆ on a
+     * church to start collecting" while a church was visibly being collected.
+     */
+    openGroupId: server.openGroupId ?? pending.find((p) => p.kind === "add")?.groupId ?? null,
+  };
+}
+
+/* ------------------------------------------------------------------ *
  * Field paths
  * ------------------------------------------------------------------ */
 
