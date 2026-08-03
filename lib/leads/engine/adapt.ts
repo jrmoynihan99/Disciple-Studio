@@ -11,7 +11,7 @@
  * was written for. So both go through here, and `golden.test.mts` runs the
  * fixture through BOTH projections and requires identical output.
  *
- * MEASURED, NOT ASSUMED. Folding `fixture/index.json` through `colorState`
+ * MEASURED, NOT ASSUMED. Folding the fixture index through `colorState`
  * against `golden-colors.json` gives 1,239 of 1,340 cells correct. Every miss is
  * q6 — 94 `external_handoff` and 7 `convenient` cells that should read good and
  * bad, arriving as `unk`. Cause: q6 is the ONLY question that reaches

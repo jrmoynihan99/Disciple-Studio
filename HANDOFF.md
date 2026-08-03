@@ -238,7 +238,7 @@ Remove the line again afterwards; reading from disk is faster while developing.
 
 ---
 
-## 7. Put it on Vercel
+## 7. Put it on Vercel (FOR NEW USERS - Jason's repository probably already has this, so he can likely skip it)
 
 1. Import the repo as a Vercel project.
 2. **Create a Blob store** for the demo pages and export batches — these are

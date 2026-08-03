@@ -68,6 +68,40 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="overflow-x-hidden bg-paper font-sans leading-normal text-ink antialiased [text-rendering:optimizeLegibility] selection:bg-accent selection:text-white">
+        {/* THE LEAD CONSOLE'S THEME, SET BEFORE ANYTHING PAINTS.
+
+            Here rather than in `app/(studio)/leads/layout.tsx`, where it belongs
+            by subject matter, for one mechanical reason: a `<script>` React
+            CREATES on the client never executes, so the same element in a nested
+            layout did nothing on a client-side navigation into /leads — React
+            warns about exactly this. The root layout is only ever hydrated,
+            never client-created, so the element here is real HTML the browser
+            runs as it parses. That is the whole point: `next/script` defers, an
+            effect runs after hydration, and either one lets a dark-preference
+            reviewer see a frame of the light token set — a verdict colour
+            painted from the wrong palette, which for this product is worse than
+            a flash.
+
+            PATH-GATED, and that is load-bearing rather than tidiness.
+            `html[data-lead-theme]` doubles as the console's route marker in
+            `leads-theme.css` — it is how the console gets its scrollbars back
+            without leaking them into /studio and /admin — so stamping it on
+            every page would quietly break that. `LeadThemeGuard` handles the
+            client-navigation case from inside the console. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if (location.pathname === '/leads' || location.pathname.indexOf('/leads/') === 0) {
+  var t = 'light';
+  try {
+    var s = localStorage.getItem('leads-theme');
+    t = (s === 'light' || s === 'dark')
+      ? s
+      : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  } catch (e) { /* private mode: light, which is what the server rendered */ }
+  document.documentElement.setAttribute('data-lead-theme', t);
+}`,
+          }}
+        />
         {children}
       </body>
     </html>

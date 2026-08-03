@@ -4,7 +4,7 @@
  * One `ChurchConfig` object fully describes a single personalized lead-magnet
  * demo. Every template and the member dropdown consume ONLY this object — there
  * is no Firebase / CCB / Sanity at runtime. To create a new church demo you
- * write one config file in `src/churches/` (or generate it from /admin) and the
+ * write one config file in `churches/` (or generate it from /admin) and the
  * `/c/<slug>` route renders it.
  *
  * Design goals:
@@ -14,7 +14,7 @@
  */
 
 /** Lucide icon names allowed for a step. Keep this list in sync with ICON_MAP
- *  in `src/lib/icons.tsx`. */
+ *  in `lib/icons.tsx`. */
 export type IconName =
   | "heart"
   | "droplets"
@@ -234,7 +234,7 @@ export interface ChurchConfig {
 
   // ── Template selection ─────────────────────────────────────────────────
   /** Which template design renders FIRST in the demo. Key into the template
-   *  registry in `src/components/templates/index.ts`. Falls back to the default.
+   *  registry in `components/templates/index.ts`. Falls back to the default.
    *  Should be a member of `templates`. */
   template: string;
   /** Which template designs are published — the set the viewer can switch

@@ -9,18 +9,23 @@ resolved items is a list nobody reads to the bottom of.
 
 ---
 
-## 1 · 63 quotes in the corpus have no source page
+## 1 · 86 quotes in the corpus have no source page
 
 **Status:** upstream data gap. Not fixable in this repository.
-**Impact:** 59 discipleship-pathway quotes across 21 churches are withheld from
-the review sheet. Nothing is wrong on screen; those steps read
-*"no quotation captured"*.
+**Impact:** 86 quotes across 39 churches are withheld from the review sheet — 58
+of them discipleship-pathway steps, in 17 of the 22 churches whose pathway ships
+`source_url: ""`. Nothing is wrong on screen; those steps read *"no quotation
+captured"*.
 
 `/leads/audit` reports this, and it is the **one red line you should expect**:
 
 ```
-every quote is traceable to a source URL — 82,499 quotes, 63 orphaned
+every quote is traceable to a source URL — 140,129 quotes, 86 orphaned
 ```
+
+**These numbers move with every package** — they were 63 of 82,499 when this was
+written and the corpus has roughly doubled since. Re-measure before quoting them
+back to the supplier; the ratio (~0.06%) has been the stable part.
 
 **What it means.** The console may only show a church's own words if it can point
 at the page it read them on — cite, or say nothing. For 21 churches the upstream
@@ -88,3 +93,27 @@ bytes, so a re-import rewrites nothing. **Objects uploaded before that change ke
 their old random-suffix names and still work** — nothing was renamed or deleted,
 and the demos pointing at them are unaffected. There is no need to clean them up;
 deleting them would cost more operations than leaving them.
+
+---
+
+## 5 · A just-exported demo can read back as 404 from `/api/churches/<slug>`
+
+**Status:** the case that matters is already handled. The admin API is not.
+
+`getChurch` reads **through the blob CDN**, which is eventually consistent, so a
+demo written seconds ago can come back missing for a few seconds. It is written
+down in [`churches/index.ts`](../../churches/index.ts) — search
+`churchBlobExists`.
+
+**`/c/<slug>` — the page a church actually opens — waits the window out**, using
+`list()` (the store's own index, immediately consistent) to tell *written, not
+visible yet* from *never existed*, so a crawler or a guessed URL still 404s fast.
+
+**`/api/churches/<slug>`, the editor read, does a bare `getChurch`.** Fetch a demo
+in the same breath as exporting it and you can get one 404 before it settles. It
+is only reachable from `/admin` and by scripts, both of which are behind the
+password and can retry, which is why it has not been given the patient path.
+
+If you write a script that exports and then reads back, retry the read rather than
+sleeping a fixed amount — the window is usually under a second and occasionally
+several.

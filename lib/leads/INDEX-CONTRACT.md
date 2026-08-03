@@ -126,6 +126,72 @@ NAME.** Page furniture verifies `exact` too — six footer and header blocks did
 in a shipped build, under a pathway titled "LIFE Track". Keep the upstream
 furniture guard; do not treat this field as sufficient.
 
+### 3.2 · The runner-up logos — COUNT on the index, ARRAY on the record
+
+Shipped, and this is the written form of what arrived — the same shape §3.1
+prescribes, for the same reason.
+
+We pick one logo per church and are confidently wrong often enough to matter: a
+GDPR cookie badge, a children's-ministry sub-brand, a photo of the building, an
+iStock cross. Each of those had the church's real mark one row down. Which
+picture represents a church is a judgement about an image — it cannot be cited
+and no rule decided it reliably — so every candidate that cleared the same bar is
+offered and **a person picks**. 11,749 of 15,273 churches (76.9%) have at least
+one; 3,524 have none, which means "this church publishes exactly one usable
+mark", an answer rather than a gap.
+
+```jsonc
+// index row
+"la": 2,                             // COUNT ONLY. Omit when there are none.
+
+// record
+"logo_alts": [
+  { "sha": "…64 hex…",               // sha256 → the archive member <sha>.webp
+    "sha8": "87622514",              // sha1 PREFIX → the join key for the palette
+    "ext": "png", "kind": "header_logo_img", "confidence": "named",
+    "theme": "dark", "shape": "wordmark", "w": 600, "h": 97,
+    "url": "https://…/RC-Logo-White.png",
+    "palette": { "palette_sha8": "87622514", "accent_seed": "#009cff",
+                 "theme_light": { …13 tokens… }, "theme_dark": { … },
+                 "palette_gate": "" } }
+]
+```
+
+**The five descriptors match `brand.logo_*` exactly**, so the pick and the
+runner-ups are described in one vocabulary and a picker labels every option in
+one loop with no special case for option 0.
+
+**`theme` IS PER CANDIDATE and is what keeps the menu visible.** An icon and a
+wordmark from one church routinely have opposite ink polarity; drawn on one plate,
+half the options are invisible, which is indistinguishable from an option that
+failed to load.
+
+**A PALETTE PER CANDIDATE, JOINED BY `sha8`.** A demo is a page in a church's own
+colours, and "their colours" is a measurement taken from one particular image — so
+the ramp has to move when the reviewer moves the logo, or the demo ships the
+colours of the mark they just rejected. At `rushcreek_org` the pick is a
+cookie-consent plugin's badge: every demo would have gone out in `#003399` while
+displaying the church's own logo, and nothing downstream could have noticed.
+
+`sha8` exists because the two hashes are computed by different tools — `sha` is the
+sha256 that keys the archive, `palette_sha8` is a sha1 prefix — so the equality
+`palette.palette_sha8 === sha8` is the only way to ask *were these colours measured
+from this picture?* **`leads:pack` asserts it on every candidate and on the pick
+(`logo_palette.palette_sha8 === brand.logo_sha8`) and refuses to build otherwise.**
+A ramp attached to a logo it was not measured from renders perfectly and renders
+wrong, on a page a church receives.
+
+**`palette_gate` is a measured absence, not a failure.** `""` means a brand colour
+was found; `greyscale` / `tie` / `share_below_floor` / `many_colors` mean the mark
+carries none and **no accent is invented for it** — 6,740 of 19,803. Both 13-token
+ramps are present regardless.
+
+**The two archives are disjoint and must be read as one namespace.** A runner-up
+whose sha is already in `logos-thumb.tar` (it is some other church's pick) is not
+repeated in `logos-alt.tar`, and nothing holding a sha can tell which archive it
+came from. `MANIFEST.logo_alts.churches` is `org_id -> [sha, …]` and nothing else;
+every other fact about a candidate lives on the record, once.
+
 ---
 
 ## 4 · Required top-level fields
@@ -142,6 +208,7 @@ furniture guard; do not treat this field as sufficient.
 | `lg` | language facet | the language filter. **Absent when never screened — never `""`** |
 | `ns` | `{l, s}` | `l` = looked; `s` = 8 chars in STEP_CATS order, `p`/`a`/`n` |
 | `lo` `lx` `lt` `lr` | logo sha · ext · theme · reject reason | the thumbnail and its backing |
+| `la` | how many runner-up logos | the "N options" affordance on the review card. **Count only — the array is on the record.** See §3.2 |
 | `em` `ph` `so` | ≤3 contacts · phone · socials | the contact row. `so` **only** when `em` is empty |
 | `rec` | sha256 of the full record | the lazy-fetch key |
 
@@ -300,10 +367,31 @@ about this corpus, and it does not.
 `slogan_confidence` is deliberately NOT requested: the row does not vary on it,
 and a field nothing consumes is a field that silently rots.
 
-Until a publish carries these, `lib/leads/server/fixture.ts` backfills them by
-reading the records. That is a **dev-source shim, not the contract** — it reads
-134 files per process, which is fine on local disk and is exactly what does not
-work at 14,400.
+Until a publish carries these, they are projected in. That used to be a
+dev-source shim in the server layer, reading 134 record files per process — fine on local
+disk, and exactly what does not work at 15,273. It now happens **once per pack**,
+in `scripts/leads-pack.mts`, while the records are already streaming past for
+their sha check, and the pack prints the count it filled. Still a shim, still not
+the contract: every one of the 15,273 rows needs it on the current publish.
+
+### 5.7 · `rec` is missing from every row — 15,273 of 15,273
+
+`rec` is §4's own required field, and no publish has ever carried it. `leads:pack`
+backfills it from `MANIFEST.records` and says so on every run:
+
+```
+! 15273 rows had no 'rec' sha; backfilled from MANIFEST.
+  Staleness detection depends on it — ask upstream to project it into index.json.
+```
+
+**What depends on it.** A batch entry freezes the record's sha at collect time, and
+the review page compares it against the row's `rec` to say *this church's data
+changed since you collected it*. With no `rec` on the row there is nothing to
+compare against, and the warning silently never fires.
+
+The backfill makes it work today and it is not free of consequence: it means the
+index served to the browser is one the packer wrote, not one upstream signed. Two
+lines in the index builder would end it.
 
 ### 5.6 · Not gaps: two states that are permanent by decision
 
@@ -411,9 +499,16 @@ Four that look like dead weight and are not:
 - **`brand.logo_rejected` / `logo_absent_reason`** — "no logo found" and "we found
   one and rejected it" are different facts and the card says which.
 - **`logo_palette.theme_light` / `theme_dark` / `accent_seed` / `logo_ink_hex`** —
-  today's console reads none of them. Disciple Studio's product is generating a
-  *branded* demo site; these are the per-church brand tokens and they are why this
-  dataset is worth more here than in the old console.
+  these are the per-church brand tokens, and Disciple Studio's product is
+  generating a *branded* demo site. They are why this dataset is worth more here
+  than in the old console. (Written when the console read none of them; the review
+  card now previews them and the export paints every demo with them.)
+- **`logo_alts[].palette` and `logo_alts[].sha8`** — the same argument, one level
+  down, and the `sha8` is load-bearing on its own: without it the colours cannot
+  be tied to the picture they were measured from and a switched logo silently
+  ships the wrong church's brand. See §3.2.
+- **`logo_palette.palette_sha8` and `brand.logo_sha8`** — the pick's half of that
+  same join. Two fields, one equality, asserted at pack time.
 
 **Sub-signal quotes inherit their URL.** 30 quotes in the fixture sit in
 `q4.subsignals[]` with no `source_url` of their own — it lives on the parent

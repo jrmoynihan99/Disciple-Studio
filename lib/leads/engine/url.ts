@@ -6,7 +6,7 @@
  * happily render `href="javascript:..."` as a live click target.
  *
  * Allow only navigable schemes; anything else must render as INERT TEXT rather
- * than a link. `fixture/edge-cases/records.json` carries `zz_hostile_url` with
+ * than a link. the synthetic edge-case fixture carries `zz_hostile_url` with
  * `javascript:` in `own_url`, `church_url`, `q1.source_url` and
  * `brand.logo_url` — all four must come back as text.
  *

@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Disciple Studio
 
-## Getting Started
+A marketing site, and behind it a two-stage machine for building personalised
+demo sites for churches: **read a church, correct what is wrong, send them a page
+in their own colours.**
 
-First, run the development server:
+This file is the map. Nothing here is a substitute for the doc comment at the top
+of a file — those carry the reasoning, and they are where the real explanations
+live.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## The three surfaces
+
+| Route | What it is |
+|---|---|
+| `/` | The public site. `app/(site)/` |
+| `/leads` | **The lead console.** 15,273 churches, filtered and scored, collected into batches. `app/(studio)/leads/` |
+| `/leads/groups/<id>` | **The review page.** One card per church: every claim, its citation, and the controls to correct or strike it. |
+| `/studio` | The demos that have been built, and the link to each one. |
+| `/c/<slug>` | A church's own demo. `app/(studio)/c/` |
+| `/admin` | Hand-build or edit a single demo. |
+
+Everything under `app/(studio)/` is behind basic auth (`proxy.ts`) and
+`noindex`. The route group adds no URL segment.
+
+## The pipeline, end to end
+
+```
+upstream package  →  leads:pack  →  leads:publish  →  /leads  →  a batch  →  export  →  /c/<slug>
+   (five files)       data/leads/pack    Cloudflare R2     review + correct       Vercel Blob
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. **The corpus** arrives as a package of five files plus `dev-only/`. Drop it in
+   `data/leads/incoming/`. See [`data/leads/README.md`](data/leads/README.md).
+2. **`npm run leads:pack`** validates it against its own MANIFEST — every record's
+   sha256, every logo candidate's bytes, every colour ramp against the logo it was
+   measured from — and writes a pack. It refuses to build rather than pack
+   something it cannot vouch for.
+3. **`npm run leads:publish`** uploads that pack to Cloudflare R2 and rewrites
+   `data/leads/published.json`, which is committed and is what names the build a
+   deployment serves.
+4. **The console** reads the corpus, a reviewer collects churches into a batch.
+5. **The review page** is where a person reads each church and corrects it. Every
+   correction is an operation on a frozen snapshot; nothing is edited in place.
+6. **The export** turns a reviewed batch into demo sites.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev                # the site + both consoles
+npm run verify             # typegen → lint → tsc → tests. Run this before committing.
+npm test                   # the engine's tests alone (~3s, no dependencies)
 
-## Learn More
+npm run leads:pack         # incoming/<newest> → data/leads/pack
+npm run leads:publish      # pack → Cloudflare R2 + published.json
+npm run leads:publish -- --dry-run
+npm run leads:copy         # regenerate docs/leads/copy-inventory.md
+npm run leads:gen          # regenerate the vocab from the corpus
+```
 
-To learn more about Next.js, take a look at the following resources:
+`npm run verify` is the gate. `tsc --noEmit` runs after `next typegen`, because
+route types are generated.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Where the documentation is
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| File | What it answers |
+|---|---|
+| [`AGENTS.md`](AGENTS.md) | **Read first.** This Next.js version has breaking changes; check `node_modules/next/dist/docs/` before writing code. |
+| [`HANDOFF.md`](HANDOFF.md) | Standing this up from scratch on another machine — every account, key and command, in order. |
+| [`data/leads/README.md`](data/leads/README.md) | The corpus: package layout, the pack, the publish, and why `published.json` is committed. |
+| [`lib/leads/INDEX-CONTRACT.md`](lib/leads/INDEX-CONTRACT.md) | What the scraper repo must publish, and the confirmed gaps in what it does. |
+| [`docs/leads/known-issues.md`](docs/leads/known-issues.md) | Known, understood, deliberately not fixed. |
+| [`docs/leads/copy-inventory.md`](docs/leads/copy-inventory.md) | Every user-facing string in the console, generated from the source. |
 
-## Deploy on Vercel
+## The one rule everything else follows
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The console shows a salesperson claims about a real church, and they will quote
+those claims back to that church. So a displayed string carries where it came
+from: cited, uncited, edited by a reviewer, or generated by us. That is a type
+(`Attribution` in `lib/leads/engine/group-types.ts`), not a convention — a claim
+with no provenance cannot be constructed.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Where something is not known, the answer is *unknown*, and it is never quietly
+rendered as *no*.

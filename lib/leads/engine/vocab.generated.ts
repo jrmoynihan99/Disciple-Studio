@@ -1,7 +1,7 @@
 /**
  * GENERATED FILE — DO NOT EDIT.
  *
- * Source: `fixture/vocab.json`, itself produced by EXECUTING the real
+ * Source: the package's `dev-only/vocab.json`, itself produced by EXECUTING the real
  * `core.js`. Regenerate with `npm run leads:gen`.
  *
  * There is exactly ONE source of truth for (question, answer) -> colour, and
