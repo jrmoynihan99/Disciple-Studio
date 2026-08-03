@@ -19,6 +19,7 @@ import assert from "node:assert/strict";
 import {
   countMarked,
   emptyState,
+  EXPORT_LOG_ERA,
   hydrate,
   isDownloaded,
   legacyGoodLeadIds,
@@ -150,8 +151,11 @@ describe("the retired ✆ mark", () => {
  * against writing to a church twice, and a defence built on a false record is
  * worse than none — it will quietly hold back a lead nobody ever contacted.
  *
- * Nothing in the codebase can write it today (`export.commit` has no
- * dispatcher), so any entry found in a saved profile is stale by construction.
+ * "STALE BY CONSTRUCTION" WAS TRUE AND IS NOT ANY MORE. It held only while
+ * nothing could write the log; `ExportDialog` now dispatches `export.commit`
+ * after the demos exist. So this whole block is about a blob carrying NO ERA
+ * MARKER — the stub's shape — and the era-marked case is asserted below it.
+ * Every fixture here deliberately omits `exportLogEra`.
  */
 describe("the stub export's ◎ marks", () => {
   const sent = {
@@ -246,5 +250,76 @@ describe("the stub export's ◎ marks", () => {
     assert.deepEqual(hydrate({ mine: { star: {}, issue: {} } }, "u_1").lastExportedAt, {});
     assert.deepEqual(hydrate(null, "u_1"), emptyState("u_1"));
     assert.deepEqual(hydrate("nonsense", "u_1"), emptyState("u_1"));
+  });
+});
+
+/**
+ * A REAL EXPORT LOG HAS TO SURVIVE A PAGE LOAD.
+ *
+ * It did not, and the way it failed is worth pinning: `hydrate` hard-coded
+ * `lastExportedAt: {}` and `withoutStaleExportLog` deleted the key from storage,
+ * both correct while the only writer was a stub button that produced no file.
+ * The export finishes with `window.location.href = /studio/g/<id>`, a full
+ * navigation, so the console is ALWAYS re-entered as a fresh document — every
+ * Sent mark was erased before anything could read it once. Three shipped claims
+ * were structurally false: the rail's Sent counter, the "Sent only" filter, and
+ * the badge `LeadRow` calls the only defence against contacting a church twice.
+ *
+ * The distinguishing fact is `exportLogEra`, because the two kinds of entry are
+ * identical by inspection — same shape, same plausible timestamps.
+ */
+describe("the export log, once something real writes it", () => {
+  const real = {
+    userId: "u_1",
+    mine: { star: {}, issue: {} },
+    lastExportedAt: { trbc_org: 1712000000000 },
+    exportLogEra: EXPORT_LOG_ERA,
+    notes: {},
+    config: { colors: {}, favor: null },
+  };
+
+  test("an era-marked log survives the load", () => {
+    const loaded = hydrate(real, "u_1");
+    assert.deepEqual(loaded.lastExportedAt, { trbc_org: 1712000000000 });
+    assert.equal(isDownloaded(loaded, "trbc_org"), true);
+  });
+
+  test("and is written back out, so it survives the NEXT load too", () => {
+    const out = persistable(hydrate(real, "u_1"));
+    assert.deepEqual(out.lastExportedAt, { trbc_org: 1712000000000 });
+    assert.equal(out.exportLogEra, EXPORT_LOG_ERA);
+  });
+
+  /** The migration must not fire against a log it did not write. */
+  test("the disk cleanup leaves an era-marked log alone", () => {
+    assert.equal(withoutStaleExportLog(real), null);
+  });
+
+  /**
+   * The whole point of the era marker: two blobs identical but for it, one
+   * carried and one discarded.
+   */
+  test("the same bytes without the marker are still discarded", () => {
+    const unmarked = { ...real };
+    delete (unmarked as Partial<typeof real>).exportLogEra;
+    assert.deepEqual(hydrate(unmarked, "u_1").lastExportedAt, {});
+    assert.ok(withoutStaleExportLog(unmarked), "and taken off the disk");
+  });
+
+  /** It stamps the current era even on a blob that had none, so the one-time
+   *  purge is one-time: the next load reads a marked blob. */
+  test("hydrate stamps the era, so the purge does not repeat forever", () => {
+    const out = persistable(hydrate({ mine: { star: {}, issue: {} } }, "u_1"));
+    assert.equal(out.exportLogEra, EXPORT_LOG_ERA);
+    assert.equal(withoutStaleExportLog(out), null);
+  });
+
+  /** A round trip through a real export: commit, persist, reload, still sent. */
+  test("commit → persist → reload keeps the mark", () => {
+    const after = reduce(fresh(), { type: "export.commit", ids: ["a_org", "b_org"] , at: 99 }, 0);
+    const reloaded = hydrate(persistable(after), "u_1");
+    assert.equal(isDownloaded(reloaded, "a_org"), true);
+    assert.equal(isDownloaded(reloaded, "b_org"), true);
+    assert.equal(reloaded.lastExportedAt.a_org, 99);
   });
 });

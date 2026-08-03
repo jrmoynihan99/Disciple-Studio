@@ -16,12 +16,15 @@
  * mutates no marks at all.
  *
  * THE QUEUE MOVED. `pending(org)` used to live here, over a `goodlead` mark, and
- * it never worked: `export.commit` has no dispatcher, so `lastExportedAt` is
+ * it never worked: `export.commit` had no dispatcher, so `lastExportedAt` was
  * permanently `{}` and the comparison always reduced to "is it marked". The
  * queue is now a BATCH — `lib/leads/engine/group-types.ts` — which is persistent,
- * server-side and the thing an export will actually read. `lastExportedAt` and
- * `export.commit` stay exactly as they are: they are the export log's shape, and
- * ◎ stays correctly dormant until something writes it.
+ * server-side and the thing the export actually reads.
+ *
+ * ◎ IS NO LONGER DORMANT. `ExportDialog` dispatches `export.commit` once the
+ * demos exist, so `lastExportedAt` is a real record of who has been written to
+ * and it has to survive a page load — which for a while it did not, because the
+ * loader still discarded it unconditionally. See `EXPORT_LOG_ERA`.
  */
 
 import type { FavorModel, VerdictState } from "@/lib/leads/engine/types";
@@ -69,9 +72,37 @@ export interface LeadState {
    * what makes ◎ unsettable by construction rather than by convention.
    */
   lastExportedAt: Readonly<MarkSet>;
+  /**
+   * WHICH ERA THE EXPORT LOG ON DISK WAS WRITTEN IN. See `EXPORT_LOG_ERA`.
+   *
+   * The only versioned thing in this blob, and it earns that: entries written by
+   * the old stub button are indistinguishable from real ones by inspection —
+   * same shape, same plausible timestamps — so the only way to tell them apart is
+   * to record which code wrote them.
+   */
+  exportLogEra: number;
   notes: Record<OrgId, string>;
   config: TeamConfig;
 }
+
+/**
+ * Bumped when entries already on disk can no longer be trusted.
+ *
+ *   0/absent  written by a stub export button that produced no file. It marked
+ *             churches as contacted when nothing had been sent, so it is
+ *             discarded once, on the first load that sees it.
+ *   1         written by `ExportDialog`, after demos were actually generated.
+ *
+ * THE DISCARD IS NOW A MIGRATION, NOT A POLICY. `hydrate` used to hard-code
+ * `lastExportedAt: {}` unconditionally and `withoutStaleExportLog` deleted the
+ * key from storage on every load — correct while nothing real wrote it, and
+ * quietly fatal the moment something did. The export ends in a full navigation,
+ * so the console is always re-entered as a fresh document: every Sent mark ever
+ * written was erased before it could be read once. That made three shipped
+ * claims false — the rail's Sent counter, the "Sent only" filter, and the badge
+ * `LeadRow` calls "the only defence against contacting the same church twice".
+ */
+export const EXPORT_LOG_ERA = 1;
 
 export type Mutation =
   | { type: "mark.toggle"; kind: MarkKind; orgId: OrgId }
@@ -159,6 +190,7 @@ export function emptyState(userId: string): LeadState {
     mine: { star: {}, issue: {} },
     team: { star: {}, issue: {} },
     lastExportedAt: {},
+    exportLogEra: EXPORT_LOG_ERA,
     notes: {},
     config: { colors: {}, favor: null },
   };
@@ -208,14 +240,19 @@ export function hydrate(raw: unknown, userId: string): LeadState {
     // reads the raw blob separately so the console can offer to move those
     // churches into a batch before they are dropped.
     mine: { star: { ...saved.mine?.star }, issue: { ...saved.mine?.issue } },
-    // DROPPED, NOT CARRIED. The entries in here were written by a stub export
-    // button that produced no file — it marked churches as downloaded when
-    // nothing had been downloaded. ◎ is the only defence against writing to the
-    // same church twice, so it may only ever be folded from a real export log:
-    // a mark you can set yourself, or that a dead button left behind, is not
-    // evidence. Dropping it on load is also what stops it being re-persisted,
-    // which is how the old entries survived every write since.
-    lastExportedAt: {},
+    /**
+     * CARRIED IF A REAL EXPORT WROTE IT, DROPPED IF THE STUB DID.
+     *
+     * This was `{}` outright, which was right while the only thing that had ever
+     * written the log was a button that produced no file. `ExportDialog` writes
+     * it now, after the demos exist — and because the export finishes with a full
+     * navigation, an unconditional drop erased every Sent mark before anything
+     * could read it. ◎ may only be folded from a real export log; the era marker
+     * is what says whether this one is. See `EXPORT_LOG_ERA`.
+     */
+    lastExportedAt:
+      saved.exportLogEra === EXPORT_LOG_ERA ? { ...saved.lastExportedAt } : {},
+    exportLogEra: EXPORT_LOG_ERA,
     // At one user, team === mine. The Blob layer folds other users in here.
     team: base.team,
     config: { ...base.config, ...saved.config, favor: hydrateFavor(saved.config?.favor) },
@@ -245,13 +282,19 @@ function hydrateFavor(saved: FavorModel | null | undefined): FavorModel | null {
 }
 
 /**
- * The saved blob with the stub export's leftovers removed, or `null` when there
- * was nothing to remove.
+ * The saved blob with the STUB ERA's leftovers removed, or `null` when there is
+ * nothing to remove.
  *
- * `hydrate` already drops them, so nothing renders ◎ either way — but until the
- * user happens to change something else there is no write, and a false record of
- * who has been contacted goes on sitting on the disk. "Cleared" should mean
- * cleared.
+ * ONCE, NOT ON EVERY LOAD, and that is the whole change. `hydrate` already
+ * ignores a stub-era log, so nothing renders ◎ either way — but until the user
+ * happens to change something else there is no write, and a false record of who
+ * has been contacted goes on sitting on the disk. "Cleared" should mean cleared.
+ *
+ * The era check is what makes this a migration instead of a wipe: once a blob
+ * carries the current marker, a real export log is on disk and this returns
+ * `null` for it forever. Without that check it deleted the key on every single
+ * load, which is what kept `lastExportedAt` permanently empty even after
+ * something started writing it.
  *
  * IT COPIES AND DROPS ONE KEY, and it has to. Writing `persistable(hydrate(raw))`
  * back would be shorter and would take `mine.goodlead` with it — the retired ✆
@@ -262,6 +305,7 @@ function hydrateFavor(saved: FavorModel | null | undefined): FavorModel | null {
 export function withoutStaleExportLog(raw: unknown): Record<string, unknown> | null {
   if (!raw || typeof raw !== "object") return null;
   const blob = raw as Record<string, unknown>;
+  if (blob.exportLogEra === EXPORT_LOG_ERA) return null;
   const log = blob.lastExportedAt;
   if (!log || typeof log !== "object" || Object.keys(log).length === 0) return null;
   const rest = { ...blob };
@@ -271,8 +315,8 @@ export function withoutStaleExportLog(raw: unknown): Record<string, unknown> | n
 
 /** The subset that goes to storage. Anything absent here cannot be resurrected. */
 export function persistable(s: LeadState) {
-  const { userId, mine, lastExportedAt, notes, config } = s;
-  return { userId, mine, lastExportedAt, notes, config };
+  const { userId, mine, lastExportedAt, exportLogEra, notes, config } = s;
+  return { userId, mine, lastExportedAt, exportLogEra, notes, config };
 }
 
 /* --------------------------------------------------------------- reducer */

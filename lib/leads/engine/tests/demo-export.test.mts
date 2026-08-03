@@ -18,8 +18,9 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { resolve } from "../group.ts";
+import { applyOp, cardFlags, resolve } from "../group.ts";
 import { extrasOf, toRawChurch } from "../demo-export.ts";
+import { LOGO_ITEM_ID } from "../group-types.ts";
 import type { ChurchSnapshot, GroupEntry, SnapshotStep } from "../group-types.ts";
 
 const step = (over: Partial<SnapshotStep> = {}): SnapshotStep => ({
@@ -379,5 +380,79 @@ describe("contacts", () => {
     });
     const carried = raw(struck).contacts as Carried;
     assert.deepEqual(carried.people, []);
+  });
+
+  /* ---------------------------------------------------------------- *
+   * A logo the reviewer rejected
+   * ---------------------------------------------------------------- */
+
+  /**
+   * THE PIPELINE SOMETIMES SHIPS THE WRONG PICTURE — a stock photo, a sponsor's
+   * mark, another church's badge. That was the one error a reviewer could see and
+   * not fix: the choice was to send it or to remove the whole church.
+   *
+   * Removing it reuses `item.suppress` under a fixed id rather than inventing a
+   * `logo.remove` op, so it is reversible, counted, persisted and folded by the
+   * one merge that already exists. What these assert is the consequence that
+   * actually reaches a congregation: `card.logo` resolves to null, so the export
+   * route never fetches the bytes and the demo is built with the church's name in
+   * type instead.
+   */
+  describe("a rejected logo", () => {
+    const withLogo = () =>
+      snapshot({ logo: { sha: "a".repeat(64), ext: "png", theme: "light" } });
+
+    test("survives untouched when nobody removed it", () => {
+      const card = resolve(entry({ snapshot: withLogo() }));
+      assert.equal(card.logo?.sha, "a".repeat(64));
+      assert.equal(card.logoRemoved, false);
+      assert.equal(cardFlags(card).some((f) => f.key === "logo"), false);
+    });
+
+    test("resolves to no logo once struck out, and says who did it", () => {
+      const card = resolve(
+        entry({
+          snapshot: withLogo(),
+          edits: { fields: {}, suppressed: { [LOGO_ITEM_ID]: 1 }, added: [] },
+        }),
+      );
+      assert.equal(card.logo, null, "the export reads card.logo — it must be gone");
+      assert.equal(card.logoRemoved, true);
+      // Visible on a COLLAPSED card, where the `put back` control is not.
+      assert.ok(cardFlags(card).some((f) => f.key === "logo"));
+    });
+
+    test("putting it back restores the real logo", () => {
+      const e = entry({
+        snapshot: withLogo(),
+        edits: { fields: {}, suppressed: { [LOGO_ITEM_ID]: 1 }, added: [] },
+      });
+      const restored = applyOp(
+        { entries: [e] } as unknown as Parameters<typeof applyOp>[0],
+        { op: "item.restore", orgId: e.orgId, itemId: LOGO_ITEM_ID },
+        2,
+      );
+      const card = resolve(restored.entries[0]);
+      assert.equal(card.logo?.sha, "a".repeat(64));
+      assert.equal(card.logoRemoved, false);
+    });
+
+    /**
+     * A suppression left behind on a church whose logo has since LEFT the
+     * snapshot must not claim a person removed something that is not there —
+     * there would be nothing to put back, and the flag would be a lie about who
+     * did what.
+     */
+    test("a church that never had a logo is not reported as one somebody removed", () => {
+      const card = resolve(
+        entry({
+          snapshot: snapshot({ logo: null }),
+          edits: { fields: {}, suppressed: { [LOGO_ITEM_ID]: 1 }, added: [] },
+        }),
+      );
+      assert.equal(card.logo, null);
+      assert.equal(card.logoRemoved, false);
+      assert.equal(cardFlags(card).some((f) => f.key === "logo"), false);
+    });
   });
 });

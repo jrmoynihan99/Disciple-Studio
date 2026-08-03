@@ -41,17 +41,51 @@ const CHANNEL = "leads-groups";
 
 export type SaveState = "idle" | "saving" | "pending" | "error";
 
+/**
+ * A refusal that sending again cannot fix.
+ *
+ * 408 and 429 are "not now", not "no" — everything else in the 4xx range is the
+ * server saying this operation is malformed or no longer legal, and it will say
+ * so identically every 1.5s forever. Requeueing those was the bug: one rejected
+ * op sat at the head of the queue and every later edit in the session queued
+ * behind it and was never saved.
+ */
+const isPermanent = (status: number) =>
+  status >= 400 && status < 500 && status !== 408 && status !== 429;
+
 export interface GroupSnapshot {
   group: ExportGroup | null;
   loading: boolean;
-  /** A real message, never a silent failure. */
-  error: string;
+  /**
+   * THE BATCH COULD NOT BE READ. Fatal — there is nothing to draw.
+   *
+   * SEPARATE FROM `saveError`, and that separation is the fix for a page that
+   * used to brick itself. One field carried both, and the review page treats it
+   * as fatal, so the first PATCH the server refused replaced twenty cards, the
+   * pending counter, the export bar and the frozen banner with "This group could
+   * not be loaded" — about a group that had loaded perfectly.
+   */
+  loadError: string;
+  /**
+   * A WRITE WAS REFUSED. Not fatal: the page still holds everything it read.
+   *
+   * Rendered in the save indicator the nav already draws, which is where
+   * somebody looks to decide whether it is safe to close the tab.
+   */
+  saveError: string;
   save: SaveState;
   /** Ops written locally but not yet acknowledged by the server. */
   pending: number;
 }
 
-const EMPTY: GroupSnapshot = { group: null, loading: true, error: "", save: "idle", pending: 0 };
+const EMPTY: GroupSnapshot = {
+  group: null,
+  loading: true,
+  loadError: "",
+  saveError: "",
+  save: "idle",
+  pending: 0,
+};
 
 class GroupStore {
   private snap: GroupSnapshot = EMPTY;
@@ -69,6 +103,15 @@ class GroupStore {
    * truth. `drain()` is only meaningful because of this.
    */
   private inFlight: Promise<void> | null = null;
+  /**
+   * The ops currently on the wire — no longer in `queue`, not yet acknowledged.
+   *
+   * Held separately because `load()` has to fold them back on top of the server
+   * copy: for the length of a round trip they are edits the reviewer can see and
+   * the server has not got, and a `load()` during that window used to erase them
+   * from the screen while they were still travelling.
+   */
+  private sending: GroupOp[] = [];
   private channel: BroadcastChannel | null = null;
 
   constructor(private id: string) {
@@ -77,7 +120,15 @@ class GroupStore {
       this.channel.onmessage = (e: MessageEvent<{ id: string; rev: number }>) => {
         // Another tab of the same user saved. There is no compare-and-swap to
         // lean on, so the fix for the only real race is to notice and re-read.
-        if (e.data?.id === this.id && e.data.rev > (this.snap.group?.rev ?? -1) && !this.queue.length) {
+        //
+        // `sending` IS CHECKED TOO, not just `queue`. `send()` empties the queue
+        // into a local array before it awaits, so for the whole round trip the
+        // queue guard passed while ops were on the wire — and the re-read then
+        // painted a server copy that did not contain them yet. The ops still
+        // landed, so the server kept the correction while the screen silently
+        // reverted it.
+        const busy = this.queue.length > 0 || this.sending.length > 0;
+        if (e.data?.id === this.id && e.data.rev > (this.snap.group?.rev ?? -1) && !busy) {
           void this.load();
         }
       };
@@ -97,17 +148,43 @@ class GroupStore {
     for (const fn of this.listeners) fn();
   }
 
+  /**
+   * PUT THE UNSAVED EDITS BACK ON TOP OF WHAT THE SERVER SENT.
+   *
+   * `load()` is not only the first read. It is what the review page's `retry`
+   * button calls, what a `BroadcastChannel` rev calls, and what a refused write
+   * calls — and in all three the client may be holding operations the server has
+   * never seen. Overwriting `snap.group` with the server copy threw away their
+   * optimistic fold while leaving them in the queue to be sent anyway, so the
+   * cards showed the pre-edit text and the stored batch — and any demo built
+   * from it — ended up carrying text the reviewed card no longer displayed.
+   * That is the one thing this page exists to prevent, reached from its only
+   * visible escape hatch.
+   */
+  private refold(server: ExportGroup): ExportGroup {
+    const unsaved = [...this.sending, ...this.queue];
+    if (!unsaved.length) return server;
+    const now = Date.now();
+    let g = server;
+    for (const op of unsaved) g = applyOp(g, op, now);
+    return g;
+  }
+
   load = async (): Promise<void> => {
     try {
       const res = await fetch(`/api/leads/groups/${this.id}`, { cache: "no-store" });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        this.set({ loading: false, error: body?.error ?? `Could not load this group (${res.status})` });
+        this.set({
+          loading: false,
+          loadError: body?.error ?? `Could not load this group (${res.status})`,
+        });
         return;
       }
-      this.set({ group: (await res.json()) as ExportGroup, loading: false, error: "" });
+      const server = (await res.json()) as ExportGroup;
+      this.set({ group: this.refold(server), loading: false, loadError: "" });
     } catch {
-      this.set({ loading: false, error: "Could not reach the server." });
+      this.set({ loading: false, loadError: "Could not reach the server." });
     }
   };
 
@@ -147,9 +224,17 @@ class GroupStore {
    *  body is a delta — see the note at the top of this file. */
   flush = async (opts: { keepalive?: boolean } = {}): Promise<void> => {
     this.clearTimers();
-    // Join the write already going out rather than starting a second one — see
-    // `inFlight`. Returning here without awaiting was the bug.
-    if (this.inFlight) return this.inFlight;
+    /**
+     * JOIN THE WRITE ALREADY GOING OUT, THEN SEND WHAT IS STILL QUEUED.
+     *
+     * Returning the join on its own was the bug, and both callers that await
+     * this destroy the page immediately afterwards: `pagehide`'s keepalive save
+     * sent nothing whenever it landed mid-autosave, and `onRemoveChurch`
+     * reloaded the window with the removal still sitting in the queue. The
+     * window is not narrow — clicking Remove blurs the open field, which starts
+     * the 1.5s debounce, and reading the confirm dialog takes longer than that.
+     */
+    while (this.inFlight) await this.inFlight;
     if (!this.queue.length) return;
 
     this.inFlight = this.send(opts);
@@ -186,6 +271,7 @@ class GroupStore {
 
   private send = async (opts: { keepalive?: boolean }): Promise<void> => {
     const sending = this.queue;
+    this.sending = sending;
     this.queue = [];
     this.set({ save: "saving" });
 
@@ -206,26 +292,55 @@ class GroupStore {
       }
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        // Put them back. Losing an edit quietly is the worst outcome here, so
-        // the ops are held and the count is shown rather than dropped.
+        const why = body?.error ?? `Could not save (${res.status})`;
+
+        /**
+         * A REFUSAL IS NOT A RETRY. See `isPermanent`.
+         *
+         * Holding the ops looked like the careful choice — "losing an edit
+         * quietly is the worst outcome" — but the server had already decided,
+         * and holding them meant resending the same rejected body every 1.5s
+         * with no cap and no backoff while every later edit queued behind it.
+         * Nothing was saved after that point and nothing said so.
+         *
+         * So: drop them, name them, and RE-READ so the screen shows what the
+         * server actually holds. Losing the edit loudly beats a page that looks
+         * like it is still working. `save` stays `error`, which is what blocks
+         * the export, until a later write succeeds.
+         */
+        if (isPermanent(res.status)) {
+          this.sending = [];
+          this.set({
+            save: "error",
+            saveError: `${why}. That change was refused and has not been saved.`,
+            pending: this.queue.length,
+          });
+          await this.load();
+          return;
+        }
+
+        // Retryable: hold them and show the count.
         this.queue = [...sending, ...this.queue];
-        this.set({
-          save: "error",
-          error: body?.error ?? `Could not save (${res.status})`,
-          pending: this.queue.length,
-        });
+        this.sending = [];
+        this.set({ save: "error", saveError: why, pending: this.queue.length });
         return;
       }
       const { rev } = (await res.json()) as { rev: number };
+      this.sending = [];
       this.channel?.postMessage({ id: this.id, rev });
       this.set({
         save: this.queue.length ? "pending" : "idle",
-        error: "",
+        saveError: "",
         pending: this.queue.length,
       });
     } catch {
       this.queue = [...sending, ...this.queue];
-      this.set({ save: "error", error: "Offline — your changes are held.", pending: this.queue.length });
+      this.sending = [];
+      this.set({
+        save: "error",
+        saveError: "Offline — your changes are held.",
+        pending: this.queue.length,
+      });
     }
   };
 }

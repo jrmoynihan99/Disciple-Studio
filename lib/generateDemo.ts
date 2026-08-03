@@ -1,6 +1,7 @@
 import type { ChurchConfig, ColorSet, IconName, PathwayStep, StepStatus, ThemeOverrides } from "@/lib/types";
 import { darken } from "@/lib/color";
 import { TEMPLATES } from "@/components/templates";
+import { givenName } from "@/lib/leads/engine/person-name";
 
 /**
  * Turns one church row from the pilot `next_steps.json` into a full
@@ -188,7 +189,17 @@ function demoFirstName(contacts: unknown): string {
     }
   }
 
-  const first = (best?.name ?? "").trim().split(/\s+/)[0];
+  /**
+   * NOT `split(/\s+/)[0]`, WHICH IS WHAT THIS USED TO BE.
+   *
+   * That is the obvious reading of "first name" and it is wrong on a fifth of
+   * this corpus: for "Rev. Tom Blanchard" it returns the title, and `properCase`
+   * below then tidies "REV." into "Rev." so the mistake ships looking deliberate
+   * — "Welcome back, Rev." above an avatar reading "RT", on a page being sent to
+   * that person's own church. See `givenName`, which lives in the engine because
+   * the rule needed a test and this file cannot be imported by one.
+   */
+  const first = givenName(best?.name ?? "");
   return first ? properCase(first) : DEMO_MEMBER.firstName;
 }
 

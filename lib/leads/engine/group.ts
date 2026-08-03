@@ -32,7 +32,13 @@ import type {
   SnapshotStep,
   Voice,
 } from "./group-types.ts";
-import { PATH, isSafeGroupId, pathPrefixFor, pathwayIsOrdered } from "./group-types.ts";
+import {
+  LOGO_ITEM_ID,
+  PATH,
+  isSafeGroupId,
+  pathPrefixFor,
+  pathwayIsOrdered,
+} from "./group-types.ts";
 
 const MAX_FIELD_LEN = 4000;
 const ADDED_ID = /^u_[a-z0-9]{4,32}$/;
@@ -308,6 +314,10 @@ export function resolve(entry: GroupEntry): ResolvedCard {
   const s = entry.snapshot;
   const nameEdited = entry.edits.fields[PATH.name] != null;
   const { steps: pathwaySteps, numbered } = resolvePathwaySteps(entry);
+  // Only meaningful when there WAS one. A suppression left behind on a church
+  // whose logo later vanished from the snapshot must not claim a person removed
+  // something that is not there.
+  const logoRemoved = !!s.logo && entry.edits.suppressed[LOGO_ITEM_ID] != null;
 
   return {
     orgId: entry.orgId,
@@ -318,8 +328,15 @@ export function resolve(entry: GroupEntry): ResolvedCard {
     // you see, so its working stops being relevant.
     nameOriginal: !nameEdited && s.nameRepair ? s.nameOriginal : "",
     churchUrl: s.churchUrl,
-    logo: s.logo,
+    /**
+     * A REMOVED LOGO RESOLVES TO NO LOGO, which is what makes this one line the
+     * whole feature: every reader of `card.logo` — the card's plate, the flag
+     * chips, and `toRawChurch`, which decides what the church's demo is built
+     * with — already handles null, so none of them needed to learn a new rule.
+     */
+    logo: logoRemoved ? null : s.logo,
     noLogo: s.noLogo,
+    logoRemoved,
     slogan: resolveSlogan(entry),
     stepsLooked: s.stepsLooked,
     steps: resolveSteps(entry),
@@ -455,6 +472,26 @@ export function cardFlags(card: ResolvedCard): CardFlag[] {
       label: "no contacts",
       tone: "plain",
       title: "No contact details survived. There is nobody to send this to.",
+    });
+  }
+
+  /**
+   * A REJECTED LOGO IS A JUDGEMENT SOMEBODY MADE, so it is stated rather than
+   * left as an absence.
+   *
+   * Without it, a card whose logo was removed is indistinguishable at a glance
+   * from one that never had a logo — the plate shows initials either way — and
+   * the card collapses, so the `put back` control is not on screen to say
+   * otherwise. This is the only flag on the card that reports something a
+   * REVIEWER did rather than something the pipeline found, which is exactly why
+   * it has to be visible: it is the one an owner might want to overturn.
+   */
+  if (card.logoRemoved) {
+    out.push({
+      key: "logo",
+      label: "logo removed",
+      tone: "plain",
+      title: "You took this logo off the card, so the demo will be built without one. Expand the church to put it back.",
     });
   }
 
@@ -670,7 +707,41 @@ export function membershipFrom(
     openGroupId = newest?.id ?? null;
   }
 
-  return { openGroupId, byOrg };
+  /**
+   * HOW MUCH WORK EACH CHURCH IN THE OPEN BATCH CARRIES.
+   *
+   * The console's ✆ removes a church with one click, and `church.remove` drops
+   * the whole entry — the frozen snapshot and every correction typed into it —
+   * with no undo. The review page has always stopped to say so; the console
+   * could not, because membership carries ids and nothing else and the console
+   * therefore had no way to know there was anything to lose.
+   *
+   * COUNTS, NOT CONTENTS, AND ONLY FOR THE OPEN BATCH. This payload is fetched
+   * on every console load and the rule for it is that it stays proportional to
+   * what you have collected rather than to the corpus; an integer per edited
+   * church keeps that, while the resolved cards it is derived from would not.
+   * Only the open batch can be uncollected from, so only the open batch is
+   * counted. Churches with no edits are ABSENT rather than zero.
+   */
+  const edited: Record<string, number> = {};
+  if (openGroupId) {
+    const open = groups.find((g) => g.id === openGroupId);
+    for (const e of open?.entries ?? []) {
+      // The same three things `ResolvedCard`'s counters are built from, so the
+      // number in the dialog cannot disagree with the review page's "N edits".
+      // Tolerant of a partial `edits`, because this reads whatever is on disk:
+      // a batch written before one of the three existed is still a valid batch,
+      // and a counter is not the place to throw over it.
+      const ed = e.edits ?? {};
+      const n =
+        Object.keys(ed.fields ?? {}).length +
+        Object.keys(ed.suppressed ?? {}).length +
+        (ed.added?.length ?? 0);
+      if (n > 0) edited[e.orgId] = n;
+    }
+  }
+
+  return { openGroupId, byOrg, edited };
 }
 
 /**

@@ -18,9 +18,11 @@ import { useGroupList, useMembership } from "@/lib/leads/client/useGroups";
 import {
   collectingCount as countCollecting,
   earlierBatches,
+  editsInOpenBatch,
   isCollecting,
   type MembershipRef,
 } from "@/lib/leads/engine/group-types";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { Rail } from "./rail/Rail";
 import { BatchSwitcher } from "./rail/BatchSwitcher";
 import { Deck } from "./deck/Deck";
@@ -295,7 +297,53 @@ export function LeadConsole() {
     [openIndex, visible, limit],
   );
 
-  /** `/` search · j/k/arrows move · Enter or o open · s star · Esc close. */
+  /**
+   * ✆ — collect one church, or put it back.
+   *
+   * SHIFT-CLICK IS GONE, by owner's decision, and the reasoning is worth keeping.
+   * It extended from an anchor over the visible list, the way a file manager
+   * does, and it was the fastest way to fill a batch. It was also the fastest way
+   * to fill the WRONG batch: one modifier key on the only control that writes to
+   * the server collected up to sixty churches in a gesture whose undo is sixty
+   * more clicks — and the rail's own copy had to teach it, which is a gesture
+   * nobody discovers and everybody triggers by accident.
+   *
+   * `collect(ids[])` — the bulk path — stays on the store. It is what the legacy
+   * ✆ migration bar uses, and it is a deliberate action with a count in front of
+   * it rather than a modifier on a click.
+   *
+   * UN-COLLECTING A CHURCH SOMEBODY HAS CORRECTED STOPS TO ASK.
+   *
+   * The review page has always confirmed this — it names the loss, "along with
+   * the N changes you made to it" — because `church.remove` drops the entry
+   * outright: the frozen snapshot, every typed correction, every struck-out
+   * line. There is no undo, and re-collecting re-snapshots from the live record,
+   * so the corrections do not come back.
+   *
+   * The console fired the identical operation straight off this button and off
+   * the dossier's `c` key, which sits one key from `s` and two from `j`/`k`, with
+   * no dialog and nothing on screen hinting the church carried any work at all.
+   * That made it the likeliest way real work disappeared.
+   *
+   * ONLY WHEN THERE IS SOMETHING TO LOSE. A church collected a minute ago and
+   * never touched still toggles off instantly — a confirm on every ✆ would be a
+   * reflex click within a day, which is worse than no confirm at all. It is
+   * declared ABOVE the keyboard handler because that handler depends on it.
+   */
+  const [confirmUncollect, setConfirmUncollect] = useState<string | null>(null);
+
+  const onToggleCollect = useCallback(
+    (id: string) => {
+      if (isCollecting(membership, id) && editsInOpenBatch(membership, id) > 0) {
+        setConfirmUncollect(id);
+        return;
+      }
+      toggleCollect(id);
+    },
+    [membership, toggleCollect],
+  );
+
+  /** `/` search · j/k/arrows move · Enter or o open · s star · c collect · Esc close. */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -318,38 +366,23 @@ export function LeadConsole() {
         if (e.key === "k" || e.key === "ArrowUp") return step(-1);
         if (e.key === "s") return mutate({ type: "mark.toggle", kind: "star", orgId: openId });
         // The same gesture the row's ✆ makes, without reaching for the mouse:
-        // read the dossier, decide, collect, j to the next one.
-        if (e.key === "c") return toggleCollect(openId);
+        // read the dossier, decide, collect, j to the next one. THROUGH THE SAME
+        // GATE as the button — this key is one away from `s` and two from
+        // `j`/`k`, so it is the accidental-fire path, not the safe one.
+        if (e.key === "c") return onToggleCollect(openId);
       } else if ((e.key === "Enter" || e.key === "o") && visible.length) {
         setOpenId(visible[0].id);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openId, step, visible, mutate, toggleCollect]);
+  }, [openId, step, visible, mutate, onToggleCollect]);
 
   const onRecolour = useCallback(
     (q: string, answer: string, st: VerdictState | null) =>
       mutate({ type: "config.color.set", q, answer, state: st }),
     [mutate],
   );
-
-  /**
-   * ✆ — collect one church.
-   *
-   * SHIFT-CLICK IS GONE, by owner's decision, and the reasoning is worth keeping.
-   * It extended from an anchor over the visible list, the way a file manager
-   * does, and it was the fastest way to fill a batch. It was also the fastest way
-   * to fill the WRONG batch: one modifier key on the only control that writes to
-   * the server collected up to sixty churches in a gesture whose undo is sixty
-   * more clicks — and the rail's own copy had to teach it, which is a gesture
-   * nobody discovers and everybody triggers by accident.
-   *
-   * `collect(ids[])` — the bulk path — stays on the store. It is what the legacy
-   * ✆ migration bar uses, and it is a deliberate action with a count in front of
-   * it rather than a modifier on a click.
-   */
-  const onToggleCollect = useCallback((id: string) => toggleCollect(id), [toggleCollect]);
 
   /* ── the batch picker ── */
   const [switching, setSwitching] = useState(false);
@@ -546,6 +579,32 @@ export function LeadConsole() {
         onPick={onPickBatch}
         onCreate={onCreateBatch}
         onClose={() => setSwitching(false)}
+      />
+
+      {/* THE SAME STOP THE REVIEW PAGE MAKES, on the same operation. See
+          `onToggleCollect`. It names the church and the count, because "are you
+          sure?" over an unnamed thing is a question nobody can answer. */}
+      <ConfirmDialog
+        open={confirmUncollect !== null}
+        title="Take this church out of the batch?"
+        body={
+          confirmUncollect && (
+            <>
+              <b>{rowById.get(confirmUncollect)?.n || confirmUncollect}</b> will be removed from{" "}
+              {openBatch?.name ?? "this batch"}, along with the{" "}
+              {editsInOpenBatch(membership, confirmUncollect)} change
+              {editsInOpenBatch(membership, confirmUncollect) === 1 ? "" : "s"} made to it. Collecting
+              it again starts from the pipeline&rsquo;s version — the corrections do not come back.
+            </>
+          )
+        }
+        confirmLabel="Remove it"
+        cancelLabel="Keep it"
+        onConfirm={() => {
+          if (confirmUncollect) toggleCollect(confirmUncollect);
+          setConfirmUncollect(null);
+        }}
+        onCancel={() => setConfirmUncollect(null)}
       />
 
       {openId && (

@@ -38,7 +38,8 @@ import { ExportDialog } from "./ExportDialog";
 const DISCLAIMER_TITLE = "WARNING: MANUALLY CHECK BEFORE SENDING";
 
 export function GroupReview({ id }: { id: string }) {
-  const { group, loading, error, save, pending, apply, flush, drain, reload } = useGroup(id);
+  const { group, loading, loadError, saveError, save, pending, apply, flush, drain, reload } =
+    useGroup(id);
   const { rows } = useDataset();
 
   /**
@@ -175,11 +176,21 @@ export function GroupReview({ id }: { id: string }) {
     );
   }
 
-  if (error || !group) {
+  /**
+   * ONLY A FAILED READ IS FATAL.
+   *
+   * This used to test the store's single `error` field, which also carried save
+   * failures — so the first PATCH the server refused replaced twenty reviewed
+   * cards, the pending counter, the export bar and the frozen banner with "This
+   * group could not be loaded", about a group that was loaded and on screen. A
+   * refused write is reported in the save indicator above, beside the count of
+   * what is still held; see `GroupSnapshot`.
+   */
+  if (loadError || !group) {
     return (
       <div className={`${SKIN.page} text-center`}>
         <p className="font-serif text-lg text-lead-ink">This group could not be loaded.</p>
-        <p className={SKIN.meta}>{error || "Not found."}</p>
+        <p className={SKIN.meta}>{loadError || "Not found."}</p>
         <button type="button" onClick={reload} className={`mt-4 ${SKIN.btn}`}>
           retry
         </button>
@@ -199,7 +210,15 @@ export function GroupReview({ id }: { id: string }) {
         <span className="ml-auto" data-save-state={save}>
           {save === "saving" && "saving…"}
           {save === "pending" && `${pending} change${pending === 1 ? "" : "s"} pending`}
-          {save === "error" && <span className="text-lead-bad">offline — {pending} held</span>}
+          {/* THE ONLY PLACE A REFUSED WRITE IS REPORTED, now that it no longer
+              blanks the page. `pending` distinguishes the two shapes: ops still
+              held and waiting to go out, versus a write the server refused
+              outright, which is dropped rather than resent forever. */}
+          {save === "error" && (
+            <span className="text-lead-bad">
+              {pending > 0 ? `offline — ${pending} held` : saveError || "a change was not saved"}
+            </span>
+          )}
           {save === "idle" && "saved"}
         </span>
       </nav>
@@ -209,7 +228,30 @@ export function GroupReview({ id }: { id: string }) {
           <h1 className={SKIN.h1}>
             <EditableText
               value={group.name}
-              onCommit={(name) => onOp({ op: "group.rename", name })}
+              /**
+               * NEVER EMIT A NAME THE SERVER WILL ALWAYS REJECT.
+               *
+               * `sanitizeOp` drops `group.rename` with an empty or whitespace
+               * name and answers 400 for the whole batch, so select-all, delete,
+               * Enter used to put an op in the queue that could never succeed —
+               * and it took every legitimate edit batched with it down too.
+               * Refusing here restores the previous name on screen and costs
+               * nothing, because there is no rename to make.
+               */
+              onCommit={(name) => {
+                const next = name.trim();
+                if (next) onOp({ op: "group.rename", name: next });
+              }}
+              /**
+               * A SENT BATCH IS A RECORD, AND THE TITLE IS PART OF IT.
+               *
+               * `ReadOnlyProvider` wraps the card list below; this sits in the
+               * header, outside it — so on an exported batch this was the only
+               * live control on a page whose own banner says it can no longer be
+               * edited. Renaming worked on screen while the PATCH 409'd forever,
+               * leaving a renamed record of what was actually sent.
+               */
+              disabled={status === "exported"}
               ariaLabel="batch name"
               editingClassName={SKIN.editEditing}
               restingClassName={SKIN.editResting}
@@ -323,7 +365,9 @@ export function GroupReview({ id }: { id: string }) {
          */
         blocked={
           save === "error"
-            ? `Your last ${pending} change${pending === 1 ? "" : "s"} could not be saved. Exporting now would build the demos without ${pending === 1 ? "it" : "them"}.`
+            ? pending > 0
+              ? `Your last ${pending} change${pending === 1 ? "" : "s"} could not be saved. Exporting now would build the demos without ${pending === 1 ? "it" : "them"}.`
+              : `${saveError || "A change could not be saved."} The page has been re-read from the server, so check the card before you send.`
             : undefined
         }
         sent={status === "exported"}

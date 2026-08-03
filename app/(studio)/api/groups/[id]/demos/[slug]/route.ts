@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
-import { getGroup, saveGroup } from "@/lib/groups";
+import { getGroup, saveGroup, slugsHeldElsewhere } from "@/lib/groups";
 import { deleteChurch } from "@/churches";
 
 export const dynamic = "force-dynamic";
 
 /**
- * DELETE /api/groups/[id]/demos/[slug] — remove one demo from a group: delete
- * the church blob and prune its row so the group and its spreadsheet stay in
- * sync. No-op (still ok) if either is already gone.
+ * DELETE /api/groups/[id]/demos/[slug] — remove one demo from a group: prune its
+ * row so the group and its spreadsheet stay in sync, and delete the church blob
+ * IF NO OTHER GROUP IS SERVING IT. No-op (still ok) if either is already gone.
+ *
+ * The share check matters more here than on the whole-group delete, because this
+ * is the likelier way in: one careless row delete from the `/studio` index, where
+ * nothing on screen says the demo is also listed somewhere else. See
+ * `slugsHeldElsewhere` for why two groups can hold one slug at all.
  */
 export async function DELETE(
   _req: Request,
@@ -15,7 +20,11 @@ export async function DELETE(
 ) {
   const { id, slug } = await params;
 
-  await deleteChurch(slug).catch(() => {});
+  const shared = await slugsHeldElsewhere(id);
+  // `null` is "could not read the other groups", and an unprovable delete is
+  // not performed: the row still goes, so this group stops listing it.
+  const demoKept = !shared || shared.has(slug);
+  if (!demoKept) await deleteChurch(slug).catch(() => {});
 
   const group = await getGroup(id);
   if (group) {
@@ -30,5 +39,9 @@ export async function DELETE(
     }
   }
 
-  return NextResponse.json({ ok: true, remaining: group ? group.rows.length : 0 });
+  return NextResponse.json({
+    ok: true,
+    remaining: group ? group.rows.length : 0,
+    demoKept,
+  });
 }

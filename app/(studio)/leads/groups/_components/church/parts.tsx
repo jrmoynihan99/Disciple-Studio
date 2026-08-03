@@ -5,7 +5,7 @@ import { logoPlate, PLATE_CLASS } from "@/lib/leads/engine/logo";
 import { hostOf } from "@/lib/leads/engine/url";
 import { cardFlags, type CardFlag } from "@/lib/leads/engine/group";
 import { exportContacts } from "@/lib/leads/engine/contacts";
-import { PATH, REVIEW_FIELDS } from "@/lib/leads/engine/group-types";
+import { LOGO_ITEM_ID, PATH, REVIEW_FIELDS } from "@/lib/leads/engine/group-types";
 import type {
   AddedItem,
   GroupOp,
@@ -92,6 +92,16 @@ const COPY = {
   stepsNoneFound: "We read their next-step pages and found none named.",
   pathwayNothing: "Nothing quotable about discipleship was found on the pages we read.",
   pathwayNoSteps: "They name a pathway, but no ordered steps were captured.",
+  /**
+   * The name is on the card, and nothing on their site backs it up.
+   *
+   * It is not decoration: this exact string headlines the demo we send them, so
+   * the reviewer has to be told that it is a name we are asserting rather than
+   * one we can quote. Two of the 22 churches in this state have a giving ladder
+   * here.
+   */
+  pathwayNoDeclaration:
+    "No quotable declaration of this pathway was captured — this name is not attributed to anything on their site. It will headline their demo.",
   noContacts: "No contact details found — there is nobody to send this to.",
   departed:
     "This church is no longer in the dataset. The card below is the only copy we hold, and there is nothing left to re-pull from.",
@@ -786,7 +796,28 @@ function PathwayBody({
           `SKIN.pathwayHead`. This rendered through `Claim` inside an `itemShell`
           until now, which drew the church's discipleship programme as a ninth step
           sitting above the eight real ones. */}
-      {card.pathway.finding && (
+      {/* THE NAME IS NOT GATED ON THE CITATION, and it used to be.
+
+          `snapshot.ts` leaves `finding` null unless the pathway has both a
+          declaration quote and a parsed source URL, and this whole block —
+          caption, name, and the field that edits it — hung off `finding`. So on
+          the 22 churches with a named pathway and no citable declaration, the
+          steps drew under no heading at all and the name was on screen nowhere:
+          the first `Absent` was skipped because the name is truthy, the second
+          because the steps exist, and the head because the finding is null.
+
+          Meanwhile the export ships that same name with `name_confidence:
+          "high"` and `discLabel` makes it the demo's primary track heading,
+          verbatim. Two of the three real examples are giving ladders — "The
+          Giving Ladder", "Giving Journey" — headlined to a church as its
+          discipleship pathway. A string a church receives that no reviewer could
+          see and no reviewer could change is the one thing this page exists to
+          prevent.
+
+          The QUOTE stays inside the `finding` branch: there is nothing to quote
+          when there is no citable declaration, and `Quote` is where the
+          attribution is drawn. */}
+      {(card.pathway.finding || card.pathway.name) && (
         <div className={SKIN.pathwayHead}>
           <p className={SKIN.pathwayCaption}>Their Discipleship Pathway</p>
           <div className={SKIN.pathwayName}>
@@ -800,15 +831,24 @@ function PathwayBody({
               restingClassName={SKIN.editResting}
             />
           </div>
-          <div className="mt-1.5">
-            <Quote
-              voice={card.pathway.finding}
-              ariaLabel="discipleship finding"
-              className={SKIN.pathwayFinding}
-              onCommit={ops.set(PATH.finding("quote"), card.pathway.finding.text)}
-              onRevert={ops.revert(PATH.finding("quote"))}
-            />
-          </div>
+          {card.pathway.finding ? (
+            <div className="mt-1.5">
+              <Quote
+                voice={card.pathway.finding}
+                ariaLabel="discipleship finding"
+                className={SKIN.pathwayFinding}
+                onCommit={ops.set(PATH.finding("quote"), card.pathway.finding.text)}
+                onRevert={ops.revert(PATH.finding("quote"))}
+              />
+            </div>
+          ) : (
+            /* NAME THE ABSENCE. Without this the head reads exactly like a cited
+               one, and the reviewer has no way to know the name is ours to
+               justify rather than the church's own words. */
+            <p className={`mt-1.5 ${SKIN.pathwayFinding} italic opacity-70`}>
+              {COPY.pathwayNoDeclaration}
+            </p>
+          )}
         </div>
       )}
 
@@ -1170,20 +1210,80 @@ function ChurchCardInner({
 
         <div className="flex min-w-0 flex-1 basis-[420px] flex-col gap-3">
           <div className="flex min-w-0 items-start gap-4">
-            <div className={`${SKIN.logoBox} ${plate}`}>
-              {card.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={`/api/leads/asset/logos-thumb/${card.logo.sha}.webp`}
-                  alt=""
-                  className="h-full w-full object-contain p-1.5"
-                />
-              ) : (
-                /* INITIALS, NOT A 7px EXPLANATION. The reason used to be printed
-                   inside the plate at a size nobody can read. The distinction it
-                   preserved ("none found" vs "found one and rejected it") rides on
-                   the flag chips instead, where it is legible. */
-                <span className={SKIN.logoInitials}>{initialsOf(card.name.text)}</span>
+            {/* ── the logo, and the way to reject it ──
+                A WRONG LOGO WAS THE ONE ERROR A REVIEWER COULD SEE AND NOT FIX.
+                The pipeline occasionally ships a stock photo, a sponsor's mark or
+                another church's badge, and the only ways out were to send it or
+                to remove the whole church. It strikes out like any other item —
+                same confirmation, same reversibility — and a struck logo resolves
+                to no logo, so the demo is built without one. */}
+            <div className="group/logo relative shrink-0">
+              <div className={`${SKIN.logoBox} ${plate}`}>
+                {card.logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/api/leads/asset/logos-thumb/${card.logo.sha}.webp`}
+                    alt=""
+                    className="h-full w-full object-contain p-1.5"
+                  />
+                ) : (
+                  /* INITIALS, NOT A 7px EXPLANATION. The reason used to be printed
+                     inside the plate at a size nobody can read. The distinction it
+                     preserved ("none found" vs "found one and rejected it") rides on
+                     the flag chips instead, where it is legible. */
+                  <span className={SKIN.logoInitials}>{initialsOf(card.name.text)}</span>
+                )}
+              </div>
+
+              {/* `preventDefault` because this button lives inside a <summary>:
+                  without it the click toggles the card shut behind its own
+                  confirmation dialog. */}
+              {!frozen && card.logo && (
+                <button
+                  type="button"
+                  aria-label="Remove this logo"
+                  title="Remove this logo. It stays here so you can put it back."
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPending({
+                      title: "Remove this logo?",
+                      body: (
+                        <>
+                          The demo for{" "}
+                          <strong className="text-lead-ink">
+                            {card.name.text || card.orgId}
+                          </strong>{" "}
+                          will be built with no logo at all — their name will be set
+                          in type instead. Use this when the picture is not theirs:
+                          a stock photo, a sponsor, or another church&rsquo;s mark.
+                          You can put it back at any time.
+                        </>
+                      ),
+                      confirmLabel: "Remove logo",
+                      run: () => onOp({ op: "item.suppress", orgId: card.orgId, itemId: LOGO_ITEM_ID }),
+                    });
+                  }}
+                  className={`absolute -top-1.5 -right-1.5 opacity-0 transition-opacity group-hover/logo:opacity-100 focus:opacity-100 ${SKIN.btnSmallDanger}`}
+                >
+                  ✕
+                </button>
+              )}
+
+              {/* ALWAYS VISIBLE, never on hover — the way out of a destructive
+                  action is not itself something to go hunting for. Same rule as
+                  `put back` on a struck step. */}
+              {card.logoRemoved && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOp({ op: "item.restore", orgId: card.orgId, itemId: LOGO_ITEM_ID });
+                  }}
+                  title="Put this church's logo back on the card"
+                  className={`absolute -bottom-2 left-1/2 -translate-x-1/2 ${SKIN.btnSmall}`}
+                >
+                  put back
+                </button>
               )}
             </div>
 
@@ -1224,7 +1324,11 @@ function ChurchCardInner({
         <button
           type="button"
           hidden={frozen}
-          onClick={() =>
+          // `preventDefault` for the same reason as the logo control above: a
+          // button inside a <summary> toggles the card, so without it the card
+          // folds shut underneath its own confirmation dialog.
+          onClick={(e) => {
+            e.preventDefault();
             setPending({
               title: "Remove this church from the batch?",
               /**
@@ -1256,8 +1360,8 @@ function ChurchCardInner({
               // Saves, then reloads. `GroupReview` owns both halves because it
               // owns the save queue — see `onRemoveChurch` there.
               run: () => onRemoveChurch(card.orgId),
-            })
-          }
+            });
+          }}
           title="Remove this church from the batch"
           className={SKIN.btnDanger}
         >

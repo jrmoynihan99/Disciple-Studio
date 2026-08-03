@@ -99,6 +99,40 @@ export async function getAllGroups(): Promise<GroupSummary[]> {
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
+/**
+ * Slugs that some OTHER group is still serving.
+ *
+ * A DEMO IS NOT OWNED BY THE GROUP THAT LISTS IT. Slugs are deliberately reused:
+ * `slugFor` hands back the bare base when the demo already there belongs to the
+ * same org, which is exactly what makes "collect the church into a new batch and
+ * export again" the documented way to correct a church. Two groups then point at
+ * one `/c/<slug>`, and the older group's delete used to remove the demo the newer
+ * one is serving — a dead link at a URL that may already be with the church.
+ *
+ * FAILS CLOSED. `null` means the other groups could not be read, and a caller
+ * that cannot prove a demo is unshared must not delete it. An orphaned demo is
+ * recoverable by hand; a 404 at a link somebody has already sent is not.
+ */
+export async function slugsHeldElsewhere(exceptId: string): Promise<Set<string> | null> {
+  let blobs;
+  try {
+    ({ blobs } = await list({ prefix: PREFIX, limit: 1000 }));
+  } catch {
+    return null;
+  }
+  const others = blobs.filter(
+    (b) => b.pathname.endsWith(".json") && b.pathname !== pathnameFor(exceptId),
+  );
+  const groups = await Promise.all(others.map((b) => readGroup(b.pathname)));
+  // A blob that listed and then would not read is the ambiguous case, and
+  // `readGroup` cannot tell "gone" from "could not fetch". Treat it as unknown.
+  if (groups.some((g) => g === null)) return null;
+
+  const held = new Set<string>();
+  for (const g of groups) for (const r of g!.rows) held.add(r.slug);
+  return held;
+}
+
 /** Remove a group's blob. No-op if it's already gone. */
 export async function deleteGroup(id: string): Promise<void> {
   try {

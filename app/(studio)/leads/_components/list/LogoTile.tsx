@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { IndexRow } from "@/lib/leads/engine/types";
-import { PLATE_CLASS, logoPlate } from "@/lib/leads/engine/logo";
+import { PLATE_CLASS, logoAbsence, logoPlate } from "@/lib/leads/engine/logo";
 
 /**
  * The logo thumbnail, on one of three plates.
@@ -22,18 +22,32 @@ export function LogoTile({ row, size = 54 }: { row: IndexRow; size?: number }) {
   const src =
     row.lo && row.lx ? `/api/leads/asset/logos-thumb/${row.lo}.webp` : null;
 
-  // "No logo found" and "we found one and rejected it" are DIFFERENT FACTS, and
-  // the tile says which when we know.
-  const reason = row.lr ? row.lr.replace(/_/g, " ") : "";
+  /**
+   * "We found nothing" and "we found one and rejected it" are DIFFERENT FACTS,
+   * and both still get said — but in the TOOLTIP, not in the tile.
+   *
+   * This used to print `row.lr` with its underscores swapped for spaces, so 260
+   * churches showed `photo by measured size` in 9px: an internal heuristic's
+   * name, rendered as though it were an explanation. See `logoAbsence`, which
+   * owns the six reasons and the wording for each.
+   */
+  const absence = logoAbsence(row.lr);
 
   if (!src || failed) {
     return (
       <span
-        title={reason || "no logo candidate survived"}
+        title={
+          // A logo we HAVE but could not fetch is a different failure from one
+          // that was never found, and saying the second about the first would be
+          // asserting something about the church rather than about the request.
+          failed
+            ? "This church has a logo on file, but the image could not be loaded."
+            : absence.title
+        }
         style={{ width: size, height: size }}
         className="flex shrink-0 items-center justify-center rounded-lg border border-dashed border-lead-line bg-lead-panel2 p-1 text-center text-[9px] leading-tight font-semibold text-lead-ink2"
       >
-        {reason || "No Logo Found"}
+        {failed ? "Logo failed" : absence.label}
       </span>
     );
   }

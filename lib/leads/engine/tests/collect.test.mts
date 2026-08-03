@@ -22,6 +22,7 @@ import {
   EMPTY_MEMBERSHIP,
   collectingCount,
   earlierBatches,
+  editsInOpenBatch,
   isCollecting,
   type ExportGroup,
   type GroupEntry,
@@ -124,6 +125,73 @@ describe("membership", () => {
     const out = membershipFrom([lastWeek]);
     assert.equal(out.openGroupId, null);
     assert.equal(isCollecting(out, "c"), false);
+  });
+});
+
+/**
+ * WHAT AN ✆ CLICK WOULD DESTROY.
+ *
+ * Un-collecting fires `church.remove`, which drops the whole entry — the frozen
+ * snapshot and every correction typed into it — with no undo, and re-collecting
+ * re-snapshots from the live record. The review page has always stopped to say
+ * so; the console could not, because membership carried ids and nothing else.
+ *
+ * A COUNT PER CHURCH, NOT THE EDITS THEMSELVES. This payload is fetched on every
+ * console load and its standing rule is that it stays proportional to what has
+ * been collected rather than to the corpus.
+ */
+describe("edits at risk in the open batch", () => {
+  const edited = (orgId: string, edits: unknown): GroupEntry =>
+    ({ orgId, addedAt: 0, rec: "", publishId: "", snapshot: {}, edits }) as unknown as GroupEntry;
+
+  const withEntries = (id: string, status: GroupStatus, entries: GroupEntry[]): ExportGroup =>
+    ({ ...group(id, id, status, []), entries }) as ExportGroup;
+
+  test("all three kinds of change are counted", () => {
+    const g = withEntries("aug-2", "open", [
+      edited("a", { fields: { name: {}, slogan: {} }, suppressed: { s_group: 1 }, added: [{}] }),
+    ]);
+    assert.equal(membershipFrom([g], "aug-2").edited.a, 4);
+  });
+
+  /** ABSENT, not zero — an untouched church must toggle off without a dialog. */
+  test("an untouched church is not in the map at all", () => {
+    const g = withEntries("aug-2", "open", [edited("a", { fields: {}, suppressed: {}, added: [] })]);
+    const m = membershipFrom([g], "aug-2");
+    assert.deepEqual(m.edited, {});
+    assert.equal(editsInOpenBatch(m, "a"), 0);
+  });
+
+  /**
+   * ONLY THE OPEN BATCH. A sent batch cannot be un-collected from, so counting it
+   * would put a size on the payload for no question anybody can ask.
+   */
+  test("edits in a sent batch are not counted", () => {
+    const open = withEntries("aug-2", "open", [edited("a", { fields: {}, suppressed: {}, added: [] })]);
+    const sent = withEntries("aug-1", "exported", [
+      edited("b", { fields: { name: {} }, suppressed: {}, added: [] }),
+    ]);
+    const m = membershipFrom([open, sent], "aug-2");
+    assert.deepEqual(m.edited, {});
+    assert.equal(editsInOpenBatch(m, "b"), 0);
+  });
+
+  /** It reads whatever is on disk, and a batch written before a key existed is
+   *  still a valid batch. A counter is not the place to throw. */
+  test("a partial or missing `edits` does not throw", () => {
+    const g = withEntries("aug-2", "open", [
+      edited("a", { fields: { name: {} } }),
+      edited("b", undefined),
+    ]);
+    const m = membershipFrom([g], "aug-2");
+    assert.equal(m.edited.a, 1);
+    assert.equal(editsInOpenBatch(m, "b"), 0);
+  });
+
+  /** Tolerates a payload deserialised from before the field existed. */
+  test("the helper survives a membership with no map", () => {
+    assert.equal(editsInOpenBatch({ openGroupId: null, byOrg: {} } as Membership, "a"), 0);
+    assert.equal(editsInOpenBatch(EMPTY_MEMBERSHIP, "a"), 0);
   });
 });
 

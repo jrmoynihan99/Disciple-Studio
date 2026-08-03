@@ -515,9 +515,28 @@ export interface Membership {
   /** The batch ✆ collects into. `null` until the first church is collected. */
   openGroupId: string | null;
   byOrg: Record<string, MembershipRef[]>;
+  /**
+   * How many corrections each church carries IN THE OPEN BATCH. Absent = none.
+   *
+   * It exists so the console can stop before throwing them away. ✆ un-collects
+   * with one click and `church.remove` drops the entry outright, and until this
+   * was here the console had no way to know whether that cost nothing or cost an
+   * afternoon. See `membershipFrom`, which is the only thing that writes it.
+   */
+  edited: Record<string, number>;
 }
 
-export const EMPTY_MEMBERSHIP: Membership = { openGroupId: null, byOrg: {} };
+export const EMPTY_MEMBERSHIP: Membership = { openGroupId: null, byOrg: {}, edited: {} };
+
+/**
+ * Corrections this church would lose if it were un-collected right now.
+ *
+ * Tolerates the key being absent, because a `Membership` deserialised from a
+ * response written before this field existed is still a valid one.
+ */
+export function editsInOpenBatch(m: Membership, orgId: string): number {
+  return m.edited?.[orgId] ?? 0;
+}
 
 /** Is this church in the batch currently being collected? */
 export function isCollecting(m: Membership, orgId: string): boolean {
@@ -602,6 +621,28 @@ export const PATH = {
 export const REVIEW_FIELDS = ["name", "slogan", "steps", "pathway", "contacts"] as const;
 
 export type ReviewField = (typeof REVIEW_FIELDS)[number];
+
+/**
+ * THE LOGO, AS A SUPPRESSIBLE ITEM.
+ *
+ * A wrong logo is the one error on a card that a reviewer could see and not fix:
+ * the pipeline sometimes ships a stock photo, a sponsor's mark or another
+ * church's badge, and until now the only options were to send it or to remove
+ * the whole church.
+ *
+ * IT REUSES `item.suppress`/`item.restore` RATHER THAN GETTING ITS OWN OP, and
+ * that is the point. Those two already carry everything this needs — they are
+ * reversible, they are counted in `suppressedCount`, they survive a reload, they
+ * are already validated by `sanitizeOp`, and `resolve()` is already the single
+ * place that folds them. A `logo.remove` op would have been a second mechanism
+ * for "a reviewer took this off the card", and the two would eventually disagree
+ * about what a struck item means.
+ *
+ * A fixed id rather than a derived one because a card has exactly one logo. It
+ * cannot collide with a snapshot item id (those are category keys and `u_` hex)
+ * and it matches the safe-id alphabet `sanitizeOp` enforces.
+ */
+export const LOGO_ITEM_ID = "logo";
 
 /** Every field path belonging to one item, for pruning on hard delete. */
 export function pathPrefixFor(itemId: string): string[] {
@@ -701,8 +742,18 @@ export interface ResolvedCard {
   /** "" unless the pipeline repaired the name and we still stand behind it. */
   nameOriginal: string;
   churchUrl: string;
+  /** `null` when the pipeline found none OR the reviewer removed the one it found. */
   logo: SnapshotLogo | null;
   noLogo: SnapshotNoLogo | null;
+  /**
+   * A REVIEWER TOOK THE LOGO OFF, as opposed to there never having been one.
+   *
+   * Two different facts that both render as an empty plate, and the card has to
+   * tell them apart — one offers `put back`, the other has nothing to put back.
+   * It is also what stops the export from shipping a logo somebody rejected:
+   * `toRawChurch` reads `card.logo`, which is already null here.
+   */
+  logoRemoved: boolean;
   slogan: ResolvedSlogan;
   stepsLooked: boolean;
   steps: ResolvedStep[];
