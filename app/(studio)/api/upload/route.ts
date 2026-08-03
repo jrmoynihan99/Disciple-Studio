@@ -1,16 +1,7 @@
 import { NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { LogoError, putLogo } from "@/lib/logo";
 
 export const dynamic = "force-dynamic";
-
-const MAX_BYTES = 4 * 1024 * 1024; // 4 MB — logos are tiny; this is just a guard.
-const EXT_BY_TYPE: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "image/gif": "gif",
-  "image/svg+xml": "svg",
-};
 
 /**
  * POST /api/upload — store an uploaded church logo in Blob and return a URL the
@@ -19,6 +10,7 @@ const EXT_BY_TYPE: Record<string, string> = {
  * The blob is stored PRIVATE (the same access the church configs use — this
  * store is private), and served back publicly via the `/api/asset/...` proxy
  * route. That keeps everything in one store with no public-access requirement.
+ * Validation + storage live in `lib/logo.ts`, shared with the bulk import route.
  */
 export async function POST(req: Request) {
   const form = await req.formData().catch(() => null);
@@ -27,23 +19,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
-  const ext = EXT_BY_TYPE[file.type];
-  if (!ext) {
-    return NextResponse.json({ error: "Use a PNG, JPG, WebP, GIF, or SVG image" }, { status: 400 });
-  }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "Image too large (max 4 MB)" }, { status: 400 });
-  }
-
   try {
-    const blob = await put(`logos/logo.${ext}`, file, {
-      access: "private",
-      addRandomSuffix: true, // unique pathname per upload, so replacing never clobbers
-      contentType: file.type,
-    });
+    const url = await putLogo(file);
     // Serve via our proxy (stable, same-origin, works in the demo + emails).
-    return NextResponse.json({ url: `/api/asset/${blob.pathname}` });
-  } catch {
+    return NextResponse.json({ url });
+  } catch (err) {
+    if (err instanceof LogoError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }

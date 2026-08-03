@@ -13,6 +13,7 @@ import ParagraphReveal from "@/components/reveal-animations/ParagraphReveal";
 import HeadingReveal from "@/components/reveal-animations/HeadingReveal";
 import SubheadingReveal from "@/components/reveal-animations/SubheadingReveal";
 import CountUpCurrency from "@/components/CountUpCurrency";
+import FitText from "@/components/FitText";
 import { useDemoCTA } from "@/context/DemoCTAContext";
 
 /**
@@ -66,7 +67,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
   const openCTA = useDemoCTA();
 
   const { discipleshipSteps, nextSteps } = getMemberProgress(config);
-  const lists = [{ label: "Your discipleship pathway", steps: discipleshipSteps }];
+  const lists = [{ label: config.trackLabel ?? "Your discipleship pathway", steps: discipleshipSteps }];
   if (nextSteps.length) lists.push({ label: "Your next steps", steps: nextSteps });
 
   const pathway = lists[0];
@@ -97,6 +98,11 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
   const cardRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
   const [cardTop, setCardTop] = useState(0);
+  // The focal card is absolutely positioned (out of flow), so the grid row's
+  // height would otherwise come only from the left step-list. Reserve the card's
+  // height as the column's min-height so the row grows to contain whichever
+  // column is taller — keeping the group/giving row below from overlapping it.
+  const [cardMinH, setCardMinH] = useState(0);
   const [positioned, setPositioned] = useState(false);
 
   const recomputeRef = useRef<() => void>(() => {});
@@ -113,6 +119,7 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
     const colTop = col.getBoundingClientRect().top;
     const rowRect = row.getBoundingClientRect();
     const cardH = card.offsetHeight;
+    setCardMinH((prev) => (Math.abs(prev - cardH) > 0.5 ? cardH : prev));
     const colH = col.offsetHeight;
     const stepCenter = rowRect.top - colTop + rowRect.height / 2;
     const next = Math.max(0, Math.min(Math.max(0, colH - cardH), stepCenter - cardH / 2));
@@ -157,8 +164,8 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
     <div className="relative min-h-screen bg-paper px-4 pt-6 pb-14 text-ink sm:px-6 lg:px-10 lg:pt-[34px] lg:pb-20">
       {/* Ambient glows (decorative) */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -left-[10%] -top-[14%] h-[46vw] w-[46vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_0.11),_transparent_67%)] blur-[40px] animate-[edDrift1_26s_ease-in-out_infinite]" />
-        <div className="absolute -bottom-[16%] -right-[12%] h-[52vw] w-[52vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_0.08),_transparent_70%)] blur-[48px] animate-[edDrift2_33s_ease-in-out_infinite]" />
+        <div className="absolute -left-[10%] -top-[14%] h-[46vw] w-[46vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_calc(0.11_*_var(--glow))),_transparent_67%)] blur-[40px] animate-[edDrift1_26s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-[16%] -right-[12%] h-[52vw] w-[52vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_calc(0.08_*_var(--glow))),_transparent_70%)] blur-[48px] animate-[edDrift2_33s_ease-in-out_infinite]" />
       </div>
 
       <div className="relative z-[1] mx-auto max-w-[1180px]">
@@ -486,7 +493,11 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
             </div>
 
             {/* Focal card — desktop only; on mobile the step content expands inline */}
-            <div ref={cardColRef} className="hidden lg:relative lg:block lg:self-stretch">
+            <div
+              ref={cardColRef}
+              style={{ minHeight: cardMinH || undefined }}
+              className="hidden lg:relative lg:block lg:self-stretch"
+            >
               {sel && (
                 <div
                   ref={cardRef}
@@ -516,8 +527,10 @@ export default function MemberDashboardEditorial({ config }: { config: ChurchCon
                         <div className="text-[11px] font-bold tracking-[2.6px] text-on-accent/70">
                           {sel.completed ? "COMPLETED ✓" : sel.inProgress ? "YOUR NEXT STEP" : "COMING UP"}
                         </div>
-                        <h2 className="mt-[14px] font-serif text-[36px] font-medium leading-[1.08] tracking-[-.3px]">
-                          {sel.label}
+                        <h2 className="mt-[14px] font-serif font-medium leading-[1.08] tracking-[-.3px]">
+                          <FitText max={36} min={18}>
+                            {sel.label}
+                          </FitText>
                         </h2>
                         {sel.description && (
                           <p className="mt-4 text-[15px] leading-[1.55] text-on-accent/80">{sel.description}</p>

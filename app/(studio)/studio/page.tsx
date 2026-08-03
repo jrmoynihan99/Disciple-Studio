@@ -2,13 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Pencil, Trash2, Plus, Copy, Check } from "lucide-react";
+import { ExternalLink, Pencil, Trash2, Plus, Copy, Check, Layers, Users } from "lucide-react";
 
 type Row = {
   slug: string;
   churchName: string;
   template: string;
   accent: string | null;
+};
+
+type GroupSummary = {
+  id: string;
+  name: string;
+  count: number;
+  createdAt: string;
 };
 
 /**
@@ -18,6 +25,7 @@ type Row = {
  */
 export default function Home() {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -26,6 +34,10 @@ export default function Home() {
       .then((r) => r.json())
       .then(setRows)
       .catch(() => setRows([]));
+    fetch("/api/groups")
+      .then((r) => r.json())
+      .then((g) => setGroups(Array.isArray(g) ? g : []))
+      .catch(() => setGroups([]));
   }, []);
   useEffect(load, [load]);
 
@@ -63,13 +75,63 @@ export default function Home() {
         <h1 className="text-3xl font-bold tracking-tight text-fg">
           Church demos
         </h1>
-        <Link
-          href="/admin"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" /> New demo
-        </Link>
+        {/* IMPORT FOLDER IS GONE, and the demos it made are not.
+
+            It read a `next_steps.json` array plus a `logos/` directory off the
+            user's disk — a hand-carried copy of the same corpus the lead console
+            already holds. Demos are generated from a REVIEWED batch now
+            (`/leads/groups/<id>` → Export group), which is the same pipeline with
+            a person in it: every church has been read and corrected before a site
+            is built from it. Keeping both would have left a second, unreviewed way
+            in. Everything below — the demos, the groups, `Download JSON` — is
+            untouched. */}
+        <div className="flex items-center gap-2">
+          {/* BACK TO WHERE DEMOS COME FROM. Every demo below was generated from a
+              reviewed lead batch, and until now the two halves of the studio only
+              linked one way: the console can reach these pages, and this page
+              could not reach the console. Outlined rather than filled — the
+              primary action here is still making a demo. */}
+          <Link
+            href="/leads"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-fg hover:bg-surface-raised"
+          >
+            <Users className="h-4 w-4" /> Lead console
+          </Link>
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" /> New demo
+          </Link>
+        </div>
       </div>
+
+      {groups.length > 0 && (
+        <section className="mt-8">
+          {/* "Import groups" until there was an import. They come from a
+              reviewed lead batch now, so the word would name a thing that no
+              longer exists. */}
+          <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-fg-muted">
+            Demo groups
+          </h2>
+          <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line">
+            {groups.map((g) => (
+              <li key={g.id}>
+                <Link
+                  href={`/studio/g/${g.id}`}
+                  className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-surface-raised"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Layers className="h-4 w-4 shrink-0 text-fg-muted" />
+                    <span className="truncate font-medium text-fg">{g.name}</span>
+                  </div>
+                  <span className="shrink-0 text-sm text-fg-muted">{g.count} demos</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {rows === null ? (
         <p className="mt-8 text-fg-muted">Loading…</p>

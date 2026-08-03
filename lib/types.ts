@@ -4,7 +4,7 @@
  * One `ChurchConfig` object fully describes a single personalized lead-magnet
  * demo. Every template and the member dropdown consume ONLY this object — there
  * is no Firebase / CCB / Sanity at runtime. To create a new church demo you
- * write one config file in `src/churches/` (or generate it from /admin) and the
+ * write one config file in `churches/` (or generate it from /admin) and the
  * `/c/<slug>` route renders it.
  *
  * Design goals:
@@ -14,7 +14,7 @@
  */
 
 /** Lucide icon names allowed for a step. Keep this list in sync with ICON_MAP
- *  in `src/lib/icons.tsx`. */
+ *  in `lib/icons.tsx`. */
 export type IconName =
   | "heart"
   | "droplets"
@@ -187,12 +187,36 @@ export interface ChurchConfig {
   slug: string;
   /** Display name, e.g. "Grace Community Church". */
   churchName: string;
+  /**
+   * WHICH CHURCH THIS IS, as opposed to what it is called.
+   *
+   * The lead corpus's `org_id` for the congregation this demo was generated
+   * from. Absent on demos authored by hand in `/admin`, and on every demo made
+   * before this field existed.
+   *
+   * IT EXISTS BECAUSE A NAME IS NOT AN IDENTITY. The export derives a slug from
+   * the church's name and has to decide, when that slug is taken, whether it is
+   * looking at the same church being re-exported or a different one that happens
+   * to share a name. It used to answer by comparing `churchName`, which cannot
+   * distinguish the two cases at all — and the corpus has 4,403 churches sharing
+   * a byte-identical name with another (84 of them called "First Baptist
+   * Church"). Two of those in one batch silently overwrote each other, and one
+   * congregation was told its demo was a page built from the other's content.
+   *
+   * Compared, never displayed, and never part of a URL.
+   */
+  sourceOrgId?: string;
   /** Optional short tagline. */
   tagline?: string;
 
   // ── Branding ───────────────────────────────────────────────────────────
   /** Logo URL (optional; falls back to the church name as text). */
   logoUrl?: string;
+  /** True per mode when that mode's `bg` IS the logo's opaque plate colour
+   *  (`logo_bg_source_* === "logo_plate"`). DemoChrome suppresses the ambient
+   *  brand glow (`--glow: 0`) for such modes so the opaque plate blends into a
+   *  flat surround instead of showing a faint tinted edge against the gradient. */
+  logoPlate?: { light?: boolean; dark?: boolean };
   /** Optional accent override. Omit to inherit the selected palette's accent. */
   brand?: BrandColors;
   /** Which predetermined palette to use per mode (each template ships 2 light +
@@ -203,10 +227,14 @@ export interface ChurchConfig {
   themeOverrides?: ThemeOverrides;
   /** @deprecated Light/dark is now automatic (system pref + toggle). Ignored. */
   theme?: "dark" | "light";
+  /** Opening light/dark mode for the demo. Set by the importer from the church's
+   *  `logo_theme`; undefined ⇒ follow the viewer's OS preference. The viewer can
+   *  still toggle after load. */
+  initialMode?: "light" | "dark";
 
   // ── Template selection ─────────────────────────────────────────────────
   /** Which template design renders FIRST in the demo. Key into the template
-   *  registry in `src/components/templates/index.ts`. Falls back to the default.
+   *  registry in `components/templates/index.ts`. Falls back to the default.
    *  Should be a member of `templates`. */
   template: string;
   /** Which template designs are published — the set the viewer can switch
@@ -217,6 +245,10 @@ export interface ChurchConfig {
 
   // ── Content ────────────────────────────────────────────────────────────
   hero?: HeroContent;
+  /** Header for the primary (focal) step list — e.g. "Your Growth Track" or
+   *  "Your next steps". Set by the importer per the church's pathway data;
+   *  undefined ⇒ each template's default ("Your discipleship pathway" etc.). */
+  trackLabel?: string;
   /** A personal welcome line under the greeting (dashboard templates). */
   welcomeLine?: string;
   /** The formal discipleship track (baptism → membership → etc.). */

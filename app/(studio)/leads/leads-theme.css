@@ -1,0 +1,457 @@
+/* ══════════════════════════════════════════════════════════════════
+   LEAD CONSOLE TOKENS
+
+   Imported into studio-globals.css so there is ONE Tailwind entry and no
+   duplicate preflight. Every token is namespaced --lead-* and the console
+   reads no studio token, so the two systems cannot collide.
+
+   THE CONSOLE NEVER TOUCHES `.light`. studio-globals.css has a `:root.light`
+   block and `html.light { color-scheme: light }` that nothing currently
+   toggles — DemoChrome injects inline vars on a wrapper div instead. If the
+   console used that class it would persist across client-side navigation and
+   silently reskin /studio and /admin, which have no toggle to flip it back.
+   So the console stamps `data-lead-theme` on <html>: an attribute, not a
+   class, so the two systems cannot alias.
+
+   Dark is a DISTINCT TOKEN SET, not a filter over the light one.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-lead-theme="dark"] {
+  color-scheme: dark;
+
+  /* ── the seven states ──
+     good    Good fit          in your favor
+     good2   Likely good fit   somewhat in your favor
+     warn    Neutral           worth a look
+     bad2    Likely bad fit    leans not in your favor
+     bad     Bad fit           not in your favor
+     unk     Unknown           unmeasured                   <- olive
+     unver   Needs a check     unverified — manual check    <- slate + HATCH
+
+     `unk` and `unver` are DIFFERENT COLOURS and merging them is the cleanup to
+     refuse: it destroys the distinction between no data and untrusted data.
+     1,440 churches once sat at confident red on a name resemblance; the fix was
+     a distinct colour meaning "we have a signal we cannot stand behind". */
+  --lead-good: #54c07c;
+  --lead-good2: #89d6a4;
+  --lead-warn: #e0b23a;
+  --lead-bad2: #d08a8a;
+  --lead-bad: #e06a6a;
+  --lead-unk: #767970;
+  --lead-unver: #6b7688;
+
+  /* WARN AS TEXT, which is not the same job as warn as a verdict.
+     `--lead-warn` is a chip fill and a swatch — it only ever appears as a block
+     of colour behind or beside something. Used as INK it fails contrast on the
+     light theme (#c2921a on #f4f2ec is ~3.4:1, under the 4.5 needed), and the
+     fix must not be to darken `--lead-warn` itself: that would move a verdict
+     colour, and "Neutral / worth a look" is a claim about a church. */
+  --lead-warn-ink: var(--lead-warn);
+
+  /* Chip fills. The answer chips are the only place a verdict hue carries 9px
+     text, and no single ink clears 4.5:1 across the whole palette. Dark's fills
+     are lighter, so red is fine here; slate and olive are the two that fail
+     (3.7 / 3.8) and are nudged just far enough to pass. */
+  --lead-bad-chip: var(--lead-bad);
+  --lead-unver-chip: #747e8f;
+  --lead-unk-chip: #7d8077;
+
+  /* Chrome */
+  --lead-bg: #14161a;
+  --lead-panel: #1c1f24;
+  --lead-panel2: #23272d;
+  --lead-ink: #e6e8e5;
+  --lead-ink2: #9298a0;
+  --lead-line: #2e333a;
+  --lead-brand: #54b3ad;
+  --lead-link: #7aa6d8;
+
+  /* The read-only "already downloaded" mark. Used NOWHERE else in the
+     interface, because it is the one mark a user cannot set and must not be
+     confusable with one they can. */
+  --lead-dl: #6aa5ff;
+
+  /* Logo backing. NEVER white: 32 of 80 churches in one review batch carry a
+     white cut-out logo, which on a white card is indistinguishable from
+     "no logo found". */
+  --lead-checker: #d9d0c0;
+  --lead-checker-dark: #2b2b30;
+
+  --lead-scroll-thumb: #3a4048;
+  --lead-scroll-thumb-hover: #4e5661;
+}
+
+[data-lead-theme="light"] {
+  color-scheme: light;
+
+  --lead-good: #2f8f52;
+  --lead-good2: #71b98a;
+  --lead-warn: #c2921a;
+  --lead-bad2: #d08a8a;
+  --lead-bad: #b23b3b;
+  --lead-unk: #9a9d92;
+  --lead-unver: #7d8aa0;
+
+  /* #c2921a as ink on #f4f2ec is ~3.4:1; this is ~5.6:1. Text only — the chip
+     and the swatch keep the verdict hue above. */
+  --lead-warn-ink: #8a6710;
+
+  /* #b23b3b gave dark ink 3.22:1; this gives 4.67:1 */
+  --lead-bad-chip: #c16262;
+  --lead-unver-chip: var(--lead-unver);
+  --lead-unk-chip: var(--lead-unk);
+
+  --lead-bg: #e9e7e1;
+  --lead-panel: #f4f2ec;
+  --lead-panel2: #e3e0d7;
+  --lead-ink: #20242a;
+  --lead-ink2: #5d636d;
+  --lead-line: #d1cdc2;
+  --lead-brand: #2f6f6b;
+  --lead-link: #3a6ea5;
+
+  --lead-dl: #2f6fd0;
+
+  --lead-scroll-thumb: #c0bbac;
+  --lead-scroll-thumb-hover: #a49e8c;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TYPE
+
+   The console does NOT inherit the studio's type. The studio wraps every route
+   in Inter + Newsreader + Hanken Grotesk, which are the church-demo brand
+   fonts; the console is an internal instrument and reads in the three stacks
+   the original tool used. Mixing them is what made this page look subtly unlike
+   `real-example.html` everywhere at once.
+
+   Copied from `reference/leads.html` --sans / --serif / --mono verbatim. All
+   three are system stacks: no webfont request, nothing to wait for, and an
+   instrument someone stares at for eight hours renders in the face their OS
+   already tuned for that.
+
+   These have to be written as element selectors rather than as `--font-serif`
+   overrides, because studio-globals declares its fonts in `@theme inline` —
+   which substitutes the value into the utility at build time, so there is no
+   `var(--font-serif)` left at runtime to override. Unlayered CSS beats
+   `@layer utilities` regardless of specificity, which is what makes this stick.
+   ══════════════════════════════════════════════════════════════════ */
+
+[data-lead-root] {
+  /* The sticky header's measured height. The rail and the deck stick BELOW it
+     and size themselves against it, so the header's band is never a space they
+     can occupy — which is what makes the overlap structurally impossible rather
+     than a z-index that has to keep winning. LeadConsole keeps this in sync with
+     a ResizeObserver; this value is the pre-measurement first paint. */
+  --lead-header-h: 64px;
+
+  --lead-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --lead-serif: "Iowan Old Style", "Palatino Linotype", "Cambria", "Hoefler Text", Georgia, serif;
+  --lead-mono: "Cascadia Code", "Cascadia Mono", ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  font-family: var(--lead-sans);
+  font-size: 14px;
+}
+
+[data-lead-root] .font-sans {
+  font-family: var(--lead-sans);
+}
+[data-lead-root] .font-serif {
+  font-family: var(--lead-serif);
+}
+[data-lead-root] .font-mono {
+  font-family: var(--lead-mono);
+}
+
+/* Form controls do not inherit font-family, and a rail of selects rendering in
+   the browser default while their labels render in the stack above is the
+   single most obvious way this page stops looking like one design.
+
+   IN `@layer base`, UNLIKE THE THREE RULES ABOVE. Those have to be unlayered to
+   beat Tailwind's utilities; this one must LOSE to them, because the mark
+   buttons carry `lead-glyph` and `lead-emoji` and are still <button> elements.
+   Unlayered, this rule silently reverted both — ✆ back to a missing-glyph box
+   and 🐞 back to white — which is the bug it was written next to. */
+@layer base {
+  [data-lead-root] input,
+  [data-lead-root] select,
+  [data-lead-root] textarea,
+  [data-lead-root] button {
+    font-family: inherit;
+  }
+}
+
+/* ── the pointer cursor ──
+   Tailwind v4 dropped `cursor: pointer` from its preflight — it sets only
+   `appearance: button` on <button> now — so every button in this console
+   rendered with an arrow. It read worst on a lead row, which carries
+   `cursor-pointer` itself: the row said "clickable" and the ★ 🐞 ✆ inside it
+   said "not".
+
+   `@layer base` FOR THE SAME REASON AS THE RULE ABOVE, and it matters more
+   here. Three controls deliberately refuse the pointer — the derived facet
+   swatch (`cursor-default`), the dormant "Extracted only" filter and the inert
+   export button (`cursor-not-allowed`) — and all three say so with a utility.
+   Utilities beat `base` whatever the specificity, so those keep winning.
+   Unlayered, this rule would quietly re-arm three controls that are supposed to
+   look unavailable.
+
+   <a href> is left out: the UA stylesheet already does it. <label> is left out
+   on purpose — the two that wrap a checkbox already carry the class, while one
+   wraps a <select> (which shows an arrow) and one is a sibling that clicks
+   nothing. A blanket rule would lie about both. */
+@layer base {
+  [data-lead-root] :is(button, summary, [role="button"]):not(:disabled) {
+    cursor: pointer;
+  }
+  [data-lead-root] button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@theme inline {
+  --color-lead-good: var(--lead-good);
+  --color-lead-good2: var(--lead-good2);
+  --color-lead-warn: var(--lead-warn);
+  --color-lead-warn-ink: var(--lead-warn-ink);
+  --color-lead-bad2: var(--lead-bad2);
+  --color-lead-bad: var(--lead-bad);
+  --color-lead-unk: var(--lead-unk);
+  --color-lead-unver: var(--lead-unver);
+
+  --color-lead-bad-chip: var(--lead-bad-chip);
+  --color-lead-unver-chip: var(--lead-unver-chip);
+  --color-lead-unk-chip: var(--lead-unk-chip);
+
+  --color-lead-bg: var(--lead-bg);
+  --color-lead-panel: var(--lead-panel);
+  --color-lead-panel2: var(--lead-panel2);
+  --color-lead-ink: var(--lead-ink);
+  --color-lead-ink2: var(--lead-ink2);
+  --color-lead-line: var(--lead-line);
+  --color-lead-brand: var(--lead-brand);
+  --color-lead-link: var(--lead-link);
+  --color-lead-dl: var(--lead-dl);
+}
+
+/* ── the unver hatch ──
+   NOT decoration. Slate and olive are close for the ~8% of men with red-green
+   colour vision deficiency, and the hatch is what carries the difference for
+   them. Removing it makes "we cannot cite this" look like "we never measured
+   this" to a large minority of users. */
+@utility lead-hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    rgb(255 255 255 / 0.24) 3px,
+    rgb(255 255 255 / 0.24) 5px
+  );
+}
+
+/* ── the logo plates ──
+   Three of them, chosen by `logoPlate()` in the engine — read the reasoning
+   there, not here.
+
+   White is for logos the pipeline classified as `light` or `either`: dark ink
+   drawn for a white page, which the beige plate tints and makes look subtly
+   wrong. It is FIXED white in both themes, because the logo was designed
+   against a white page and a dark-theme "white" is not one. */
+@utility lead-plate-white {
+  background-color: #ffffff;
+  background-image: none;
+}
+
+/* The beige + 45° checker is now the UNKNOWN-polarity plate, not the default.
+   It is the only plate that reads both inks, and the checker makes transparency
+   visible. Someone will try to widen white to cover unknown too. That is why the
+   rule lives in the honesty doc and not the styling one. */
+@utility lead-checkerboard {
+  background-color: var(--lead-checker);
+  background-image:
+    linear-gradient(45deg, rgb(0 0 0 / 0.13) 25%, transparent 25%, transparent 75%, rgb(0 0 0 / 0.13) 75%),
+    linear-gradient(45deg, rgb(0 0 0 / 0.13) 25%, transparent 25%, transparent 75%, rgb(0 0 0 / 0.13) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 6px 6px;
+}
+
+/* A near-white cut-out logo needs a dark plate to be legible at all. */
+@utility lead-checkerboard-dark {
+  background-color: var(--lead-checker-dark);
+  background-image: none;
+}
+
+/* ── mark glyphs ──
+   The marks are TEXT GLYPHS, never emoji images, because a glyph can be
+   recoloured — it turns green when set and greys out when unset — and a colour
+   emoji cannot.
+
+   But the studio's UI font has no Dingbats, so ✆ (U+2706) fell back to a
+   missing-glyph box. This stack reaches a font that actually has it. */
+@utility lead-glyph {
+  font-family:
+    "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Symbola",
+    sans-serif;
+}
+
+/* ── the one mark that IS an emoji ──
+   🐞 has no monochrome equivalent worth drawing, so the issue flag is the
+   exception to the rule above — and it needs the OPPOSITE font stack.
+
+   `lead-glyph` reaches Segoe UI Symbol first, which carries its own MONOCHROME
+   U+1F41E. Windows served that in preference to the colour font, so the bug
+   rendered as a white outline: unreadable against the panel, and indisinguishable
+   from a broken glyph. Naming the colour fonts explicitly is what makes it red.
+
+   `grayscale` is what greys it out when unset — a colour emoji cannot be
+   recoloured, which is exactly why every other mark is a text glyph. */
+@utility lead-emoji {
+  font-family:
+    "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+    "Twemoji Mozilla", sans-serif;
+}
+
+/* ── row tints ──
+   Precedence is issue > goodlead > exported > star, decided in rowTint().
+
+   The good-lead wash runs ~2x the others on purpose: it is the only mark that
+   is a QUEUE — these are the rows about to be exported, and "which ones did I
+   pick?" has to be answerable from across the room rather than by squinting at
+   three near-identical washes. */
+@utility lead-tint-issue {
+  background-color: color-mix(in srgb, var(--lead-bad) 13%, transparent);
+}
+@utility lead-tint-goodlead {
+  background-color: color-mix(in srgb, var(--lead-good) 26%, transparent);
+}
+@utility lead-tint-exported {
+  background-color: color-mix(in srgb, var(--lead-dl) 22%, transparent);
+}
+@utility lead-tint-star {
+  background-color: color-mix(in srgb, var(--lead-warn) 15%, transparent);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SCROLLBARS
+
+   studio-globals sets `html { scrollbar-width: none }` — the demo chrome hides
+   them everywhere. That is wrong for an instrument: this page is a list of
+   14,400 rows inside a rail that scrolls independently, and how far down you are
+   is information. `html[data-lead-theme]` is the console's own root attribute,
+   set by the pre-paint script and present on NO other route, so undoing the
+   hide here cannot leak into /studio or /admin.
+
+   Two mechanisms on purpose. `::-webkit-scrollbar` is the one that actually
+   renders on Chromium (this is a Windows/Chrome tool) and is the only way to get
+   a rounded, inset thumb; the `@supports` block is the Firefox path, kept behind
+   a guard because setting `scrollbar-color` in Chromium switches it to the
+   standard renderer and throws the webkit styling away.
+   ══════════════════════════════════════════════════════════════════ */
+
+html[data-lead-theme] {
+  scrollbar-width: auto;
+}
+
+html[data-lead-theme]::-webkit-scrollbar,
+[data-lead-root] ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+html[data-lead-theme]::-webkit-scrollbar-track,
+[data-lead-root] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The transparent border plus `background-clip: content-box` is what insets the
+   thumb inside its own track — a 12px gutter with an 6px pill in it, rather than
+   a 6px gutter that is hard to grab. */
+html[data-lead-theme]::-webkit-scrollbar-thumb,
+[data-lead-root] ::-webkit-scrollbar-thumb {
+  background-color: var(--lead-scroll-thumb);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+html[data-lead-theme]::-webkit-scrollbar-thumb:hover,
+[data-lead-root] ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--lead-scroll-thumb-hover);
+}
+
+/* Chromium draws a button-ish square where the two bars meet. */
+html[data-lead-theme]::-webkit-scrollbar-corner,
+[data-lead-root] ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@supports (-moz-appearance: none) {
+  html[data-lead-theme],
+  [data-lead-root] * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--lead-scroll-thumb) transparent;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   THE DOSSIER'S ENTRANCE
+
+   Done with `@starting-style`, so there is no `useState`, no
+   `requestAnimationFrame`, and no mount-then-flip-a-class dance. The browser
+   interpolates from the starting value on the element's FIRST style resolution,
+   which is exactly the frame React inserts it on.
+
+   Two separate movements, because they answer two different questions:
+
+   · The panel slides and the scrim fades on OPEN — 220ms, an ease-out curve
+     that front-loads the motion so the panel is most of the way there in the
+     first 80ms. That is the receipt for the click, and it lands long before the
+     record does.
+   · The BODY fades up when the record arrives, ~180ms. The skeleton is honest
+     about the wait; this keeps the swap from being a hard cut.
+
+   Nothing here animates on close. A dismissal wants to be gone, and keeping the
+   panel mounted through an exit transition would mean either a second copy of
+   the church state or a delay before the next one can open.
+
+   The reduced-motion block below removes all of it.
+   ══════════════════════════════════════════════════════════════════ */
+
+.lead-scrim {
+  opacity: 1;
+  transition: opacity 160ms ease-out;
+}
+
+.lead-slideover {
+  transform: translateX(0);
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.lead-fade-in {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity 180ms ease-out,
+    translate 180ms ease-out;
+}
+
+@starting-style {
+  .lead-scrim {
+    opacity: 0;
+  }
+  .lead-slideover {
+    transform: translateX(100%);
+  }
+  .lead-fade-in {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lead-root] * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

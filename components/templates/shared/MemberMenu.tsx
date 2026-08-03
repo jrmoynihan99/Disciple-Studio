@@ -39,7 +39,7 @@ export default function MemberMenu({
 }) {
   const firstName = config.demoMember.firstName;
   const { discipleshipSteps, nextSteps } = getMemberProgress(config);
-  const lists = [{ label: "Discipleship track", steps: discipleshipSteps }];
+  const lists = [{ label: config.trackLabel ?? "Discipleship track", steps: discipleshipSteps }];
   if (nextSteps.length) lists.push({ label: "Next steps", steps: nextSteps });
   const current = currentOf(discipleshipSteps);
 

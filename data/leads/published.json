@@ -1,0 +1,12 @@
+{
+  "publish_id": "p2-80721fb00d1d6a24",
+  "pack_format": 2,
+  "built_at": "2026-08-03T00:41:22-04:00",
+  "n_churches": 15273,
+  "n_shards": 256,
+  "n_logos": 33371,
+  "index_sha256": "ee35d2beb8aecb00703e70573a6a2b2a84989f24e69c060893489689a572929e",
+  "index_bytes": 2733743,
+  "published_at": "2026-08-03T05:19:01.694Z",
+  "note": "Written by scripts/leads-publish.mts. Names the build this deployment serves; every key is derived from publish_id (logos are content-addressed and shared across publishes). Contains no church data and no account-specific URL — see data/leads/README.md."
+}

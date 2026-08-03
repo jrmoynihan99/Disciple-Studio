@@ -31,7 +31,8 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env.local
+.env
 
 # vercel
 .vercel
@@ -39,3 +40,22 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# custom
+# Raw upstream data drops, kept outside the tree for the same reason as
+# data/leads/incoming below. Superseded by data/leads/incoming/<build>/ — these
+# are historical and can be deleted once you are sure.
+pilot-*
+lead-console-instructions
+handoff-*
+package-v*
+
+# Throwaway diagnostic scripts. Nothing here is ever part of the build.
+.scratch/
+
+# The lead corpus: REAL contact data for 15,274 congregations. This repository is
+# public, so the payload never enters history — it is published to Vercel Blob and
+# `data/leads/published.json` (committed) names the build production must serve.
+# See data/leads/README.md.
+/data/leads/incoming/
+/data/leads/pack/

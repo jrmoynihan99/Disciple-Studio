@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Lead Console handoff: reference source we PORT FROM but never ship.
+    // It is a single 764 KB HTML file plus the original `core.js`, written as a
+    // no-build-step deliverable, so it trips ~60 rules by design. It is also
+    // gitignored (real church data), and flat config does not read .gitignore.
+    "lead-console-instructions/**",
   ]),
 ]);
 

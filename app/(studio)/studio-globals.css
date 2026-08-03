@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* Lead Console verdict palette. A plain CSS @import is inlined before Tailwind
+   processes this file, so this stays ONE Tailwind entry — a second
+   `@import "tailwindcss"` in a route-level file would mean a second full build
+   and a duplicate preflight. All its tokens are namespaced --lead-*. */
+@import "./leads/leads-theme.css";
 
 /* ══════════════════════════════════════════════════════════════════
    DESIGN TOKEN SYSTEM (church-demos)
@@ -76,7 +81,9 @@
   --on-accent: #fbf6f1; /* text/icon on accent surfaces */
   --accent-btn: #eeece8; /* focal button ON the accent card (light: inset surface) */
   --accent-btn-ink: #7f4e3d; /* focal button text (light: deep accent) */
-  --logo-filter: brightness(0); /* recolor uploaded logos to match the mode */
+  --logo-filter: none; /* logos render in their true colors (no recolor) */
+  --glow: 1; /* ambient brand-glow strength; DemoChrome sets 0 when a mode's bg is
+                the logo's opaque plate, so a plate logo blends into a flat surround */
 }
 
 :root.light {

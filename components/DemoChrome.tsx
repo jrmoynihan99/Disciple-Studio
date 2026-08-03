@@ -71,11 +71,18 @@ export default function DemoChrome({
   }, []);
 
   const theme = useMemo(() => resolveTheme(config), [config]);
-  const activeMode: Mode = forceMode ?? override ?? systemMode;
-  const vars = useMemo(
-    () => themeToVars(activeMode === "dark" ? theme.dark : theme.light, theme.fonts, activeMode),
-    [theme, activeMode],
-  );
+  // Precedence: admin pin → user toggle → the demo's assigned opening mode
+  // (`config.initialMode`, e.g. a light-logo demo opens light) → OS preference.
+  // initialMode is a prop, so the first SSR/client paint is already correct.
+  const activeMode: Mode = forceMode ?? override ?? config.initialMode ?? systemMode;
+  const vars = useMemo(() => {
+    const base = themeToVars(activeMode === "dark" ? theme.dark : theme.light, theme.fonts, activeMode);
+    // When this mode's bg IS the logo's opaque plate, kill the ambient brand glow
+    // so the plate blends into a flat surround (no faint tinted edge). Otherwise
+    // the glow stays at its default strength (--glow: 1, from studio-globals).
+    const flat = activeMode === "dark" ? config.logoPlate?.dark : config.logoPlate?.light;
+    return flat ? ({ ...base, "--glow": 0 } as React.CSSProperties) : base;
+  }, [theme, activeMode, config.logoPlate]);
 
   const value = useMemo<DemoAuthValue>(
     () => ({

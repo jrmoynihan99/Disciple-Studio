@@ -67,6 +67,53 @@ export async function getChurch(slug: string): Promise<ChurchConfig | null> {
   return readChurch(pathnameFor(slug));
 }
 
+/**
+ * The same read, except A STORE FAILURE THROWS instead of reading as "no demo".
+ *
+ * `readChurch` wraps `get()` in `try { } catch { return null }`, which is right
+ * for a page that wants a 404 — but the SDK already returns null for a genuine
+ * 404 and throws only on a real fault, so that catch converts "I could not ask"
+ * into "there is nothing there". Harmless everywhere except in `slugFor`, which
+ * treats a null as permission to take the bare slug, and `saveChurch` writes
+ * with `allowOverwrite: true`. One dropped GET is then enough to overwrite a
+ * different church's live demo at a URL that may already have been sent.
+ *
+ * Note `put()` retries internally and `get()` does not, so this asymmetry is not
+ * theoretical — but it does need a transient GET failure while the API is
+ * otherwise healthy, which is why it is a separate function rather than a change
+ * to the shared one.
+ */
+export async function getChurchStrict(slug: string): Promise<ChurchConfig | null> {
+  const result = await get(pathnameFor(slug), { access: ACCESS });
+  if (!result?.stream) return null;
+  return (await new Response(result.stream).json()) as ChurchConfig;
+}
+
+/**
+ * Does this demo's blob exist at all? Cheap, and NOT served from the CDN.
+ *
+ * `get()` reads through the blob CDN and is eventually consistent, so a demo
+ * written seconds ago can read back as missing — which is why `/c/<slug>` waits
+ * that window out. `list()` is the store's own index and shows a just-saved blob
+ * immediately, which is the property `lib/groups.ts` already relies on.
+ *
+ * That makes this the signal the retry loop was missing: it separates "written,
+ * not visible yet — worth waiting for" from "never existed", and the second case
+ * is every crawler, every guessed URL, and every church holding a link to a demo
+ * that was deleted. Those used to cost 6.6 seconds of billed compute each.
+ */
+export async function churchBlobExists(slug: string): Promise<boolean> {
+  try {
+    const { blobs } = await list({ prefix: pathnameFor(slug), limit: 1 });
+    return blobs.some((b) => b.pathname === pathnameFor(slug));
+  } catch {
+    // Could not ask. Say yes, so the caller falls back to the patient path —
+    // a slow 404 is a worse answer than a wrong one, but a WRONG 404 on a real
+    // demo is worse than both.
+    return true;
+  }
+}
+
 /** Create or overwrite a church's blob. */
 export async function saveChurch(config: ChurchConfig): Promise<void> {
   await put(pathnameFor(config.slug), JSON.stringify(config, null, 2) + "\n", {

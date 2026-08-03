@@ -91,8 +91,8 @@ export default function MemberJourneyStream({ config }: { config: ChurchConfig }
     <div className="relative min-h-screen overflow-x-clip bg-paper text-ink">
       {/* Ambient brand glow drifting behind the story */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -right-[12%] -top-[16%] h-[60vw] w-[60vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_0.12),_transparent_66%)] blur-[46px] animate-[edDrift1_30s_ease-in-out_infinite]" />
-        <div className="absolute -bottom-[18%] -left-[14%] h-[56vw] w-[56vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_0.08),_transparent_70%)] blur-[52px] animate-[edDrift2_36s_ease-in-out_infinite]" />
+        <div className="absolute -right-[12%] -top-[16%] h-[60vw] w-[60vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_calc(0.12_*_var(--glow))),_transparent_66%)] blur-[46px] animate-[edDrift1_30s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-[18%] -left-[14%] h-[56vw] w-[56vw] rounded-full bg-[radial-gradient(circle,_rgb(var(--brand)_/_calc(0.08_*_var(--glow))),_transparent_70%)] blur-[52px] animate-[edDrift2_36s_ease-in-out_infinite]" />
       </div>
 
       {/* ── HEADER ── */}

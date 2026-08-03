@@ -58,7 +58,7 @@ export default function MemberDashboardBentoWarm({ config }: { config: ChurchCon
   const openCTA = useDemoCTA();
 
   const { discipleshipSteps, nextSteps } = getMemberProgress(config);
-  const lists = [{ label: "Discipleship track", steps: discipleshipSteps }];
+  const lists = [{ label: config.trackLabel ?? "Discipleship track", steps: discipleshipSteps }];
   if (nextSteps.length) lists.push({ label: "Next steps", steps: nextSteps });
 
   const [activeList, setActiveList] = useState(0);

@@ -256,9 +256,9 @@ export function resolveTheme(config: ChurchConfig): ResolvedTheme {
 
 /** Turn a ColorSet + fonts into the CSS custom properties the templates read.
  *  Accent/accentDeep are emitted as "R G B" triples so utilities can apply
- *  opacity (rgb(var(--brand) / a)); the rest are hex. `--logo-filter` recolors
- *  an uploaded logo into a flat silhouette that matches the mode (black on
- *  light, white on dark) so it reads cleanly in either theme. */
+ *  opacity (rgb(var(--brand) / a)); the rest are hex. `--logo-filter` is `none`
+ *  so uploaded logos render in their true colors (real church logos are full-
+ *  color; recoloring them to a mode-matched silhouette destroyed them). */
 export function themeToVars(cs: ColorSet, fonts: ThemeFonts, mode: "light" | "dark"): CSSProperties {
   return {
     "--paper": cs.bg,
@@ -281,7 +281,7 @@ export function themeToVars(cs: ColorSet, fonts: ThemeFonts, mode: "light" | "da
     "--accent-btn-ink": mode === "dark" ? cs.bg : cs.accentDeep,
     "--brand": hexToTriple(cs.accent),
     "--brand-card": hexToTriple(cs.accentDeep),
-    "--logo-filter": mode === "dark" ? "brightness(0) invert(1)" : "brightness(0)",
+    "--logo-filter": "none",
     "--ds-serif": SERIF_STACKS[fonts.serif],
     "--ds-sans": SANS_STACKS[fonts.sans],
     fontFamily: "var(--ds-sans)",
