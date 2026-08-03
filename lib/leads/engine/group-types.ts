@@ -421,20 +421,31 @@ export interface GroupEntry {
 }
 
 /**
- * Where a batch is in its life.
+ * Where a batch is in its life. TWO STATES, and the missing third is the point.
  *
- *   open      ✆ collects into it. There is at most ONE, which is the whole
- *             reason nobody has to create or name a group: the batch is implied
- *             by the work and named afterwards, if at all.
- *   closed    you stopped collecting into it. Nothing was sent.
- *   exported  it went out.
+ *   open      it can still be collected into and edited.
+ *   exported  demos were generated from it. History; nothing more goes in.
  *
- * `closed` exists because the export does not. Without it there would be no
- * honest way to finish a batch and start tomorrow's — the only alternative was
- * marking it `exported`, which would claim churches had been contacted when they
- * had not, and ◎ exists precisely to stop that claim being made loosely.
+ * THERE USED TO BE A `closed`, AND IT ONLY EXISTED BECAUSE THE EXPORT DID NOT.
+ * Its own comment said so: without a real export there was no honest way to
+ * finish a batch and start another, and marking one `exported` would have
+ * claimed churches had been contacted when they had not. Building the export
+ * removed the reason, and what was left was a button that made a batch look
+ * finished without anything having happened to it.
+ *
+ * `closed` is still ACCEPTED ON READ — batches on disk carry it — and
+ * `summarize()` maps it to `open`. Dropping it from the union without that would
+ * turn every existing finished batch into a parse error.
+ *
+ * WHICH BATCH ✆ COLLECTS INTO IS NO LONGER DERIVED FROM THIS. It used to be "the
+ * one whose status is open", which worked only while exactly one could be. Now
+ * every un-exported batch is open, so the target is an explicit pointer — see
+ * `readCurrentId` in `lib/leads/server/groups.ts`.
  */
-export type GroupStatus = "open" | "closed" | "exported";
+export type GroupStatus = "open" | "exported";
+
+/** What a batch may say on disk, including the retired `closed`. */
+export type StoredGroupStatus = GroupStatus | "closed";
 
 export interface ExportGroup {
   schema: number;
@@ -442,9 +453,22 @@ export interface ExportGroup {
   /** From the signed cookie, server-side. Never a body field. */
   userId: string;
   name: string;
-  /** Absent on groups written before batches existed; read as `open`. */
-  status?: GroupStatus;
+  /**
+   * Absent on groups written before batches existed, and `"closed"` on ones
+   * written while that state existed. `summarize()` maps both to `open`.
+   */
+  status?: StoredGroupStatus;
+  /** Retired with `closed`. Still read off disk, never written. */
   closedAt?: string;
+  /**
+   * The `/studio` demo group this batch generated, once it has been exported.
+   *
+   * Stored rather than recomputed because there is nothing to recompute it FROM:
+   * the demo group's id carries a random suffix (`makeGroupId`), so losing this
+   * loses the only link between a reviewed batch and the demos it produced.
+   */
+  demoGroupId?: string;
+  exportedAt?: string;
   createdAt: string;
   updatedAt: string;
   /**
@@ -462,6 +486,8 @@ export interface ExportGroupSummary {
   id: string;
   name: string;
   status: GroupStatus;
+  /** Set once exported — the `/studio` demo group this batch produced. */
+  demoGroupId?: string;
   count: number;
   createdAt: string;
   updatedAt: string;
@@ -604,9 +630,7 @@ export type GroupOp =
   | { op: "item.restore"; orgId: string; itemId: string }
   | { op: "item.add"; orgId: string; item: AddedItem }
   | { op: "item.remove"; orgId: string; itemId: string }
-  | { op: "church.remove"; orgId: string }
-  /** Stop collecting into this batch. Not "sent" — nothing has been sent. */
-  | { op: "group.close" };
+  | { op: "church.remove"; orgId: string };
 
 /* ------------------------------------------------------------------ *
  * The resolved render model

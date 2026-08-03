@@ -83,13 +83,24 @@ export const SKIN = {
 
   /* ── one church ── */
   card: "group/card relative mb-5 overflow-hidden rounded-xl border border-lead-line bg-lead-panel",
+  /** The card's own chevron, rotating off `[open]` on the `group/church` marker. */
+  cardChevron: "ml-1 shrink-0 self-center text-lead-ink2 transition-transform group-open/church:rotate-180",
   railStruck: "bg-lead-bad",
   railEdited: "bg-lead-brand",
   banner:
     "border-b border-lead-line bg-lead-unk/10 px-6 py-2 font-mono text-[10px] leading-relaxed text-lead-ink",
 
   /* ── the identity band ── */
-  head: "flex flex-wrap items-start gap-x-5 gap-y-3 border-b border-lead-line bg-lead-panel2/40 py-4 pr-4 pl-6",
+  /**
+   * `list-none` and the webkit reset because this is a `<summary>` now — without
+   * them the browser draws its own disclosure triangle beside the index number,
+   * which is a second, uglier chevron saying the same thing.
+   *
+   * `cursor-pointer`, because the whole band toggles the card.
+   */
+  head:
+    "flex cursor-pointer list-none flex-wrap items-start gap-x-5 gap-y-3 border-b border-lead-line " +
+    "bg-lead-panel2/40 py-4 pr-4 pl-6 [&::-webkit-details-marker]:hidden",
   index: "font-mono text-[11px] text-lead-ink2 tabular-nums",
   logoBox: "grid size-[72px] shrink-0 place-items-center overflow-hidden rounded-xl",
   logoInitials: "font-serif text-[26px] leading-none text-lead-ink2",
@@ -113,6 +124,24 @@ export const SKIN = {
     "text-[13px] font-semibold text-white transition-opacity hover:opacity-90",
   visitAbsent:
     "inline-flex h-9 items-center rounded-lg border border-dashed border-lead-line px-3 font-mono text-[11px] text-lead-ink2",
+
+  /* ── the demo palette ──
+     A BLOCK ON THE CARD, NOT A FIELD. It sits between the identity band and the
+     five review fields and deliberately carries no `data-field`: `REVIEW_FIELDS`
+     is the list of things a reviewer must READ AND CORRECT, `/leads/audit`
+     asserts the rendered set against it, and colour is neither read nor
+     correctable here. Adding a sixth `data-field` would have made the audit's
+     order check fail for a block that answers a different question.
+
+     Never collapsed. It is four lines tall and it is the only thing on the page
+     that says what the church will actually receive. */
+  paletteBox: "border-t border-lead-line px-6 py-3.5",
+  paletteMode: "font-mono text-[9.5px] tracking-[0.14em] text-lead-ink2 uppercase",
+  /** The ring, not a border: the tile's own background is the church's `bg`, and
+   *  a near-white one needs an edge that is not itself part of the preview. */
+  paletteTile:
+    "mt-1 overflow-hidden rounded-lg p-2 ring-1 ring-lead-line ring-inset",
+  paletteSwatch: "size-3.5 rounded-sm ring-1 ring-lead-line/70 ring-inset",
 
   /* ── controls: visible, always ── */
   btn:

@@ -1,6 +1,11 @@
 import "server-only";
 import { r2Delete, r2Env, r2Get, r2List, r2Put } from "@/lib/r2.ts";
-import { makeExportGroupId, membershipFrom, nextBatchName } from "@/lib/leads/engine/group.ts";
+import {
+  makeExportGroupId,
+  membershipFrom,
+  nextBatchName,
+  statusOf,
+} from "@/lib/leads/engine/group.ts";
 import { GROUP_SCHEMA_VERSION, isSafeGroupId } from "@/lib/leads/engine/group-types.ts";
 import type {
   ExportGroup,
@@ -143,9 +148,12 @@ export function summarize(g: ExportGroup): ExportGroupSummary {
   return {
     id: g.id,
     name: g.name,
-    // Groups written before batches existed carry no status. They are open —
-    // nothing has ever been exported, because the export does not exist yet.
-    status: g.status ?? "open",
+    // `statusOf` collapses BOTH legacy spellings — absent (written before
+    // batches existed) and the retired `"closed"` — onto `open`. One function,
+    // because a batch that reads finished on the index and collectable on the
+    // review page is a disagreement nobody can resolve by looking.
+    status: statusOf(g),
+    demoGroupId: g.demoGroupId,
     count: g.entries.length,
     createdAt: g.createdAt,
     updatedAt: g.updatedAt,
@@ -257,25 +265,72 @@ async function batchName(userId: string, now: Date): Promise<string> {
  * better than blocking the most-pressed button in the console on a lock.
  */
 export async function openGroup(userId: string, now = new Date()): Promise<ExportGroup> {
-  const summaries = await listGroups(userId);
-  const existing = summaries.find((s) => s.status === "open");
-  if (existing) {
-    const g = await readGroup(userId, existing.id);
+  const current = await currentGroupId(userId);
+  if (current) {
+    const g = await readGroup(userId, current);
     if (g) return g;
   }
   // "" — `startBatch` applies the naming rule, so there is one caller of it.
   return startBatch(userId, "", now);
 }
 
+/* ------------------------------------------------------------------ *
+ * The current batch pointer
+ * ------------------------------------------------------------------ */
+
+const currentKey = (userId: string) => `${ROOT}/${userId}/current.json`;
+
 /**
- * Begin a new batch, closing whatever was being collected into.
+ * WHICH BATCH getting collected into — one small object, and the only writer of it.
  *
- * ONE open batch is an invariant, not a coincidence: ✆ has to know where a
- * church goes without asking. Creating a second open batch would make that
- * question ambiguous and the answer arbitrary (whichever the summary index
- * happened to list first).
+ * This used to be DERIVED: "the batch whose status is open", kept unique by
+ * closing every other one whenever a new batch started. That worked, and it cost
+ * a state — `closed` — whose only job was to make the derivation possible. A
+ * batch you had merely stopped adding to looked finished, and the owner
+ * reasonably objected to a button that made it look that way.
  *
- * The previous batch is `closed`, never `exported` — nothing was sent.
+ * Storing the pointer instead is what let `closed` be deleted. It is deliberately
+ * SERVER-side rather than a per-browser selection: two tabs, or a laptop and a
+ * phone, have to agree about where a church just went.
+ *
+ * READ IT THROUGH `currentGroupId`, never raw. The stored id can name a batch
+ * that has since been deleted or exported, and resolving that is the whole point.
+ */
+async function readPointer(userId: string): Promise<string | null> {
+  const raw = await readJsonOrNull<{ id?: unknown }>(currentKey(userId));
+  return isSafeGroupId(raw?.id) ? raw.id : null;
+}
+
+async function writePointer(userId: string, id: string | null): Promise<void> {
+  await writeJson(currentKey(userId), { id });
+}
+
+/**
+ * The pointer, VALIDATED against what actually exists.
+ *
+ * Falls back to the newest batch that can still take churches, which is what
+ * makes this change invisible to every batch collected before the pointer
+ * existed — there is no migration and nothing to backfill. It resolves to `null`
+ * only when every batch has been exported, and then the next collect correctly
+ * starts a fresh one.
+ */
+export async function currentGroupId(userId: string): Promise<string | null> {
+  const summaries = await listGroups(userId);
+  const collectable = summaries.filter((s) => s.status !== "exported");
+  const pointed = await readPointer(userId);
+  if (pointed && collectable.some((s) => s.id === pointed)) return pointed;
+  // `listGroups` is already sorted by `updatedAt`, newest first.
+  return collectable[0]?.id ?? null;
+}
+
+/**
+ * Begin a new batch and start collecting into it.
+ *
+ * IT NO LONGER CLOSES THE PREVIOUS ONE. It used to have to: the collect target was
+ * found by scanning for the single open batch, so a second open batch made the
+ * answer arbitrary. The pointer answers that question directly now, which makes
+ * starting a batch ADDITIVE — the one you were on stays exactly as collectable as
+ * it was, and the picker can switch back to it.
  */
 export async function startBatch(
   userId: string,
@@ -285,20 +340,6 @@ export async function startBatch(
 ): Promise<ExportGroup> {
   const iso = now.toISOString();
   const finalName = name.trim() || (await batchName(userId, now));
-
-  for (const s of await listGroups(userId)) {
-    if (s.status !== "open") continue;
-    const prev = await readGroup(userId, s.id);
-    if (prev) {
-      await writeGroup(userId, {
-        ...prev,
-        status: "closed",
-        closedAt: iso,
-        updatedAt: iso,
-        rev: (prev.rev ?? 0) + 1,
-      });
-    }
-  }
 
   const group: ExportGroup = {
     schema: GROUP_SCHEMA_VERSION,
@@ -312,67 +353,58 @@ export async function startBatch(
     entries: [],
   };
   await writeGroup(userId, group);
+  await writePointer(userId, group.id);
   return group;
 }
 
 /**
- * Point ✆ at an existing batch.
+ * Point the collect target at an existing batch.
  *
- * THERE IS NO SEPARATE "SELECTED BATCH", AND THAT IS THE DESIGN.
+ * ONE WRITE, and it touches no batch. This used to flip statuses — mark the
+ * target open, close everything else — so switching rewrote up to N group objects
+ * and stamped `updatedAt` on work nobody had touched. Moving a pointer says the
+ * same thing and rewrites no history.
  *
- * The switcher needs a notion of which batch you are collecting into, and the
- * obvious implementation is a stored selection per browser. That would be a
- * SECOND source of truth beside `status: "open"`, and the two would disagree the
- * first time a batch was closed in another tab — a console cheerfully collecting
- * into a batch the server considers finished.
- *
- * So switching is just moving the one open batch, and `membershipFrom` keeps
- * deriving `openGroupId` exactly as it did. Three behaviours the owner asked for
- * fall out of that rather than needing code:
- *
- *   · finishing a batch leaves NOTHING open, so the tray reads 0 and the next ✆
- *     starts a fresh one;
- *   · the same is automatically true of an EXPORTED batch, whenever the export
- *     button becomes real — `exported` is not `open`;
- *   · a second tab sees the switch on its next membership read.
- *
- * An exported batch can never be re-opened. It has been sent; collecting more
- * churches into it would make its own record of what went out a lie.
+ * An exported batch can never become the target. It has been sent, and collecting
+ * more churches into it would make its own record of what went out a lie.
  */
-export async function reopenGroup(userId: string, groupId: string): Promise<ExportGroup> {
+export async function setCurrentGroup(userId: string, groupId: string): Promise<ExportGroup> {
   const target = await readGroup(userId, groupId);
   if (!target) throw new Error(`groups: no batch named ${groupId}`);
-  if ((target.status ?? "open") === "exported") {
+  if (statusOf(target) === "exported") {
     throw new Error("That batch has already been sent, so nothing more can be collected into it.");
   }
+  await writePointer(userId, groupId);
+  return target;
+}
+
+/**
+ * Mark a batch sent, and remember what it produced.
+ *
+ * The pointer is cleared ONLY IF it named this batch. That is the owner's rule —
+ * exporting leaves nothing selected and the next collect starts a fresh batch —
+ * but clearing it unconditionally would yank the target out from under somebody
+ * who exported an older batch while collecting into a different one.
+ */
+export async function markExported(
+  userId: string,
+  groupId: string,
+  demoGroupId: string,
+): Promise<ExportGroup> {
+  const target = await readGroup(userId, groupId);
+  if (!target) throw new Error(`groups: no batch named ${groupId}`);
 
   const iso = new Date().toISOString();
-  for (const s of await listGroups(userId)) {
-    if (s.id === groupId || s.status !== "open") continue;
-    const prev = await readGroup(userId, s.id);
-    if (prev) {
-      await writeGroup(userId, {
-        ...prev,
-        status: "closed",
-        closedAt: iso,
-        updatedAt: iso,
-        rev: (prev.rev ?? 0) + 1,
-      });
-    }
-  }
-
-  // Written even when it is already open: the write is what lifts it to the top
-  // of the `updatedAt`-sorted index, and `membershipFrom` takes the FIRST open
-  // batch it sees. Skipping it would leave the switch silently ineffective in the
-  // one case where two are open at once.
   const next: ExportGroup = {
     ...target,
-    status: "open",
-    closedAt: undefined,
+    status: "exported",
+    demoGroupId,
+    exportedAt: iso,
     updatedAt: iso,
     rev: (target.rev ?? 0) + 1,
   };
   await writeGroup(userId, next);
+  if ((await readPointer(userId)) === groupId) await writePointer(userId, null);
   return next;
 }
 
@@ -388,7 +420,10 @@ export async function reopenGroup(userId: string, groupId: string): Promise<Expo
 export async function membership(userId: string): Promise<Membership> {
   const summaries = await listGroups(userId);
   const groups = await Promise.all(summaries.map((s) => readGroup(userId, s.id)));
-  return membershipFrom(groups.filter((g): g is ExportGroup => g !== null));
+  return membershipFrom(
+    groups.filter((g): g is ExportGroup => g !== null),
+    await currentGroupId(userId),
+  );
 }
 
 /**

@@ -511,10 +511,41 @@ async function auditGroupCard(add: Add) {
             index={1}
             stale={false}
             departed={false}
+            /* `null` — "asked, and this church has no ramp". The probe never
+               reaches the network, and a skeleton would be a block with no
+               content for the field-order sweep below to walk past. */
+            palette={null}
             onOp={() => {}}
             onRemoveChurch={() => {}}
           />
-          <ExportBar count={1} acknowledged onAcknowledge={() => {}} />
+          <div data-probe="export-unarmed">
+            <ExportBar
+              count={1}
+              acknowledged={false}
+              onAcknowledge={() => {}}
+              onExport={() => {}}
+              sent={false}
+            />
+          </div>
+          <div data-probe="export-armed">
+            <ExportBar
+              count={1}
+              acknowledged
+              onAcknowledge={() => {}}
+              onExport={() => {}}
+              sent={false}
+            />
+          </div>
+          <div data-probe="export-sent">
+            <ExportBar
+              count={1}
+              acknowledged
+              onAcknowledge={() => {}}
+              onExport={() => {}}
+              sent
+              demoGroupId="aug-2-k3f9x"
+            />
+          </div>
         </>,
       );
     });
@@ -609,20 +640,51 @@ async function auditGroupCard(add: Add) {
       `${struck.length} suppressed, ${stillThere.length} struck with a revert`,
     );
 
-    const exportBtn = host.querySelector("[data-group-export]") as HTMLButtonElement | null;
-    // The cursor is part of "inert". The base rule that gave every other button
-    // a pointer sits in `@layer base` precisely so `cursor-not-allowed` keeps
-    // beating it here — unlayered, it would have quietly made a dead button look
-    // live, which is the one thing this check exists to prevent.
-    const exportCursor = exportBtn ? getComputedStyle(exportBtn).cursor : "";
+    /**
+     * THE TICK IS THE ONLY THING THAT ARMS THE EXPORT.
+     *
+     * This check used to assert the button was permanently inert, which was the
+     * right guarantee for as long as there was no downstream — it said so in its
+     * own tooltip. There is one now: pressing it generates a demo site for every
+     * church in the batch. So the guarantee moved rather than disappeared, and it
+     * moved to the thing that still protects a real congregation from a page
+     * nobody read.
+     *
+     * Measured on the COMPUTED CURSOR as well as `disabled`, because the base rule
+     * in `leads-theme.css` gives every button a pointer and `cursor-not-allowed`
+     * has to keep beating it — an un-armed button that looks live is the exact
+     * failure the original check was written for.
+     */
+    const btnIn = (probe: string) =>
+      host.querySelector(`[data-probe="${probe}"] [data-group-export]`) as HTMLButtonElement | null;
+
+    const unarmed = btnIn("export-unarmed");
+    const armed = btnIn("export-armed");
+    const unarmedCursor = unarmed ? getComputedStyle(unarmed).cursor : "";
     add(
-      "the group export button is inert even when acknowledged",
-      !!exportBtn && exportBtn.disabled && !exportBtn.getAttribute("href") && exportCursor !== "pointer",
-      exportBtn
-        ? exportBtn.disabled
-          ? `disabled, no href, cursor: ${exportCursor}`
-          : "THE BUTTON IS LIVE"
-        : "not found",
+      "the export is armed by the acknowledgement and by nothing else",
+      !!unarmed &&
+        unarmed.disabled &&
+        unarmedCursor !== "pointer" &&
+        !!armed &&
+        !armed.disabled,
+      unarmed && armed
+        ? `unticked: disabled=${unarmed.disabled} cursor=${unarmedCursor} · ticked: disabled=${armed.disabled}`
+        : "the export bar did not render in both states",
+    );
+
+    /**
+     * A SENT BATCH OFFERS NO EXPORT CONTROL, not a disabled one. There is no
+     * condition that would re-enable it — the demos exist — so a greyed button
+     * would leave a reviewer hunting for one.
+     */
+    const sentProbe = host.querySelector('[data-probe="export-sent"]');
+    const sentBtn = btnIn("export-sent");
+    const sentLink = sentProbe?.querySelector('a[href^="/studio/g/"]');
+    add(
+      "a sent batch shows the way to its demos, not a dead export button",
+      !sentBtn && !!sentLink,
+      sentBtn ? "THE EXPORT BUTTON IS STILL THERE" : `links to ${sentLink?.getAttribute("href")}`,
     );
 
     // A new visual design is the likeliest place for a bare white plate to

@@ -291,8 +291,23 @@ const FALLBACK_ACCENT = { light: "#9e6450", dark: "#c98a6b" };
  * and `accentDeep` is derived exactly like the rest of the repo
  * (`darken(accent, 0.12)`). Returns undefined when the church has no ramp (older
  * data), so those demos keep using the default presets.
+ *
+ * EXPORTED SO THE REVIEW PAGE CAN SHOW THE ANSWER BEFORE THE DEMO EXISTS.
+ * `/leads/groups/<id>` paints each church in the colours its demo will use, and
+ * a second implementation of this — three lines of "read the accent, fall back
+ * to the logo accent" — would be right until the day one of them changed. In
+ * particular the clay fallback and the `darken(accent, 0.12)` derivation are
+ * decisions, not formatting: a preview that skipped them would show a grey
+ * swatch for a church whose demo ships a coloured CTA.
  */
-function mapTheme(church: RawChurch): ThemeOverrides | undefined {
+export function mapTheme(
+  /** The four fields it actually reads — narrowed so the review page can ask
+   *  about colour without first having to invent a whole church. */
+  church: Pick<
+    RawChurch,
+    "theme_light" | "theme_dark" | "logo_accent_light" | "logo_accent_dark"
+  >,
+): ThemeOverrides | undefined {
   const buildMode = (
     ramp: Partial<ColorSet> | undefined,
     seedAccent: string | undefined,

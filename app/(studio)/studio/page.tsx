@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Pencil, Trash2, Plus, Copy, Check, FolderUp, Layers } from "lucide-react";
+import { ExternalLink, Pencil, Trash2, Plus, Copy, Check, Layers } from "lucide-react";
 
 type Row = {
   slug: string;
@@ -75,13 +75,17 @@ export default function Home() {
         <h1 className="text-3xl font-bold tracking-tight text-fg">
           Church demos
         </h1>
+        {/* IMPORT FOLDER IS GONE, and the demos it made are not.
+
+            It read a `next_steps.json` array plus a `logos/` directory off the
+            user's disk — a hand-carried copy of the same corpus the lead console
+            already holds. Demos are generated from a REVIEWED batch now
+            (`/leads/groups/<id>` → Export group), which is the same pipeline with
+            a person in it: every church has been read and corrected before a site
+            is built from it. Keeping both would have left a second, unreviewed way
+            in. Everything below — the demos, the groups, `Download JSON` — is
+            untouched. */}
         <div className="flex items-center gap-2">
-          <Link
-            href="/studio/import"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm font-medium text-fg hover:bg-surface-raised"
-          >
-            <FolderUp className="h-4 w-4" /> Import folder
-          </Link>
           <Link
             href="/admin"
             className="inline-flex items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90"
@@ -93,8 +97,11 @@ export default function Home() {
 
       {groups.length > 0 && (
         <section className="mt-8">
+          {/* "Import groups" until there was an import. They come from a
+              reviewed lead batch now, so the word would name a thing that no
+              longer exists. */}
           <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-fg-muted">
-            Import groups
+            Demo groups
           </h2>
           <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line">
             {groups.map((g) => (

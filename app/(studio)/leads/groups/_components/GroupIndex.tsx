@@ -21,6 +21,20 @@ export function GroupIndex() {
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   /**
+   * TWO LISTS, because they are two different things.
+   *
+   * A collectable batch is work in progress: you add to it, correct it, send it.
+   * A sent one is a RECORD of something that already happened — it cannot be
+   * collected into, cannot be re-sent, and the only live thing about it is the
+   * link to the demos it produced. Mixed into one list the second kind
+   * accumulates forever and buries the first.
+   */
+  const [tab, setTab] = useState<"collecting" | "sent">("collecting");
+  const collecting = groups.filter((g) => g.status !== "exported");
+  const sent = groups.filter((g) => g.status === "exported");
+  const shown = tab === "sent" ? sent : collecting;
+
+  /**
    * REFETCH ON ARRIVAL, because the store only fetches once per tab.
    *
    * `/leads` and `/leads/groups` are sibling client routes, so moving between
@@ -63,6 +77,29 @@ export function GroupIndex() {
         into a different one, or name a fresh batch here.
       </p>
 
+      {/* The count rides on the tab, so an empty Sent tab is legible as "nothing
+          has been sent yet" rather than as a list that failed to load. */}
+      <div className="mt-6 flex items-center gap-1.5">
+        {(["collecting", "sent"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            aria-pressed={tab === t}
+            className={`inline-flex h-8 items-center gap-2 rounded-lg border px-3 font-mono text-[11px] transition-colors ${
+              tab === t
+                ? "border-lead-brand bg-lead-brand/[0.08] text-lead-brand"
+                : "border-lead-line bg-lead-panel text-lead-ink2 hover:border-lead-ink2 hover:text-lead-ink"
+            }`}
+          >
+            {t === "collecting" ? "Collecting" : "Sent"}
+            <span className="tabular-nums opacity-70">
+              {t === "collecting" ? collecting.length : sent.length}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -73,7 +110,8 @@ export function GroupIndex() {
           setBusy(false);
           setName("");
         }}
-        className="mt-6 flex gap-2"
+        className="mt-4 flex gap-2"
+        hidden={tab === "sent"}
       >
         <input
           value={name}
@@ -95,12 +133,14 @@ export function GroupIndex() {
 
       <div className="mt-8 space-y-2">
         {loading && <div className="h-16 animate-pulse rounded-xl bg-lead-panel" />}
-        {!loading && groups.length === 0 && (
+        {!loading && shown.length === 0 && (
           <p className="py-12 text-center font-serif text-[17px] italic text-lead-ink2">
-            No groups yet. Create one above, or tick churches in the console.
+            {tab === "sent"
+              ? "Nothing has been sent yet. Exporting a batch generates the demos and moves it here."
+              : "No batches yet. Name one above, or press \u2706 on a church in the console."}
           </p>
         )}
-        {groups.map((g) => (
+        {shown.map((g) => (
           <div
             key={g.id}
             className="flex items-center gap-4 rounded-xl border border-lead-line bg-lead-panel px-5 py-4"
@@ -110,14 +150,13 @@ export function GroupIndex() {
                 <span className="truncate font-serif text-[19px] font-semibold text-lead-ink">
                   {g.name}
                 </span>
-                {g.status === "open" && (
-                  <span className="shrink-0 rounded-full bg-lead-good/20 px-2 py-0.5 font-mono text-[9px] text-lead-good">
-                    collecting
-                  </span>
-                )}
-                {g.status === "exported" && (
+                {g.status === "exported" ? (
                   <span className="shrink-0 rounded-full bg-lead-dl/20 px-2 py-0.5 font-mono text-[9px] text-lead-dl">
                     sent
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-lead-good/20 px-2 py-0.5 font-mono text-[9px] text-lead-good">
+                    collecting
                   </span>
                 )}
               </div>
@@ -129,11 +168,21 @@ export function GroupIndex() {
                 })}
               </div>
             </Link>
+            {/* A sent batch's primary action is its demos, not its cards — the
+                cards are frozen and there is nothing left to review. */}
+            {g.status === "exported" && g.demoGroupId ? (
+              <Link
+                href={`/studio/g/${g.demoGroupId}`}
+                className="rounded-md border border-lead-line bg-lead-bg px-3 py-1.5 font-mono text-[11px] text-lead-ink"
+              >
+                Demos
+              </Link>
+            ) : null}
             <Link
               href={`/leads/groups/${g.id}`}
               className="rounded-md border border-lead-line bg-lead-bg px-3 py-1.5 font-mono text-[11px] text-lead-ink"
             >
-              Review
+              {g.status === "exported" ? "View" : "Review"}
             </Link>
             <button
               type="button"
@@ -163,6 +212,15 @@ export function GroupIndex() {
             correction in it will be destroyed. The frozen snapshots go with it, and
             for any church that has since left the dataset this is the only copy we
             hold. This cannot be undone.
+            <br />
+            <br />
+            {/* SAID OUT LOUD, because the opposite is the reasonable guess. The
+                demos are separate objects with their own delete in the studio, and
+                their links may already have been sent to a church. */}
+            <span className="text-lead-ink2">
+              Any demo sites this batch produced are NOT deleted. Remove those from
+              the studio if you want them gone.
+            </span>
           </>
         }
         confirmLabel="Delete batch"

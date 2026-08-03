@@ -67,7 +67,11 @@ export const config = {
     "/leads/:path*",
     "/api/leads/:path*",
     "/api/churches/:path*",
-    "/api/import/:path*",
+    // `/api/import/:path*` was here and its route is gone — the folder importer
+    // was replaced by exporting a reviewed batch. Left OUT rather than kept "just
+    // in case": a matcher entry for a route that does not exist is a claim about
+    // coverage that nothing can check, and the day somebody re-adds an
+    // `/api/import` they should have to decide whether it is gated.
     "/api/groups/:path*",
     "/api/ccb/consent-link",
     "/api/pushpay/consent-link",

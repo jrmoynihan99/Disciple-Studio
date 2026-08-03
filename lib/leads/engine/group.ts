@@ -20,6 +20,7 @@ import type {
   ExportGroup,
   GroupEntry,
   GroupOp,
+  GroupStatus,
   ResolvedCard,
   ResolvedContact,
   ResolvedPathwayStep,
@@ -586,13 +587,6 @@ export function applyOp(group: ExportGroup, op: GroupOp, at: number): ExportGrou
   switch (op.op) {
     case "group.rename":
       return { ...group, name: op.name };
-    case "group.close":
-      // Not `exported`. Nothing has been sent, and a status that says otherwise
-      // would make ◎ — the only defence against contacting a church twice — a
-      // claim anybody could set by pressing a button.
-      return group.status === "open"
-        ? { ...group, status: "closed", closedAt: new Date(at).toISOString() }
-        : group;
     case "field.set":
       return withEntry(group, op.orgId, (e) => setField(e, op.path, op.value, op.base, at));
     case "field.revert":
@@ -631,18 +625,64 @@ export function applyOps(group: ExportGroup, ops: GroupOp[], at: number): Export
  * page. There is a test asserting the shape, because the leak would be silent:
  * everything would still work, just slower every day.
  */
-export function membershipFrom(groups: readonly ExportGroup[]): Membership {
+export function membershipFrom(
+  groups: readonly ExportGroup[],
+  /**
+   * The batch ✆ collects into, from the stored pointer.
+   *
+   * IT USED TO BE DERIVED HERE — "the first batch whose status is open" — and
+   * that was only ever correct because exactly one batch could be open at a
+   * time. With `closed` gone, every un-exported batch is open, so the scan would
+   * pick whichever the index happened to list first. The pointer is the answer;
+   * this function only VALIDATES it, because a stale pointer is the failure mode
+   * that matters (a console collecting into a batch that was deleted, or one
+   * that has already been sent).
+   */
+  currentId?: string | null,
+): Membership {
   const byOrg: Record<string, MembershipRef[]> = {};
   let openGroupId: string | null = null;
 
   for (const g of groups) {
-    const status = g.status ?? "open";
-    if (status === "open" && !openGroupId) openGroupId = g.id;
+    const status = statusOf(g);
+    if (g.id === currentId && status !== "exported") openGroupId = g.id;
     const ref: MembershipRef = { id: g.id, name: g.name, status };
     for (const e of g.entries) (byOrg[e.orgId] ??= []).push(ref);
   }
 
+  /**
+   * NOTHING VALID SELECTED → the newest batch that can still take churches.
+   *
+   * Not `null`, because the common path here is not "no batches" — it is a
+   * pointer that was never written (every batch collected before this change) or
+   * one that names a batch since deleted. Falling back to nothing would show a
+   * console with three collectable batches and a tray insisting there were none.
+   *
+   * The one case that DOES resolve to `null` is every batch being exported,
+   * which is exactly right: the next ✆ starts a fresh one.
+   */
+  if (!openGroupId) {
+    const collectable = groups.filter((g) => statusOf(g) !== "exported");
+    const newest = collectable.reduce<ExportGroup | null>(
+      (best, g) => (!best || g.updatedAt > best.updatedAt ? g : best),
+      null,
+    );
+    openGroupId = newest?.id ?? null;
+  }
+
   return { openGroupId, byOrg };
+}
+
+/**
+ * The status a stored batch actually has.
+ *
+ * Absent (written before batches existed) and the retired `"closed"` both read as
+ * `open` — see `GroupStatus`. One function so the mapping cannot be spelled two
+ * ways, which is how a finished batch would end up collectable on one screen and
+ * not on another.
+ */
+export function statusOf(g: { status?: string }): GroupStatus {
+  return g.status === "exported" ? "exported" : "open";
 }
 
 /* ------------------------------------------------------------------ *
@@ -700,8 +740,6 @@ export function sanitizeOp(raw: unknown): GroupOp | null {
       const name = s(o.name, 120);
       return name && name.trim() ? { op: "group.rename", name: name.trim() } : null;
     }
-    case "group.close":
-      return { op: "group.close" };
     case "field.set": {
       const value = s(o.value), base = s(o.base);
       if (!orgId || !path || !PATH_RE.test(path) || value == null || base == null) return null;

@@ -22,6 +22,7 @@ import { ConfirmDialog } from "../../../_components/ConfirmDialog";
 import { AttributionLine } from "../Attribution";
 import { EditableText } from "../EditableText";
 import { EMPTY_TEXT, EMPTY_VALUE, SKIN } from "./skin";
+import { PalettePreview, type PaletteState } from "./Palette";
 
 /**
  * ONE CHURCH, TOP TO BOTTOM.
@@ -1034,6 +1035,18 @@ export interface ChurchCardProps {
   index: number;
   stale: boolean;
   departed: boolean;
+  /**
+   * The colours this church's demo will be built with.
+   *
+   * THREE VALUES, NOT TWO. `undefined` is "the batch's palette request has not
+   * come back"; `null` is "it came back and this church has no ramp, so the demo
+   * will use the studio default". Collapsing them would draw a skeleton forever
+   * over the churches whose answer is the interesting one.
+   *
+   * Read straight out of the parsed response, so its identity is stable and the
+   * `memo()` below still holds across twenty cards.
+   */
+  palette: PaletteState;
   onOp: (op: GroupOp) => void;
   /**
    * Removing a church is not just another op, which is why it is not sent through
@@ -1053,6 +1066,7 @@ function ChurchCardInner({
   index,
   stale,
   departed,
+  palette,
   onOp,
   onRemoveChurch,
 }: ChurchCardProps) {
@@ -1097,7 +1111,25 @@ function ChurchCardInner({
   };
 
   return (
-    <article data-church={card.orgId} className={SKIN.card}>
+    /**
+     * A CHURCH IS COLLAPSIBLE, and `open` by default.
+     *
+     * Twenty churches is a long page, and the way through it is to work down and
+     * fold away what you have finished. `<details>` for the same reasons the three
+     * fields inside it use one: it collapses with the keyboard for free, it needs
+     * no state, and — crucially — IT KEEPS ITS CHILDREN IN THE DOM. `/leads/audit`
+     * asserts every card renders all five `REVIEW_FIELDS` in order, and that
+     * assertion would quietly start passing vacuously against a card that unmounted
+     * its own contents.
+     *
+     * `open` is not negotiable as a default: the whole premise of the page is that
+     * nobody gets to skip a church by not expanding it.
+     */
+    <details
+      open
+      data-church={card.orgId}
+      className={`group/church ${SKIN.card}`}
+    >
       {/* The status rail. Untouched churches look untouched, so what you have
           already been through is visible without reading any of it again. */}
       <span
@@ -1119,7 +1151,7 @@ function ChurchCardInner({
           `Remove church` keeps the top-right corner to itself — it is the one
           irreversible action here and it should not share a cluster with the
           control you press forty times a day. */}
-      <div data-identity className={SKIN.head}>
+      <summary data-identity className={SKIN.head}>
         <span className={`${SKIN.index} pt-1`}>{String(index).padStart(2, "0")}</span>
 
         <div className="flex min-w-0 flex-1 basis-[420px] flex-col gap-3">
@@ -1213,7 +1245,17 @@ function ChurchCardInner({
         >
           ✕ Remove church
         </button>
-      </div>
+
+        {/* The chevron is the only thing that says the band is a control. It sits
+            last so it cannot be mistaken for part of `Remove church`. */}
+        <Chevron className={SKIN.cardChevron} />
+      </summary>
+
+      {/* WHAT THE CHURCH WILL ACTUALLY RECEIVE, between the identity and the
+          review. It answers a different question from the five fields below —
+          not "is this true" but "is this what we want to send" — so it is not one
+          of them and carries no `data-field`. See `Palette.tsx`. */}
+      <PalettePreview palette={palette} churchName={card.name.text} />
 
       {/* ALL FIVE FIELDS, ALWAYS, IN `REVIEW_FIELDS` ORDER. `name` and `slogan`
           render inside the band above and the other three below it, but every one
@@ -1247,7 +1289,7 @@ function ChurchCardInner({
           go?.();
         }}
       />
-    </article>
+    </details>
   );
 }
 

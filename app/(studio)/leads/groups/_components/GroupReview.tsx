@@ -6,9 +6,11 @@ import { resolve, staleEntries, departedEntries } from "@/lib/leads/engine/group
 import { useGroup } from "@/lib/leads/client/useGroups";
 import { useDataset } from "@/lib/leads/client/useDataset";
 import { ChurchCard } from "./church/parts";
+import type { PaletteState } from "./church/Palette";
 import { SKIN } from "./church/skin";
 import { EditableText } from "./EditableText";
 import { ExportBar } from "./ExportBar";
+import { ExportDialog } from "./ExportDialog";
 
 /**
  * The review page.
@@ -62,6 +64,44 @@ export function GroupReview({ id }: { id: string }) {
     reload();
   }, [id, reload]);
 
+  /**
+   * THE COLOURS EACH DEMO WILL BE BUILT WITH — one request for the whole batch.
+   *
+   * Fetched here rather than per card because twenty cards mounting twenty
+   * fetches is twenty round trips to paint decoration, racing the review this
+   * page exists for. `undefined` until it lands, so a card can draw a skeleton
+   * instead of asserting "no palette" about a church it has not asked about yet.
+   *
+   * IT DOES NOT BLOCK ANYTHING. A failed request leaves every card in the loading
+   * state, which is the honest outcome — the alternative is telling a reviewer
+   * that twenty churches will ship the default theme because one fetch failed.
+   */
+  /**
+   * THE BATCH ID RIDES ALONG WITH THE ANSWER, for the same reason it rides along
+   * with the acknowledgement above: navigating to a different batch must not show
+   * this one's colours for a frame, and the way to guarantee that without an
+   * effect that resets state — the cascading-render mistake the lint rule
+   * catches — is to make the stale value unreadable rather than to clear it.
+   */
+  const [palettes, setPalettes] = useState<{
+    id: string;
+    byOrg: Record<string, PaletteState>;
+  } | null>(null);
+  const paletteFor = palettes?.id === id ? palettes.byOrg : undefined;
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/leads/groups/${id}/palette`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { palettes?: Record<string, PaletteState> } | null) => {
+        if (alive && data?.palettes) setPalettes({ id, byOrg: data.palettes });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
   const recByOrg = useMemo(() => new Map(rows.map((r) => [r.id, r.rec ?? ""])), [rows]);
 
   const stale = useMemo(
@@ -83,6 +123,22 @@ export function GroupReview({ id }: { id: string }) {
   // `memo()` on ChurchCard a no-op — which is exactly the kind of thing that
   // looks like it works and quietly costs nineteen re-renders per keystroke.
   const onOp = apply;
+
+  const [exporting, setExporting] = useState(false);
+
+  /**
+   * The churches the export will build, taken from the RESOLVED cards rather than
+   * from `group.entries`.
+   *
+   * Same list the page is rendering, in the same order — so "Build 20 demos"
+   * cannot name a different twenty than the twenty someone just read. The names
+   * are only for the progress list; the server resolves each card again from the
+   * stored entry, because a client-supplied name is not evidence of anything.
+   */
+  const exportTargets = useMemo(
+    () => cards.map((c) => ({ orgId: c.orgId, name: c.name.text || c.orgId })),
+    [cards],
+  );
 
   /**
    * Removing a church is the one op that redraws the whole page, so it lands on
@@ -158,9 +214,14 @@ export function GroupReview({ id }: { id: string }) {
               restingClassName={SKIN.editResting}
             />
           </h1>
-          {status === "open" && <span className={SKIN.pillOpen}>collecting</span>}
-          {status === "closed" && <span className={SKIN.pillClosed}>finished</span>}
-          {status === "exported" && <span className={SKIN.pillSent}>sent</span>}
+          {/* TWO STATES. The middle one — "finished" — is gone along with the
+              button that set it: it made a batch look done without anything
+              having been done to it. See `GroupStatus`. */}
+          {status === "exported" ? (
+            <span className={SKIN.pillSent}>sent</span>
+          ) : (
+            <span className={SKIN.pillOpen}>collecting</span>
+          )}
         </div>
         <p className={SKIN.meta}>
           {group.entries.length} church{group.entries.length === 1 ? "" : "es"}
@@ -173,17 +234,16 @@ export function GroupReview({ id }: { id: string }) {
               it is one fact stated twice. */}
           {departed.size > 0 &&
             ` · ${departed.size} no longer in the dataset (kept — this is the only copy)`}
-          {status === "open" && (
+          {/* WHERE `finish collecting` USED TO BE. Exporting is what finishes a
+              batch now; there is no separate way to declare one over, because
+              there was never anything a person could point at afterwards to say
+              what finishing had accomplished. */}
+          {group.demoGroupId && (
             <>
               {" · "}
-              <button
-                type="button"
-                onClick={() => onOp({ op: "group.close" })}
-                title="Stop collecting into this batch. Nothing is sent."
-                className={SKIN.metaLink}
-              >
-                finish collecting
-              </button>
+              <Link href={`/studio/g/${group.demoGroupId}`} className={SKIN.metaLink}>
+                open the demos this produced →
+              </Link>
             </>
           )}
         </p>
@@ -216,6 +276,7 @@ export function GroupReview({ id }: { id: string }) {
             index={i + 1}
             stale={stale.has(card.orgId)}
             departed={departed.has(card.orgId)}
+            palette={paletteFor?.[card.orgId]}
             onOp={onOp}
             onRemoveChurch={onRemoveChurch}
           />
@@ -226,7 +287,40 @@ export function GroupReview({ id }: { id: string }) {
         count={group.entries.length}
         acknowledged={acknowledged}
         onAcknowledge={(on) => setAck({ id, on })}
+        onExport={() => setExporting(true)}
+        sent={status === "exported"}
+        demoGroupId={group.demoGroupId}
         skin={SKIN.exportBar}
+      />
+
+      <ExportDialog
+        open={exporting}
+        batchId={id}
+        batchName={group.name}
+        churches={exportTargets}
+        onClose={() => setExporting(false)}
+        onExported={(demoGroupId) => {
+          /**
+           * STRAIGHT TO THE DEMOS.
+           *
+           * This used to reload the review page and grow a link, on the reasoning
+           * that everything on the page changes at once when a batch is sent and
+           * re-reading it from the server was one source of truth for that. All of
+           * that is still so — but it answered a question nobody was asking. The
+           * batch is finished; the thing that was just made is somewhere else, and
+           * leaving somebody on the page they have finished with, next to a link
+           * they now have to notice, is a step the software can take for them.
+           *
+           * The reviewed batch is not lost: it is under Sent in `/leads/groups`,
+           * and it carries this same id back the other way.
+           *
+           * A FULL NAVIGATION, not `router.push`. `/studio` is outside this route
+           * group and holds none of the leads stores, and the console's rule since
+           * the batch switcher landed is that arriving anywhere re-reads what it
+           * shows rather than painting a cached copy.
+           */
+          window.location.href = `/studio/g/${demoGroupId}`;
+        }}
       />
     </div>
   );

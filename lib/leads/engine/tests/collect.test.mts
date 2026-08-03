@@ -17,7 +17,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { demoteCollected } from "../filter.ts";
-import { applyOp, membershipFrom, nextBatchName, sanitizeOp } from "../group.ts";
+import { membershipFrom, nextBatchName, statusOf } from "../group.ts";
 import {
   EMPTY_MEMBERSHIP,
   collectingCount,
@@ -174,43 +174,62 @@ describe("already-collected churches sink", () => {
   });
 });
 
-describe("finishing a batch", () => {
-  const open = group("aug-2", "Aug 2", "open", ["a"]);
+describe("which batch is being collected into", () => {
+  /**
+   * THE POINTER IS THE ANSWER; THIS ONLY VALIDATES IT.
+   *
+   * These tests replace a suite about `group.close`, which is gone. That op
+   * existed so exactly one batch could be `open`, because the collect target was
+   * derived by scanning for it. With the target stored explicitly, "finished"
+   * stopped being a state a batch could be in — a batch is collectable, or it has
+   * been sent.
+   */
+  const aug1 = group("aug-1", "Aug 1", "open", ["a"]);
+  const aug2 = group("aug-2", "Aug 2", "open", ["b"]);
+
+  test("the stored pointer wins, not document order", () => {
+    assert.equal(membershipFrom([aug1, aug2], "aug-1").openGroupId, "aug-1");
+    assert.equal(membershipFrom([aug1, aug2], "aug-2").openGroupId, "aug-2");
+  });
 
   /**
-   * `closed`, not `exported`. Nothing was sent, and ◎ — the only defence against
-   * contacting a church twice — must never be a claim anyone can set by pressing
-   * a button. This is the same rule that killed the old stub export.
+   * The pointer names a batch that has been deleted since it was written — or was
+   * never written at all, which is true of every batch collected before it
+   * existed. Falling back is what makes this change need no migration.
    */
-  test("closing says you stopped collecting, never that you sent it", () => {
-    const out = applyOp(open, { op: "group.close" }, 1_700_000_000_000);
-    assert.equal(out.status, "closed");
-    assert.ok(out.closedAt, "a finished batch records when");
-    assert.notEqual(out.status, "exported");
+  test("a pointer naming nothing falls back to the newest collectable batch", () => {
+    const newest = { ...aug2, updatedAt: "2026-08-02T10:00:00.000Z" };
+    const older = { ...aug1, updatedAt: "2026-08-01T10:00:00.000Z" };
+    assert.equal(membershipFrom([older, newest], "deleted-batch").openGroupId, "aug-2");
+    assert.equal(membershipFrom([older, newest], null).openGroupId, "aug-2");
   });
 
-  test("closing twice changes nothing, and a sent batch is not reopened", () => {
-    const once = applyOp(open, { op: "group.close" }, 1000);
-    assert.deepEqual(applyOp(once, { op: "group.close" }, 2000), once);
-
-    const sent = group("aug-1", "Aug 1", "exported", []);
-    assert.equal(applyOp(sent, { op: "group.close" }, 3000).status, "exported");
-  });
-
-  test("a closed batch is no longer the collect target", () => {
-    const closed = applyOp(open, { op: "group.close" }, 1000);
-    assert.equal(membershipFrom([closed]).openGroupId, null);
-    assert.equal(isCollecting(membershipFrom([closed]), "a"), false);
+  /**
+   * The owner's rule, and it costs no code: an exported batch can never be the
+   * answer, so exporting the one you were on leaves nothing selected and the next
+   * collect starts a fresh batch.
+   */
+  test("an exported batch is never the target, even when pointed at", () => {
+    const sent = group("aug-1", "Aug 1", "exported", ["a"]);
+    assert.equal(membershipFrom([sent], "aug-1").openGroupId, null);
+    assert.equal(isCollecting(membershipFrom([sent], "aug-1"), "a"), false);
     assert.deepEqual(
-      earlierBatches(membershipFrom([closed]), "a").map((g) => g.status),
-      ["closed"],
-      "yesterday's work becomes history the moment you finish it",
+      earlierBatches(membershipFrom([sent], "aug-1"), "a").map((g) => g.status),
+      ["exported"],
+      "a sent batch is history the moment it goes out",
     );
   });
 
-  test("`group.close` survives the wire", () => {
-    assert.deepEqual(sanitizeOp({ op: "group.close" }), { op: "group.close" });
-    assert.equal(sanitizeOp({ op: "group.open" }), null);
+  test("every batch exported means nothing is being collected", () => {
+    const all = membershipFrom([group("aug-1", "Aug 1", "exported", ["a"])], null);
+    assert.equal(all.openGroupId, null);
+  });
+
+  /** The retired third state still reads off disk, as `open`. */
+  test("a batch stored as `closed` is collectable again", () => {
+    const legacy = { ...aug1, status: "closed" as never };
+    assert.equal(statusOf(legacy), "open");
+    assert.equal(membershipFrom([legacy], "aug-1").openGroupId, "aug-1");
   });
 });
 
@@ -270,9 +289,9 @@ describe("the collecting counter, across a republish", () => {
   });
 
   test("no open batch means nothing is being collected", () => {
-    const closed = membershipFrom([group("aug-1", "Aug 1", "closed", ["a", "b"])]);
-    assert.equal(closed.openGroupId, null);
-    assert.equal(collectingCount(closed, present), 0);
+    const sent = membershipFrom([group("aug-1", "Aug 1", "exported", ["a", "b"])], null);
+    assert.equal(sent.openGroupId, null);
+    assert.equal(collectingCount(sent, present), 0);
     assert.equal(collectingCount(EMPTY_MEMBERSHIP, present), 0);
   });
 

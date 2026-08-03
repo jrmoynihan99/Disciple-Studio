@@ -1,5 +1,5 @@
 import { getUserId } from "@/lib/leads/server/userId";
-import { reopenGroup, summarize } from "@/lib/leads/server/groups";
+import { setCurrentGroup, summarize } from "@/lib/leads/server/groups";
 import { isSafeGroupId } from "@/lib/leads/engine/group-types";
 
 /**
@@ -9,7 +9,7 @@ import { isSafeGroupId } from "@/lib/leads/engine/group-types";
  * "where do churches go?" and makes a batch if there is no answer yet; this one
  * changes the answer to a batch that already exists.
  *
- * The refusal case — an already-sent batch — is enforced in `reopenGroup` rather
+ * The refusal case — an already-sent batch — is enforced in `setCurrentGroup` rather
  * than here, because it is a fact about the batch and not about the request.
  */
 
@@ -27,7 +27,7 @@ export async function POST(_req: Request, ctx: Ctx) {
   if (!isSafeGroupId(id)) return Response.json({ error: "Not a group id" }, { status: 404 });
 
   try {
-    return Response.json(summarize(await reopenGroup(userId, id)));
+    return Response.json(summarize(await setCurrentGroup(userId, id)));
   } catch (e) {
     const message = e instanceof Error ? e.message : "Could not switch batch";
     // A batch that is gone is a 404; one that has been sent is a refusal, and the

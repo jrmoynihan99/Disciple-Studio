@@ -19,11 +19,41 @@ export default function GroupPage() {
   const [busy, setBusy] = useState<string | null>(null); // slug being deleted
   const [deletingGroup, setDeletingGroup] = useState(false);
 
+  /**
+   * A MISS IS RETRIED BEFORE IT BECOMES "Group not found."
+   *
+   * Vercel Blob is eventually consistent, and this page is now the place an
+   * export LANDS: `/leads/groups/<batch>` sends the browser straight here the
+   * moment the group blob is written. A single read at that moment can come back
+   * empty for a few seconds, and "Group not found" is the one answer that must
+   * not be a guess — somebody has just watched twenty demos being built.
+   *
+   * Same window and the same reasoning as `/c/<slug>`, which has compensated for
+   * this since the folder importer existed. It costs nothing on a hit: a group
+   * that is already settled reads on the first attempt and never sleeps.
+   */
   useEffect(() => {
-    fetch(`/api/groups/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setGroup)
-      .catch(() => setGroup(null));
+    let alive = true;
+    (async () => {
+      for (let i = 0; i < 8; i++) {
+        try {
+          const res = await fetch(`/api/groups/${id}`);
+          if (!alive) return;
+          if (res.ok) {
+            setGroup(await res.json());
+            return;
+          }
+        } catch {
+          /* offline or aborted — treated as a miss and retried */
+        }
+        await new Promise((r) => setTimeout(r, 700));
+        if (!alive) return;
+      }
+      setGroup(null);
+    })();
+    return () => {
+      alive = false;
+    };
   }, [id]);
 
   async function delDemo(slug: string, name: string) {
