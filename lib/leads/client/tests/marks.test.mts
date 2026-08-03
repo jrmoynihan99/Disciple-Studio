@@ -19,14 +19,11 @@ import assert from "node:assert/strict";
 import {
   countMarked,
   emptyState,
-  exportedAt,
-  EXPORT_LOG_ERA,
   hydrate,
   legacyGoodLeadIds,
   persistable,
   reduce,
   rowTint,
-  withoutStaleExportLog,
   type LeadState,
 } from "../state.ts";
 
@@ -64,22 +61,22 @@ describe("row tint precedence", () => {
   });
 
   /**
-   * THE TINT COMES FROM THE BATCHES, NOT FROM THE LOG.
+   * THE TINT COMES FROM THE BATCHES, AND FROM NOTHING IN THIS FILE.
    *
-   * ◎ used to be read off `lastExportedAt`, which this reducer appends to and
-   * never removes from — so a row kept its wash after the batch that produced it
-   * had been deleted, and there was no gesture anywhere that could take it off.
-   * Deleting a sent batch is explicitly allowed and explicitly means something,
-   * so the mark has to be able to go away with it.
+   * ◎ used to be read off an append-only log here which nothing ever removed
+   * from, so a row kept its wash after the batch that produced it had been
+   * deleted and no gesture anywhere could take it off. Deleting a sent batch is
+   * explicitly allowed and explicitly means something, so the mark has to be able
+   * to go with it. The state layer now has no opinion at all: whatever a profile
+   * holds, only the caller's `sent` decides.
    */
-  test("the export log alone no longer tints a row", () => {
-    const logged = reduce(fresh(), { type: "export.commit", ids: ["a"], at: 500 }, 500);
-    assert.equal(exportedAt(logged, "a"), 500, "the timestamp is still recorded");
-    assert.equal(
-      rowTint(logged, "a", none),
-      null,
-      "…but with no sent batch behind it, nothing on the row claims it was sent",
-    );
+  test("no profile can tint a row exported on its own", () => {
+    let s = fresh();
+    s = mark(s, "star", "a");
+    s = mark(s, "issue", "b");
+    assert.equal(rowTint(s, "a", none), "star");
+    assert.equal(rowTint(s, "b", none), "issue");
+    assert.equal(rowTint(s, "c", none), null);
   });
 
   /**
@@ -103,15 +100,18 @@ describe("two marks, not three", () => {
     assert.deepEqual(Object.keys(fresh().team).sort(), ["issue", "star"]);
   });
 
-  test("counting a mark does not depend on the export log any more", () => {
+  /**
+   * Stars are not a queue. Exporting used to remove churches from the good-lead
+   * count, and nothing about sending a church may move a mark somebody set —
+   * which is now true by construction, since no mutation this reducer accepts has
+   * anything to do with exporting.
+   */
+  test("no mutation here has anything to do with sending", () => {
     let s = fresh();
     s = mark(s, "star", "a");
     s = mark(s, "star", "b");
     assert.equal(countMarked(s, "star"), 2);
-    // Exporting used to remove churches from the good-lead count. Stars are not
-    // a queue and must not move when something is sent.
-    s = reduce(s, { type: "export.commit", ids: ["a"], at: 2000 }, 2000);
-    assert.equal(countMarked(s, "star"), 2);
+    assert.equal(countMarked(s, "issue"), 0);
   });
 
   test("toggling a mark off removes it, so a re-mark is a fresh timestamp", () => {
@@ -129,7 +129,6 @@ describe("the retired ✆ mark", () => {
       issue: {},
       goodlead: { old_b: 20, old_a: 10, old_c: 30 },
     },
-    lastExportedAt: {},
     notes: {},
     config: {},
   };
@@ -161,185 +160,87 @@ describe("the retired ✆ mark", () => {
 });
 
 /**
- * The ◎ marks left behind by the stub export.
+ * THE EXPORT LOG IS RETIRED, AND MUST NOT COME BACK.
  *
- * `↓ Export good leads` dispatched `export.commit` and produced no file, so
- * every church it touched still claims to have been sent. ◎ is the only defence
- * against writing to a church twice, and a defence built on a false record is
- * worse than none — it will quietly hold back a lead nobody ever contacted.
+ * `lastExportedAt` was a per-device append-only map of who had been sent a demo,
+ * with an `exportLogEra` marker to tell real entries from ones a stub button had
+ * written. It is gone: it could record that a church was written to and could not
+ * record that the batch which wrote to it was later deleted, so the Sent counter,
+ * the "Extracted only" filter and the ◎ badge all reported from a source their owner
+ * could not correct. `wasSent(membership, orgId)` answers it now, from the
+ * batches that still exist — see `collect.test.mts`.
  *
- * "STALE BY CONSTRUCTION" WAS TRUE AND IS NOT ANY MORE. It held only while
- * nothing could write the log; `ExportDialog` now dispatches `export.commit`
- * after the demos exist. So this whole block is about a blob carrying NO ERA
- * MARKER — the stub's shape — and the era-marked case is asserted below it.
- * Every fixture here deliberately omits `exportLogEra`.
+ * WHAT IS PINNED HERE IS THE RETIREMENT ITSELF. Profiles carrying both keys are
+ * on real disks, and the failure mode of a half-removal is that they ride back in
+ * on `hydrate`'s spread and get written out again forever. That is the same bug
+ * the retired ✆ mark had, in the same file, which is why it is worth a test
+ * rather than a comment.
  */
-describe("the stub export's ◎ marks", () => {
-  const sent = {
+describe("the retired export log", () => {
+  const old = {
     userId: "u_1",
     mine: { star: { keep_me: 5 }, issue: { flagged: 7 } },
     lastExportedAt: { trbc_org: 1712000000000, hills_org: 1712000000001 },
+    exportLogEra: 1,
     notes: { trbc_org: "called them, no answer" },
     config: { colors: {}, favor: null },
   };
 
-  test("they do not survive a load", () => {
-    const loaded = hydrate(sent, "u_0000000000000000");
-    assert.deepEqual(loaded.lastExportedAt, {});
-    assert.equal(exportedAt(loaded, "trbc_org"), 0);
+  /**
+   * A retired key still rides in on `hydrate`'s spread, exactly like any other
+   * key nobody named — that is this loader's documented shape and not worth a
+   * special case. What matters is that nothing reads it (the type has no such
+   * field, so `tsc` is the check) and that it never reaches the disk again, which
+   * is the next test.
+   */
+  test("a profile carrying it still loads", () => {
+    const loaded = hydrate(old, "u_0000000000000000");
+    assert.equal(loaded.userId, "u_0000000000000000");
+    assert.deepEqual(Object.keys(loaded.mine).sort(), ["issue", "star"]);
   });
 
   /**
-   * The read alone would not have fixed it. `persistable()` writes the whole
-   * object on the next keystroke, which is precisely how entries written weeks
-   * ago outlived every subsequent change.
+   * The read alone never fixed anything here — `persistable()` writes the whole
+   * object on the next keystroke, which is exactly how entries written weeks ago
+   * outlived every subsequent change. Not naming the key IS the removal.
    */
-  test("they are not written back out", () => {
-    const out = persistable(hydrate(sent, "u_1"));
-    assert.deepEqual(out.lastExportedAt, {});
-    assert.ok(!JSON.stringify(out).includes("1712000000000"));
+  test("it is not written back out, so it dies on the next save", () => {
+    const out = JSON.stringify(persistable(hydrate(old, "u_1")));
+    assert.ok(!out.includes("lastExportedAt"));
+    assert.ok(!out.includes("exportLogEra"));
+    assert.ok(!out.includes("1712000000000"));
   });
 
-  test("no row can tint itself exported off a stale profile", () => {
-    const loaded = hydrate(sent, "u_1");
-    assert.equal(
-      rowTint(loaded, "trbc_org", { collecting: false, earlier: false, sent: false }),
-      null,
-    );
-  });
-
-  /** Surgical, not `reset()`. Stars, issues, notes and the favor model are real. */
+  /** Surgical, not a wipe. Stars, issues, notes and the favor model are real. */
   test("everything else in the profile survives", () => {
-    const loaded = hydrate(sent, "u_1");
+    const loaded = hydrate(old, "u_1");
     assert.equal(loaded.mine.star.keep_me, 5);
     assert.equal(loaded.mine.issue.flagged, 7);
     assert.equal(loaded.notes.trbc_org, "called them, no answer");
   });
 
   /**
-   * The log's SHAPE stays — `export.commit` is what a real export will dispatch,
-   * and ◎ has to keep working the moment one does. What was purged is the
-   * false data, not the mechanism.
+   * THE ONE THAT WOULD HAVE BITTEN. Removing the log by rewriting storage —
+   * `persistable(hydrate(raw))` — is one line, and it would take the retired ✆
+   * marks with it, answering the console's "move these into a batch?" offer with
+   * "discard" before anybody saw the question. That offer reads RAW storage, so
+   * nothing may rewrite it on load. Retiring the field through `persistable`
+   * alone is what keeps both true.
    */
-  test("a real export would still mark a church", () => {
-    const loaded = hydrate(sent, "u_1");
-    const after = reduce(loaded, { type: "export.commit", ids: ["trbc_org"], at: 99 }, 99);
-    assert.equal(exportedAt(after, "trbc_org"), 99);
-  });
-
-  /**
-   * Dropping them on read is not the same as clearing them. Without this, the
-   * bytes sit on the disk until the user happens to change something else, and
-   * "cleared" would mean "invisible".
-   */
-  test("they are taken off the disk, not just out of memory", () => {
-    const cleaned = withoutStaleExportLog(sent)!;
-    assert.ok(cleaned, "a profile carrying them must be rewritten");
-    assert.ok(!("lastExportedAt" in cleaned));
-    assert.deepEqual(cleaned.notes, sent.notes, "the rest of the blob is untouched");
-    assert.deepEqual(cleaned.mine, sent.mine);
-    // It copies. Mutating the caller's object would leave `hydrate` — which runs
-    // on the same parsed blob right after — reading a shape nobody wrote.
-    assert.ok("lastExportedAt" in sent, "the input was mutated");
-  });
-
-  test("a profile with nothing to clear is not rewritten at all", () => {
-    assert.equal(withoutStaleExportLog({ mine: {}, lastExportedAt: {} }), null);
-    assert.equal(withoutStaleExportLog({ mine: {} }), null);
-    assert.equal(withoutStaleExportLog(null), null);
-    assert.equal(withoutStaleExportLog("nonsense"), null);
-  });
-
-  /**
-   * THE ONE THAT WOULD HAVE BITTEN. `persistable(hydrate(raw))` would clear the
-   * export log in one line — and take the retired ✆ marks with it, answering the
-   * console's "move these into a batch?" offer with "discard" before anyone saw
-   * the question. The offer reads raw storage.
-   */
-  test("clearing the export log leaves the retired ✆ marks for the migration bar", () => {
+  test("retiring it does not disturb the retired ✆ marks on disk", () => {
     const withLegacy = {
-      ...sent,
+      ...old,
       mine: { star: {}, issue: {}, goodlead: { old_a: 10, old_b: 20 } },
     };
-    const cleaned = withoutStaleExportLog(withLegacy)!;
-    assert.deepEqual(legacyGoodLeadIds(cleaned), ["old_b", "old_a"]);
-    assert.ok(!("lastExportedAt" in cleaned));
+    assert.deepEqual(legacyGoodLeadIds(withLegacy), ["old_b", "old_a"]);
+    // …and the console's own read of the raw blob is unchanged by loading it.
+    hydrate(withLegacy, "u_1");
+    assert.deepEqual(legacyGoodLeadIds(withLegacy), ["old_b", "old_a"]);
   });
 
   test("a profile that never had the key is untouched", () => {
-    assert.deepEqual(hydrate({ mine: { star: {}, issue: {} } }, "u_1").lastExportedAt, {});
     assert.deepEqual(hydrate(null, "u_1"), emptyState("u_1"));
     assert.deepEqual(hydrate("nonsense", "u_1"), emptyState("u_1"));
-  });
-});
-
-/**
- * A REAL EXPORT LOG HAS TO SURVIVE A PAGE LOAD.
- *
- * It did not, and the way it failed is worth pinning: `hydrate` hard-coded
- * `lastExportedAt: {}` and `withoutStaleExportLog` deleted the key from storage,
- * both correct while the only writer was a stub button that produced no file.
- * The export finishes with `window.location.href = /studio/g/<id>`, a full
- * navigation, so the console is ALWAYS re-entered as a fresh document — every
- * Sent mark was erased before anything could read it once. Three shipped claims
- * were structurally false: the rail's Sent counter, the "Sent only" filter, and
- * the badge `LeadRow` calls the only defence against contacting a church twice.
- *
- * The distinguishing fact is `exportLogEra`, because the two kinds of entry are
- * identical by inspection — same shape, same plausible timestamps.
- */
-describe("the export log, once something real writes it", () => {
-  const real = {
-    userId: "u_1",
-    mine: { star: {}, issue: {} },
-    lastExportedAt: { trbc_org: 1712000000000 },
-    exportLogEra: EXPORT_LOG_ERA,
-    notes: {},
-    config: { colors: {}, favor: null },
-  };
-
-  test("an era-marked log survives the load", () => {
-    const loaded = hydrate(real, "u_1");
-    assert.deepEqual(loaded.lastExportedAt, { trbc_org: 1712000000000 });
-    assert.equal(exportedAt(loaded, "trbc_org"), 1712000000000);
-  });
-
-  test("and is written back out, so it survives the NEXT load too", () => {
-    const out = persistable(hydrate(real, "u_1"));
-    assert.deepEqual(out.lastExportedAt, { trbc_org: 1712000000000 });
-    assert.equal(out.exportLogEra, EXPORT_LOG_ERA);
-  });
-
-  /** The migration must not fire against a log it did not write. */
-  test("the disk cleanup leaves an era-marked log alone", () => {
-    assert.equal(withoutStaleExportLog(real), null);
-  });
-
-  /**
-   * The whole point of the era marker: two blobs identical but for it, one
-   * carried and one discarded.
-   */
-  test("the same bytes without the marker are still discarded", () => {
-    const unmarked = { ...real };
-    delete (unmarked as Partial<typeof real>).exportLogEra;
-    assert.deepEqual(hydrate(unmarked, "u_1").lastExportedAt, {});
-    assert.ok(withoutStaleExportLog(unmarked), "and taken off the disk");
-  });
-
-  /** It stamps the current era even on a blob that had none, so the one-time
-   *  purge is one-time: the next load reads a marked blob. */
-  test("hydrate stamps the era, so the purge does not repeat forever", () => {
-    const out = persistable(hydrate({ mine: { star: {}, issue: {} } }, "u_1"));
-    assert.equal(out.exportLogEra, EXPORT_LOG_ERA);
-    assert.equal(withoutStaleExportLog(out), null);
-  });
-
-  /** A round trip through a real export: commit, persist, reload, still sent. */
-  test("commit → persist → reload keeps the mark", () => {
-    const after = reduce(fresh(), { type: "export.commit", ids: ["a_org", "b_org"] , at: 99 }, 0);
-    const reloaded = hydrate(persistable(after), "u_1");
-    assert.equal(exportedAt(reloaded, "a_org"), 99);
-    assert.equal(exportedAt(reloaded, "b_org"), 99);
-    assert.equal(reloaded.lastExportedAt.a_org, 99);
+    assert.deepEqual(hydrate({ mine: { star: {}, issue: {} } }, "u_1"), emptyState("u_1"));
   });
 });

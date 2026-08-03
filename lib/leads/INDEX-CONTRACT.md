@@ -248,7 +248,7 @@ q6 convenient         index → unk    record → bad    ×  7
 `q6.op`. In the fixture `opportunity` is a pure function of the answer, 134/134:
 `external_handoff → true`, `convenient → false`, `unknown → absent`.
 
-*Note: `docs/06-DATA-CONTRACT.md` already shows `"q6": {"a":"external_handoff","cell":"good"}`
+*Note: the package's `dev-only/docs/06-DATA-CONTRACT.md` already shows `"q6": {"a":"external_handoff","cell":"good"}`
 as though this were being emitted. It is not, in the shipped fixture.*
 
 The console currently reconstructs this itself and will keep honouring a

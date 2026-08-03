@@ -14,9 +14,11 @@ import type { GroupEntry } from "@/lib/leads/engine/group-types";
  * the `_synthetic` refusal belongs somewhere the caller cannot skip; and a
  * snapshot the client never touches is one it cannot rewrite.
  *
- * Nothing here writes `lastExportedAt`. Adding a church to a group is not
- * exporting it, and the ◎ mark is only evidence for as long as nothing but a
- * real export can set it.
+ * NOTHING HERE MARKS A CHURCH AS SENT. Adding one to a batch is not exporting
+ * it, and ◎ is only evidence for as long as nothing but a real export can set
+ * it. That is now structural rather than a rule to remember: the mark is
+ * `wasSent()`, folded from a batch's `status`, and the only thing that writes
+ * that status is `export/finish` — after the demos exist.
  */
 
 export const dynamic = "force-dynamic";

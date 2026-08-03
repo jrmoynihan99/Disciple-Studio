@@ -39,7 +39,7 @@ import type {
  * demo generation; until then, keeping them apart is what stops one from being
  * read as the other.
  *
- * THE RULE THIS FILE IMPLEMENTS (`docs/05-SHARED-STATE.md`): every mutable object
+ * THE RULE THIS FILE IMPLEMENTS (the package's `dev-only/docs/05-SHARED-STATE.md`): every mutable object
  * has exactly one logical writer, chosen by putting the writer's identity in the
  * KEY. `userId` here always comes from `requireUserId()`, never from a request
  * body, or the invariant is decoration.

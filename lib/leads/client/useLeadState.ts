@@ -27,7 +27,6 @@ import {
   hydrate,
   persistable,
   reduce,
-  withoutStaleExportLog,
   type LeadState,
   type Mutation,
 } from "./state";
@@ -151,11 +150,12 @@ class LocalLeadStore {
     const userId = localUserId();
     try {
       const raw = localStorage.getItem(KEY);
-      const saved = raw ? JSON.parse(raw) : null;
-      // Take the stub export's leftovers off the disk, not just out of memory.
-      const cleaned = withoutStaleExportLog(saved);
-      if (cleaned) localStorage.setItem(KEY, JSON.stringify(cleaned));
-      return hydrate(saved, userId);
+      // NO MIGRATION PASS. There was one here, rewriting storage to drop a
+      // retired export log. `persistable` no longer names that field, so the next
+      // ordinary save drops it — and a pass over raw storage is the thing that
+      // nearly took `mine.goodlead` with it, which the console is still offering
+      // to move into a batch.
+      return hydrate(raw ? JSON.parse(raw) : null, userId);
     } catch {
       return emptyState(userId);
     }

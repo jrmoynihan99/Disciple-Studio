@@ -17,7 +17,7 @@ const MARK_FILTERS: [MarkFilter, string][] = [
   ["star", "Starred only"],
   ["collected", "Collected only"],
   ["issue", "Has Issue only"],
-  ["exported", "Sent only"],
+  ["exported", "Extracted only"],
 ];
 
 /**

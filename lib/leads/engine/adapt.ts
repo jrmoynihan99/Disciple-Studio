@@ -27,7 +27,7 @@
  *   q4            names its own `cell` — present on 134/134 records AND rows
  *   q6            reaches `opportunity`, which the index does not carry  ← the gap
  *
- * `docs/06-DATA-CONTRACT.md` shows `"q6": {"a":"external_handoff","cell":"good"}`
+ * The package's `dev-only/docs/06-DATA-CONTRACT.md` shows `"q6": {"a":"external_handoff","cell":"good"}`
  * as though the index already carried it. It does not, in the shipped fixture.
  */
 

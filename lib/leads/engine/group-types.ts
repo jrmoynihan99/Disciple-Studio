@@ -622,7 +622,7 @@ export function earlierBatches(m: Membership, orgId: string): MembershipRef[] {
  *
  * This used to be answered by `lastExportedAt`, an append-only log in the
  * browser's own storage that the export wrote to and nothing ever removed from.
- * That made the Sent counter, the "Sent only" filter and the ◎ badge unfalsifiable:
+ * That made the Sent counter, the "Extracted only" filter and the ◎ badge unfalsifiable:
  * delete every sent batch and the console still reported forty churches sent,
  * because the only evidence it consulted was a log with no way to say "that
  * never happened" or "that record is gone".

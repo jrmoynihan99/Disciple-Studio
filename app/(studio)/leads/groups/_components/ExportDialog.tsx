@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { GENERIC_DEMO_URL } from "@/lib/config";
-import { useLeadState } from "@/lib/leads/client/useLeadState";
 import type { GroupRow } from "@/lib/groups";
 
 /**
@@ -89,15 +88,6 @@ export function ExportDialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(batchName);
-  /**
-   * The console's mark store, for the ONE mark a person may not set by hand.
-   *
-   * `◎ Sent` is folded from the export log, and until now nothing wrote to it —
-   * `export.commit` had a reducer case and no dispatcher, so the counter read 0
-   * for ever and the rail drew its filter as `· dormant`. That was honest while
-   * there was no export. There is one now, and this is it.
-   */
-  const { mutate } = useLeadState();
   /**
    * `leaving` is the beat between the last write and the new page.
    *
@@ -306,19 +296,19 @@ export function ExportDialog({
         return;
       }
       /**
-       * ◎ IS WRITTEN FROM THE RESULT, NOT FROM THE INTENT.
+       * ◎ IS NOT WRITTEN HERE, AND THAT IS THE POINT OF `finish`.
        *
-       * The churches marked are the ones a demo was actually BUILT for — the keys
-       * of `built`, not `churches` — so a batch where two were skipped marks
-       * eighteen. That is the whole value of this mark: it answers "have we
-       * already sent this church something", and it may only ever be as true as
-       * what happened.
+       * This used to dispatch `export.commit` into the console's own store,
+       * appending to a per-device log that recorded who had been written to and
+       * had no way to record that the record was later deleted. The call above is
+       * the whole mechanism now: it marks the BATCH sent, and `wasSent` folds ◎,
+       * the Sent counter and the "Extracted only" filter out of the batches that still
+       * exist. One fact, one place, and it can be corrected by deleting a batch —
+       * which the product allows and the log could not represent.
        *
-       * After `finish`, deliberately. Before it, a bookkeeping failure would leave
-       * churches marked sent inside a batch that is still collectable.
+       * `built` is still the honest set: a batch where two churches were skipped
+       * sends eighteen. That distinction lives on the batch's own export record.
        */
-      mutate({ type: "export.commit", ids: [...built.current.keys()], at: Date.now() });
-
       setPhase("leaving");
       onExported(group.id);
     } catch (e) {

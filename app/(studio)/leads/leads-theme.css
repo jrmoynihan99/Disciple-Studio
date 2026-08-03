@@ -191,7 +191,7 @@
 
    `@layer base` FOR THE SAME REASON AS THE RULE ABOVE, and it matters more
    here. Three controls deliberately refuse the pointer — the derived facet
-   swatch (`cursor-default`), the dormant "Sent only" filter and the inert
+   swatch (`cursor-default`), the dormant "Extracted only" filter and the inert
    export button (`cursor-not-allowed`) — and all three say so with a utility.
    Utilities beat `base` whatever the specificity, so those keep winning.
    Unlayered, this rule would quietly re-arm three controls that are supposed to

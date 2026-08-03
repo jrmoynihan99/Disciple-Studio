@@ -810,17 +810,22 @@ async function auditGroupCard(add: Add) {
     );
 
     /**
-     * `◎ downloaded` is folded from the export log and nothing else may write it:
-     * "a mark you can set yourself stops being evidence". Group editing runs
-     * through a separate store entirely, and this is what says so out loud.
+     * `◎ Sent` is folded from a batch's `status` and nothing else may write it:
+     * "a mark you can set yourself stops being evidence". Editing a batch runs
+     * through a separate store from the marks, and this is what says so out loud.
+     *
+     * The second half used to look for an export log the mark was read from. That
+     * log is gone — the mark is derived now — so what is checked instead is that
+     * an edit cannot reach `status`, which is the field it is derived FROM.
      */
     const before = localStorage.getItem("leads-state-v1");
+    const statusBefore = group.status;
     applyOp(group, { op: "church.remove", orgId: row.id }, 0);
     const after = localStorage.getItem("leads-state-v1");
     add(
-      "no group operation touches the downloaded set",
-      before === after && !JSON.stringify(group).includes("lastExportedAt"),
-      "group state and mark state stay separate",
+      "no batch operation can mark churches sent",
+      before === after && group.status === statusBefore,
+      "batch state and mark state stay separate",
     );
   } finally {
     root.unmount();

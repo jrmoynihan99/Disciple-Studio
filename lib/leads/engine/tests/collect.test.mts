@@ -418,7 +418,7 @@ describe("automatic batch names", () => {
  *
  * It used to be read off `lastExportedAt`, an append-only log in the browser's
  * own storage which the export wrote to and nothing ever removed from. That made
- * the console's three Sent surfaces — the counter, the "Sent only" filter and the
+ * the console's three Sent surfaces — the counter, the "Extracted only" filter and the
  * ◎ badge — unfalsifiable: delete every sent batch and it still reported forty
  * churches contacted, from a source its owner had no way to correct.
  *
