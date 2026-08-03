@@ -127,7 +127,14 @@ export async function POST(_req: Request, ctx: Ctx) {
    * card is explicitly "the only copy we hold" for exactly those churches.
    */
   const record = await getRecord(orgId).catch(() => null);
-  const { church, reason } = toRawChurch(card, extrasOf(record));
+  /**
+   * THE RAMP IS THE ONE MEASURED FROM THE LOGO THIS CARD IS SHIPPING. `card.logo`
+   * is whatever the reviewer settled on — the pipeline's pick, or a candidate
+   * they chose instead — and every candidate carries its own colours, so the
+   * demo is painted from the image it displays rather than from the image the
+   * pipeline happened to pick first. See `paletteOfLogo`.
+   */
+  const { church, reason } = toRawChurch(card, extrasOf(record, card.logo?.sha));
   if (!church) {
     return Response.json({ skipped: true, churchName: card.name.text || orgId, reason });
   }

@@ -7,6 +7,7 @@ import { useGroup } from "@/lib/leads/client/useGroups";
 import { useDataset } from "@/lib/leads/client/useDataset";
 import { ChurchCard } from "./church/parts";
 import type { PaletteState } from "./church/Palette";
+import type { LogoOption } from "@/lib/leads/engine/logo";
 import { SKIN } from "./church/skin";
 import { EditableText } from "./EditableText";
 import { ReadOnlyProvider } from "./ReadOnly";
@@ -85,19 +86,36 @@ export function GroupReview({ id }: { id: string }) {
    * effect that resets state — the cascading-render mistake the lint rule
    * catches — is to make the stale value unreadable rather than to clear it.
    */
-  const [palettes, setPalettes] = useState<{
+  const [preview, setPreview] = useState<{
     id: string;
-    byOrg: Record<string, PaletteState>;
+    palettes: Record<string, PaletteState>;
+    logoOptions: Record<string, LogoOption[]>;
   } | null>(null);
-  const paletteFor = palettes?.id === id ? palettes.byOrg : undefined;
+  const live = preview?.id === id ? preview : undefined;
+  const paletteFor = live?.palettes;
+  const logoOptionsFor = live?.logoOptions;
 
+  /**
+   * ONE REQUEST, TWO ANSWERS. The colours and the logo candidates both come from
+   * the live record, so they ride together — see the route. Asking separately
+   * would read every record in the batch twice to paint one card.
+   */
   useEffect(() => {
     let alive = true;
-    fetch(`/api/leads/groups/${id}/palette`)
+    fetch(`/api/leads/groups/${id}/preview`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { palettes?: Record<string, PaletteState> } | null) => {
-        if (alive && data?.palettes) setPalettes({ id, byOrg: data.palettes });
-      })
+      .then(
+        (
+          data: {
+            palettes?: Record<string, PaletteState>;
+            logoOptions?: Record<string, LogoOption[]>;
+          } | null,
+        ) => {
+          if (alive && data?.palettes) {
+            setPreview({ id, palettes: data.palettes, logoOptions: data.logoOptions ?? {} });
+          }
+        },
+      )
       .catch(() => {});
     return () => {
       alive = false;
@@ -342,6 +360,7 @@ export function GroupReview({ id }: { id: string }) {
               stale={stale.has(card.orgId)}
               departed={departed.has(card.orgId)}
               palette={paletteFor?.[card.orgId]}
+              logoOptions={logoOptionsFor?.[card.orgId]}
               onOp={onOp}
               onRemoveChurch={onRemoveChurch}
             />

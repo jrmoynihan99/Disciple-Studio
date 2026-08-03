@@ -418,6 +418,25 @@ export interface IndexRow {
   /** logo ext */ lx?: string;
   /** logo_theme */ lt?: string;
   /** why there is no logo, when there isn't one */ lr?: string;
+  /**
+   * HOW MANY RUNNER-UP LOGOS THIS CHURCH HAS — the count, never the shas.
+   *
+   * We pick one logo per church out of several candidates, and when we pick wrong
+   * we pick wrong confidently: a cookie-consent badge, a children's-ministry
+   * sub-brand, a photo of the building. Which image represents a church is a
+   * judgement about a picture, so the runner-ups ship and the reviewer decides.
+   *
+   * THE COUNT AND NOT THE ARRAY, deliberately, and `INDEX-CONTRACT.md` §3.1 is
+   * the rule: the index is the one file every user downloads on cold load, so
+   * dossier-shaped content belongs on the record. A list row needs to badge "2
+   * more options" and nothing more; the picker fetches the rest.
+   *
+   * ABSENT means this church publishes exactly one usable mark — an answer, not a
+   * gap. 11,749 of 15,273 carry it; 241 of those have alternatives despite having
+   * no pick at all, which is the one case where this turns an empty plate into a
+   * real choice.
+   */
+  la?: number;
   /** <=3 contacts */ em?: IndexContact[];
   /** phone */ ph?: string;
   /** socials — ONLY when `em` is empty */ so?: Record<string, string>;
@@ -443,6 +462,63 @@ export interface IndexRow {
 }
 
 /* ------------------------------------------------------------- the full record */
+
+/**
+ * One candidate logo the pipeline found and did NOT choose.
+ *
+ * The four descriptors match `brand.logo_kind` / `logo_confidence` /
+ * `logo_theme` / `logo_shape` on the record, deliberately: the church's current
+ * pick is described the same way, so a picker can label every option in one loop
+ * with no special case for option 0.
+ *
+ * `sha` keys into the same `logos-thumb/` prefix the picks use — the two
+ * archives upstream ships are disjoint and `leads-pack` unpacks both into one
+ * namespace, so a sha resolves to exactly one file regardless of which one it
+ * came from.
+ */
+export interface LogoAlt {
+  sha: string;
+  /**
+   * THE JOIN KEY FOR THE COLOURS — a sha1 PREFIX, and not the same hash as `sha`.
+   *
+   * `sha` is the sha256 that keys the archives; the colour pass is a separate
+   * program that identifies what it measured by an 8-hex sha1 prefix. Two hash
+   * functions over the same bytes, so the only way to ask "were these colours
+   * measured from this picture?" is `palette.palette_sha8 === sha8`. Shipping
+   * `sha` alone is what made that unanswerable in the first build of this field.
+   * `leads-pack` asserts the equality on every alternative.
+   */
+  sha8: string;
+  /** The ORIGINAL's format (`svg`, `png`, …), not the 108px thumb's. */
+  ext: string;
+  /** How it was found: `header_logo_img`, `apple_touch_icon`, `inline_svg`, … */
+  kind: string;
+  /** `named` | `declared` | `positional`. */
+  confidence: string;
+  /** `light` | `dark` | `either` — the background it reads on. Per candidate. */
+  theme: string;
+  /** `wordmark` | `icon` | `tall`. Most picks are wordmarks; most alts are icons. */
+  shape: string;
+  w: number;
+  h: number;
+  /** Where it came from. An image has no words of its own; this is its evidence. */
+  url: string;
+  /**
+   * THIS CANDIDATE'S OWN COLOURS, measured from these pixels.
+   *
+   * Same shape as `ChurchRecord.logo_palette` and produced by the same pass, so
+   * whichever image a reviewer chooses, the demo is painted in the ramp taken
+   * from THAT image. Without it, switching the logo would have repainted nothing
+   * — and at `rushcreek_org` the pipeline's pick is a cookie-consent badge, so
+   * every demo would have shipped in the plugin's blue.
+   *
+   * `palette_gate` is the honest field inside it: `""` means a colour was found,
+   * `"greyscale"` / `"tie"` / `"share_below_floor"` mean the mark carries none and
+   * NO accent is invented for it. 6,740 of the 19,803 alternatives are gated. The
+   * 13-token light and dark ramps are present eitherway.
+   */
+  palette?: Record<string, unknown>;
+}
 
 export interface ChurchRecord {
   org_id: string;
@@ -483,6 +559,20 @@ export interface ChurchRecord {
    */
   next_steps?: NextStep[];
   brand?: Record<string, unknown>;
+  /**
+   * RUNNER-UP LOGOS, best first, at most two. Absent when the church publishes
+   * exactly one usable mark — an answer, not a gap.
+   *
+   * Here rather than on the index row because the index is the one file every
+   * user downloads on cold load, and nothing filters, sorts or scores on this;
+   * the row carries only the count, as `la`. See `INDEX-CONTRACT.md` §3.1, which
+   * is the rule this shape follows.
+   *
+   * Each entry clears the same bar the pick did — shippability, the
+   * platform-default blocklist, the byte floor, the blank/icon-size rejection —
+   * because an option offered to a human is a claim it might be right.
+   */
+  logo_alts?: LogoAlt[];
   logo_palette?: Record<string, unknown>;
   contact?: Record<string, unknown>;
   profile?: Record<string, unknown>;

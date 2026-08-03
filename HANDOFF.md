@@ -38,7 +38,7 @@ npm install
 ## 2. Get the church data
 
 **Download `disciple-studio-leads-package.zip`** from the Google Drive folder
-shared with you. It is about **74 MB**.
+shared with you. It is about **138 MB**.
 
 Optional but worth 10 seconds — check it downloaded intact. In PowerShell:
 
@@ -49,7 +49,7 @@ Get-FileHash disciple-studio-leads-package.zip -Algorithm SHA256
 It should print:
 
 ```
-5b3d2dfa3016386419b6de46492c123f11c5d58823f9327d8ff4e9aa56328905
+ebf1bde3d4838e811c4b605c96acb912059d0882798a579261a36290f0d5bb48
 ```
 
 **Extract it into `data/leads/incoming/`** inside the repo. That folder does not
@@ -65,12 +65,13 @@ Disciple-Studio/
           index.json.gz
           records.ndjson.gz
           logos-thumb.tar
+          logos-alt.tar
           dev-only/
 ```
 
 The folder name does not matter — the build finds any folder containing a
 `MANIFEST.json`. Nesting it one level deeper by accident is fine too. What is
-**not** fine is the five items sitting loose directly in `data/leads/`; they must
+**not** fine is the six items sitting loose directly in `data/leads/`; they must
 be under `incoming/`.
 
 > This data is real: names, emails and phone numbers for 15,273 churches. It is
@@ -169,17 +170,22 @@ Two commands. The first prepares the data locally, the second uploads it.
 npm run leads:pack
 ```
 
-Takes about 10 seconds. You should see:
+Takes about a minute. You should see:
 
 ```
-records/            15273 records · 256 shards · 34.5 MB · sha256 verified
+records/            15273 records · 256 shards · 41.8 MB · sha256 verified
 index.json.gz       15273 rows · 2.6 MB
-logos-thumb/        14254 files
-                    p1-7f297a94e41f5d9b
+logos-thumb/        33371 files (14253 picks · 19118 alternates)
+logo_alts           11749 churches offer alternatives · every sha resolves
+palettes            every ramp joins to the logo it was measured from
+                    p2-80721fb00d1d6a24
 ```
 
 `sha256 verified` means every one of the 15,273 records matched its expected
-checksum — if the download had been corrupted, this would have stopped here.
+checksum — if the download had been corrupted, this would have stopped here. The
+two lines under it are the same kind of check for the logo alternatives a
+reviewer can choose between: that every candidate offered has a picture behind
+it, and that every colour ramp belongs to the picture it was measured from.
 
 Then:
 
@@ -187,14 +193,14 @@ Then:
 npm run leads:publish
 ```
 
-This uploads 14,511 files to Cloudflare and takes **about 5 minutes**. You can
+This uploads 33,628 files to Cloudflare and takes **about 12 minutes**. You can
 preview what it will do first with `npm run leads:publish -- --dry-run`.
 
 When it finishes:
 
 ```
-verified     257 in disciple-studio-leads · 14,254 in disciple-studio-logos
-receipt      data/leads/published.json → p1-7f297a94e41f5d9b
+verified     257 in disciple-studio-leads · 33,372 in disciple-studio-logos
+receipt      data/leads/published.json → p2-80721fb00d1d6a24
 ```
 
 It re-checks the buckets afterwards and refuses to declare success unless every
@@ -263,8 +269,11 @@ The scraper will send a new package. Same two commands:
 4. Commit the one-line change to `data/leads/published.json` and deploy.
 
 Old data is never overwritten — each publish gets its own storage prefix — so a
-bad publish cannot break the running site. Logos are only uploaded if they have
-actually changed, so later publishes take seconds rather than minutes.
+bad publish cannot break the running site. Logos are named after their own
+contents, so a logo that has not changed is never uploaded twice: the first
+publish above moves 33,628 files, and a later one that only changes the text
+moves 257. That is why the first run takes twelve minutes and the next takes
+seconds.
 
 ---
 

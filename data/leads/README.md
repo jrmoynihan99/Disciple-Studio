@@ -112,10 +112,25 @@ incoming/<name>/<name>/MANIFEST.json      "extract here" run twice
 If it finds none, it lists the folders it did see rather than just saying no.
 
 A package contains `MANIFEST.json`, `index.json.gz`, `records.ndjson.gz`,
-`logos-thumb.tar` and a `dev-only/` folder. An incremental rebuild also ships
-`DELTA.json` and `changed.ndjson.gz`; the pack step ignores both and reads the
-full `records.ndjson.gz`, because a pack must be reproducible from one package
-rather than from a chain of them.
+`logos-thumb.tar`, `logos-alt.tar` and a `dev-only/` folder. An incremental
+rebuild also ships `DELTA.json` and `changed.ndjson.gz`; the pack step ignores
+both and reads the full `records.ndjson.gz`, because a pack must be reproducible
+from one package rather than from a chain of them.
+
+**The two logo archives are disjoint and expand into one directory.** A church's
+runner-up marks (`logo_alts` on the record, `la` on the index row) live in
+`logos-alt.tar` — except where a runner-up is already some other church's pick,
+in which case it is in `logos-thumb.tar` and is not repeated. Nothing holding a
+sha can tell which archive it came from, so `pack/logos-thumb/` holds both and
+the published prefix means "every thumbnail we hold", picks and runner-ups alike.
+
+**Every candidate carries its own colour ramp.** The reviewer chooses which
+picture represents a church, and the demo is painted in colours measured from
+that picture — so `logo_alts[i].palette` sits beside the record's own
+`logo_palette`, joined to its image by `sha8` (a sha1 prefix, deliberately not
+the sha256 that keys the archives). `leads:pack` asserts that join on every
+alternative: a ramp attached to a logo it was not measured from renders
+perfectly and renders the wrong church's colours.
 
 ### `pack/`
 
@@ -124,7 +139,7 @@ pack/
   publish.json               publish_id, built_at, n_churches, hashes
   index.json.gz              served to the browser as-is, ~2.6 MB
   records/<xx>.ndjson.gz     256 shards, keyed by sha256(org_id)[0:2]
-  logos-thumb/<sha>.webp     14,254 thumbnails
+  logos-thumb/<sha>.webp     33,371 thumbnails — 14,253 picks + 19,118 runner-ups
   dev/                       golden-colors, vocab, index schema, edge cases —
                              test-only, never published
 ```

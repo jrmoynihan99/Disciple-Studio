@@ -29,6 +29,7 @@ import type {
   Membership,
   MembershipRef,
   SnapshotContact,
+  SnapshotLogo,
   SnapshotStep,
   Voice,
 } from "./group-types.ts";
@@ -346,10 +347,22 @@ export function resolve(entry: GroupEntry): ResolvedCard {
   const s = entry.snapshot;
   const nameEdited = entry.edits.fields[PATH.name] != null;
   const { steps: pathwaySteps, numbered } = resolvePathwaySteps(entry);
-  // Only meaningful when there WAS one. A suppression left behind on a church
-  // whose logo later vanished from the snapshot must not claim a person removed
-  // something that is not there.
-  const logoRemoved = !!s.logo && entry.edits.suppressed[LOGO_ITEM_ID] != null;
+  /**
+   * WHICH IMAGE THIS CHURCH'S DEMO GETS, in one place.
+   *
+   * A reviewer may switch to one of the runner-ups (`logoPick`) and may strike
+   * the logo out entirely (`suppressed`), in either order and repeatedly. The
+   * two are independent: switching does not un-strike, and putting one back
+   * restores whichever image was chosen rather than always ours.
+   *
+   * `logoRemoved` is only meaningful when there WAS one to remove — counting the
+   * pick, since a church with no logo of ours can still have been given one from
+   * the alternatives. A suppression left behind on a church whose logo later
+   * vanished from the snapshot must not claim a person removed something that is
+   * not there.
+   */
+  const chosen = entry.edits.logoPick ?? s.logo;
+  const logoRemoved = !!chosen && entry.edits.suppressed[LOGO_ITEM_ID] != null;
 
   return {
     orgId: entry.orgId,
@@ -366,9 +379,18 @@ export function resolve(entry: GroupEntry): ResolvedCard {
      * chips, and `toRawChurch`, which decides what the church's demo is built
      * with — already handles null, so none of them needed to learn a new rule.
      */
-    logo: logoRemoved ? null : s.logo,
-    noLogo: s.noLogo,
+    logo: logoRemoved ? null : chosen,
+    /**
+     * WHY THERE IS NO LOGO OF OURS — cleared once the reviewer supplies one.
+     *
+     * Keeping it would let the card say "the page carried no image that could
+     * have been a logo" beside a logo, which is a sentence about our pipeline
+     * being read as a sentence about the church.
+     */
+    noLogo: entry.edits.logoPick ? null : s.noLogo,
     logoRemoved,
+    /** THEIRS, NOT OURS — the reviewer overruled the pipeline's pick. */
+    logoSwitched: !!entry.edits.logoPick,
     slogan: resolveSlogan(entry),
     stepsLooked: s.stepsLooked,
     steps: resolveSteps(entry),
@@ -386,7 +408,10 @@ export function resolve(entry: GroupEntry): ResolvedCard {
     },
     contacts: resolveContacts(entry),
     contactNote: s.contactNote,
-    editedCount: Object.keys(entry.edits.fields).length,
+    greeting: edit(entry, PATH.greeting)?.value.trim() ?? "",
+    // A switched logo is work somebody did, so it counts — which is also what
+    // makes the console stop and ask before un-collecting the church.
+    editedCount: Object.keys(entry.edits.fields).length + (entry.edits.logoPick ? 1 : 0),
     suppressedCount: Object.keys(entry.edits.suppressed).length,
   };
 }
@@ -631,11 +656,31 @@ function revertField(entry: GroupEntry, path: string): GroupEntry {
 }
 
 function suppress(entry: GroupEntry, itemId: string, at: number): GroupEntry {
-  // Only pipeline items can be suppressed. A hand-added item has no original to
-  // fall back to, so hiding it would leave a row nobody can explain or remove.
+  /**
+   * Only pipeline items can be suppressed. A hand-added item has no original to
+   * fall back to, so hiding it would leave a row nobody can explain or remove.
+   *
+   * THE LOGO IS THE FOURTH KIND, and leaving it out made the whole remove-logo
+   * feature inert. `LOGO_ITEM_ID` is not a step, a pathway step or a contact, so
+   * `known` was false and this returned the entry UNCHANGED — in the browser,
+   * where the optimistic fold runs this same pure function, and again on the
+   * server. The ✕ did nothing, silently, and `sanitizeOp` was happy to carry the
+   * op both ways.
+   *
+   * The tests missed it because they build `edits.suppressed` by hand and only
+   * ever drove `applyOp` for `item.restore` — which has no gate, so `put back`
+   * worked and there was simply never anything to put back. See the test named
+   * "the ✕ on the logo actually removes it".
+   *
+   * `!!snapshot.logo` and not a bare allow: suppressing a logo the snapshot does
+   * not have would let a card claim a reviewer removed something that was never
+   * there — the same fact `resolve()` is careful about when it computes
+   * `logoRemoved`.
+   */
   const known = entry.snapshot.steps.some((s) => s.id === itemId)
     || entry.snapshot.pathway.steps.some((s) => s.id === itemId)
-    || entry.snapshot.contacts.some((c) => c.id === itemId);
+    || entry.snapshot.contacts.some((c) => c.id === itemId)
+    || (itemId === LOGO_ITEM_ID && !!entry.snapshot.logo);
   if (!known || entry.edits.suppressed[itemId] != null) return entry;
   return {
     ...entry,
@@ -648,6 +693,21 @@ function restore(entry: GroupEntry, itemId: string): GroupEntry {
   const suppressed = { ...entry.edits.suppressed };
   delete suppressed[itemId];
   return { ...entry, edits: { ...entry.edits, suppressed } };
+}
+
+/**
+ * Choose a different logo, or `null` to go back to the pipeline's.
+ *
+ * PICKING OURS AGAIN IS A REVERT, not a stored choice that happens to match —
+ * the same rule `setField` applies when somebody types a value back to its
+ * original. It keeps "did a human overrule us here?" answerable by the presence
+ * of the key alone, which is what `logoSwitched` and `editedCount` both read.
+ */
+function pickLogo(entry: GroupEntry, logo: SnapshotLogo | null): GroupEntry {
+  const edits = { ...entry.edits };
+  if (!logo || logo.sha === entry.snapshot.logo?.sha) delete edits.logoPick;
+  else edits.logoPick = logo;
+  return { ...entry, edits };
 }
 
 function addItem(entry: GroupEntry, item: AddedItem): GroupEntry {
@@ -692,6 +752,8 @@ export function applyOp(group: ExportGroup, op: GroupOp, at: number): ExportGrou
       return withEntry(group, op.orgId, (e) => addItem(e, op.item));
     case "item.remove":
       return withEntry(group, op.orgId, (e) => removeAdded(e, op.itemId));
+    case "logo.pick":
+      return withEntry(group, op.orgId, (e) => pickLogo(e, op.logo));
     case "church.remove":
       return { ...group, entries: group.entries.filter((e) => e.orgId !== op.orgId) };
     default:
@@ -816,10 +878,39 @@ export function statusOf(g: { status?: string }): GroupStatus {
  * Validation
  * ------------------------------------------------------------------ */
 
-const PATH_RE = /^(name|slogan|finding\.(quote|label)|(steps|pathway|contacts)\.[A-Za-z0-9_]{1,64}\.[a-z]{1,12})$/;
+const PATH_RE = /^(name|slogan|greeting|finding\.(quote|label)|(steps|pathway|contacts)\.[A-Za-z0-9_]{1,64}\.[a-z]{1,12})$/;
 
 function s(v: unknown, max = MAX_FIELD_LEN): string | null {
   return typeof v === "string" && v.length <= max ? v : null;
+}
+
+/**
+ * A logo the client says the reviewer picked, checked as if it were hostile.
+ *
+ * THE SHA BECOMES A STORAGE PATH — `logos-thumb/<sha>.webp` — so it is held to
+ * the alphabet the asset layer enforces rather than merely to a length. 64 hex
+ * characters cannot spell `..`, a slash, or anything else that leaves the
+ * prefix, which is the same argument `SAFE_GROUP_ID` makes for group ids.
+ *
+ * `ext` and `theme` are the pipeline's own vocabularies and are checked against
+ * them: an unrecognised theme would fall through `logoPlate`'s default to the
+ * checkerboard, which is safe, but storing a value no part of this system emits
+ * is how a field stops meaning what its type says.
+ */
+const LOGO_SHA = /^[a-f0-9]{64}$/;
+const LOGO_EXT = new Set(["png", "webp", "jpg", "jpeg", "avif", "svg", "gif"]);
+const LOGO_THEME = new Set(["light", "dark", "either", "unknown", ""]);
+
+function cleanLogo(raw: unknown): SnapshotLogo | null {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!o) return null;
+  const sha = s(o.sha, 64);
+  const ext = s(o.ext, 8);
+  const theme = s(o.theme, 16) ?? "";
+  if (!sha || !LOGO_SHA.test(sha)) return null;
+  if (!ext || !LOGO_EXT.has(ext.toLowerCase())) return null;
+  if (!LOGO_THEME.has(theme)) return null;
+  return { sha, ext: ext.toLowerCase(), theme };
 }
 
 function cleanAdded(raw: unknown): AddedItem | null {
@@ -884,6 +975,14 @@ export function sanitizeOp(raw: unknown): GroupOp | null {
     }
     case "item.remove":
       return orgId && itemId ? { op: "item.remove", orgId, itemId } : null;
+    case "logo.pick": {
+      // `null` is a legitimate body — it means "go back to ours" — so absence is
+      // distinguished from a malformed logo rather than lumped in with it.
+      if (!orgId) return null;
+      if (o.logo === null) return { op: "logo.pick", orgId, logo: null };
+      const logo = cleanLogo(o.logo);
+      return logo ? { op: "logo.pick", orgId, logo } : null;
+    }
     case "church.remove":
       return orgId ? { op: "church.remove", orgId } : null;
     default:

@@ -514,7 +514,6 @@ export function LeadConsole() {
           filters={filters}
           setFilters={setFilters}
           state={state}
-          groups={groupList.groups}
           openBatch={openBatch}
           collecting={collectingCount}
           onSwitchBatch={() => setSwitching(true)}

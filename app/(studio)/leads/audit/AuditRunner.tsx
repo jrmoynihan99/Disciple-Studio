@@ -516,6 +516,11 @@ async function auditGroupCard(add: Add) {
                reaches the network, and a skeleton would be a block with no
                content for the field-order sweep below to walk past. */
             palette={null}
+            /* `undefined` — "not asked yet", which is what a probe that never
+               reaches the network honestly is. It also keeps the picker button
+               off the plate, so the logo sweep below measures the plate itself
+               rather than a control sitting on top of it. */
+            logoOptions={undefined}
             onOp={() => {}}
             onRemoveChurch={() => {}}
           />

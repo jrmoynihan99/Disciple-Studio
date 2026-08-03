@@ -1,10 +1,16 @@
 "use client";
 
-import { memo, useState } from "react";
-import { logoAbsence, logoPlate, PLATE_CLASS } from "@/lib/leads/engine/logo";
+import { memo, useEffect, useRef, useState } from "react";
+import {
+  logoAbsence,
+  logoPlate,
+  PLATE_CLASS,
+  type LogoOption,
+} from "@/lib/leads/engine/logo";
 import { hostOf } from "@/lib/leads/engine/url";
 import { cardFlags, type CardFlag } from "@/lib/leads/engine/group";
 import { exportContacts } from "@/lib/leads/engine/contacts";
+import { demoGreeting, DEMO_MEMBER_FIRST_NAME } from "@/lib/leads/engine/person-name";
 import { LOGO_ITEM_ID, PATH, REVIEW_FIELDS } from "@/lib/leads/engine/group-types";
 import type {
   AddedItem,
@@ -237,6 +243,214 @@ function Provenance({ voice, onRevert }: { voice: Voice; onRevert?: () => void }
       onRevert={CAN_REVERT.has(kind) ? onRevert : undefined}
       skin={SKIN.attribution}
     />
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Choosing between the church's own marks
+ * ------------------------------------------------------------------ */
+
+/** How a candidate got found, in words a reviewer can act on. */
+const LOGO_KIND: Record<string, string> = {
+  header_logo_img: "from the site header",
+  page_logo_img: "from the page body",
+  header_small_img: "a small header image",
+  first_small_img: "the first small image on the page",
+  apple_touch_icon: "the app icon",
+  css_bg_logo: "a CSS background image",
+  inline_svg: "an inline SVG",
+};
+
+/**
+ * WHICH PICTURE IS THE CHURCH — a judgement about an image, handed to a person.
+ *
+ * The pipeline chooses one candidate per church and is confidently wrong often
+ * enough to matter: a GDPR cookie badge, a children's-ministry sub-brand, a
+ * photograph of the building, a stock-photo cross. Each of those had the real
+ * mark one row further down. No rule decided this reliably and nothing here can
+ * cite an answer, so every candidate that cleared the same bar is shown and the
+ * reviewer picks.
+ *
+ * EACH TILE IS DRAWN ON ITS OWN PLATE. `theme` ships per option because an icon
+ * and a wordmark from one church routinely have opposite ink polarity — put them
+ * all on white and every near-white cut-out in the menu is invisible, which is
+ * indistinguishable from an option that failed to load. That is the same bet
+ * `logoPlate` exists to refuse, and the reason this is a grid of plates rather
+ * than a row of thumbnails.
+ *
+ * IT DOES NOT CLOSE ON A PICK. Choosing is cheap and reversible and the whole
+ * point is to compare — so the dialog stays open, the selection moves, and the
+ * card behind it updates live. `Done` is the way out.
+ */
+function LogoPicker({
+  open,
+  card,
+  options,
+  onClose,
+  onOp,
+}: {
+  open: boolean;
+  card: ResolvedCard;
+  options: LogoOption[];
+  onClose: () => void;
+  onOp: (op: GroupOp) => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  // `showModal()` is imperative and cannot be expressed as a prop — the same
+  // reason `ConfirmDialog` keeps this effect.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (open && !el.open) el.showModal();
+    if (!open && el.open) el.close();
+  }, [open]);
+
+  const currentSha = card.logo?.sha ?? "";
+
+  return (
+    <dialog
+      ref={ref}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="m-auto w-[min(680px,calc(100vw-2rem))] rounded-xl border border-lead-line bg-lead-panel p-0 text-lead-ink backdrop:bg-black/50"
+    >
+      <div className="p-5">
+        <h2 className="font-serif text-[19px] leading-snug font-semibold text-lead-ink">
+          Which logo is {card.name.text || card.orgId}?
+        </h2>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-lead-ink2">
+          Every image below was found on their own site and cleared the same checks. We could
+          not tell which one represents the church — you can. Your choice is what their demo
+          is built with.
+        </p>
+
+        <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
+          {options.map((o) => {
+            const chosen = o.sha === currentSha;
+            return (
+              <button
+                key={o.sha}
+                type="button"
+                aria-pressed={chosen}
+                // The three fields the entry stores, spelled out. `o` also carries
+                // the menu's own furniture — dimensions, provenance, a resolved
+                // colour ramp — and none of that is a correction anybody made.
+                onClick={() =>
+                  onOp({
+                    op: "logo.pick",
+                    orgId: card.orgId,
+                    logo: { sha: o.sha, ext: o.ext, theme: o.theme },
+                  })
+                }
+                className={`rounded-lg border p-2 text-left transition-colors ${
+                  chosen
+                    ? "border-lead-brand bg-lead-brand/[0.06]"
+                    : "border-lead-line hover:border-lead-ink2"
+                }`}
+              >
+                <div
+                  className={`grid h-[86px] w-full place-items-center overflow-hidden rounded-md ${
+                    PLATE_CLASS[logoPlate(o.theme)]
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/leads/asset/logos-thumb/${o.sha}.webp`}
+                    alt=""
+                    className="h-full w-full object-contain p-2"
+                  />
+                </div>
+                <p className="mt-1.5 flex items-center gap-1.5 font-mono text-[10px] text-lead-ink2">
+                  {o.ours && <span className={`${SKIN.flagChip} ${SKIN.flagTone.plain}`}>ours</span>}
+                  {chosen && !o.ours && (
+                    <span className={`${SKIN.flagChip} ${SKIN.flagTone.plain}`}>chosen</span>
+                  )}
+                  <span className="truncate">{o.shape || "image"}</span>
+                  {o.w > 0 && <span className="shrink-0 opacity-70">{o.w}×{o.h}</span>}
+                </p>
+                {/* The provenance line. An image is the one thing on this card
+                    with no words of its own, so where it came from is all the
+                    evidence there is. */}
+                <p className="truncate font-mono text-[9.5px] text-lead-ink2 opacity-70" title={o.url}>
+                  {LOGO_KIND[o.kind] ?? o.kind.replace(/_/g, " ") ?? ""}
+                </p>
+
+                {/* WHAT THIS CHOICE DOES TO THE PAGE. The colours are measured
+                    from these pixels, so picking a different mark repaints the
+                    whole demo — and the accent is the one a reviewer will see
+                    on every button. A dot rather than a hex: the question here
+                    is which of these looks like the church, not what #009cff is. */}
+                <p className="mt-1 flex items-center gap-1 font-mono text-[9.5px] text-lead-ink2 opacity-80">
+                  {o.colors?.light?.accent ? (
+                    <>
+                      <span
+                        className="inline-block size-2.5 shrink-0 rounded-full border border-lead-line"
+                        style={{ backgroundColor: o.colors.light.accent }}
+                      />
+                      <span className="truncate">their colour, from this mark</span>
+                    </>
+                  ) : (
+                    <span className="truncate">no colour in this mark</span>
+                  )}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* THE COLOURS FOLLOW THE PICTURE, and this is where a reviewer finds
+            that out — the palette block is below the fold behind this dialog, so
+            without a sentence here the swatches change while nobody is looking.
+            Each candidate's ramp is measured from its own pixels; at one church
+            in the corpus the pipeline's pick is a cookie-consent badge, and
+            every demo would otherwise have shipped in the plugin's blue. */}
+        <p className="mt-4 text-[12.5px] leading-relaxed text-lead-ink2">
+          The demo is painted in colours measured from the logo you choose, so picking a
+          different mark changes the whole page — the palette under this card follows along.
+        </p>
+
+        <div className="mt-5 flex items-center justify-end gap-2">
+          {card.logoSwitched && (
+            <button
+              type="button"
+              onClick={() => onOp({ op: "logo.pick", orgId: card.orgId, logo: null })}
+              className="mr-auto inline-flex h-9 items-center rounded-lg border border-lead-line bg-lead-panel px-3.5 font-mono text-[11px] text-lead-ink2 transition-colors hover:border-lead-ink2 hover:text-lead-ink"
+            >
+              back to ours
+            </button>
+          )}
+          {/* Removing from inside the picker, because "none of these" is a real
+              answer to "which one is it" and the reviewer is looking right at the
+              evidence for it. Same op as the ✕ on the plate. */}
+          {card.logo && (
+            <button
+              type="button"
+              onClick={() => {
+                onOp({ op: "item.suppress", orgId: card.orgId, itemId: LOGO_ITEM_ID });
+                onClose();
+              }}
+              className="inline-flex h-9 items-center rounded-lg border border-lead-line bg-lead-panel px-3.5 font-mono text-[11px] text-lead-bad transition-colors hover:border-lead-bad"
+            >
+              none of these
+            </button>
+          )}
+          <button
+            type="button"
+            autoFocus
+            onClick={onClose}
+            className="inline-flex h-9 items-center rounded-lg bg-lead-brand px-3.5 font-mono text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </dialog>
   );
 }
 
@@ -950,8 +1164,80 @@ function ContactsBody({
    */
   const shipping = exportContacts(card.contacts);
 
+  /**
+   * THE ONE WORD THE DEMO SAYS TO A HUMAN, shown before the contacts it comes
+   * from.
+   *
+   * Computed through `demoGreeting`, the same function `generateDemo` calls, so
+   * this is the actual string and not an approximation of it — including the
+   * skip that trips people up: lowest rank wins, but anyone with a blank name is
+   * passed over, so if rank 1 is a church office address the demo walks on down.
+   *
+   * IT IS BUILT FROM THE SHIPPING LIST, not from `card.contacts`, because that
+   * is what `contactsOf` hands the exporter. A struck-out contact is not in it,
+   * and the greeting has to move when a reviewer strikes the person it named.
+   */
+  const derived = demoGreeting(
+    shipping
+      .filter((r) => r.rank !== null && r.contact.kind === "person")
+      .map((r) => ({ name: r.contact.name, rank: r.rank! })),
+    DEMO_MEMBER_FIRST_NAME,
+  );
+  const greeting = card.greeting || derived.name;
+  const isDefault = !card.greeting && derived.isDefault;
+
   return (
     <>
+      {/* ── what the demo will call them ──
+          A DEMO GREETS SOMEBODY BY NAME, and until now nothing on this page said
+          who. The derivation is right most of the time and unfixable when it is
+          not: 588 of 2,722 churches with a named contact were being greeted by
+          their honorific ("Welcome back, Rev.") before the rule was fixed, and
+          the remainder still includes names that are correct on the card and
+          wrong in a greeting. Editing it here changes the page without falsifying
+          the contact it came from.
+
+          "WILL GREET THEM AS", not "will say: Welcome back, X". The wording
+          varies by template — one of them says "Your journey, X" — and the
+          template is chosen at random when the demo is generated, so naming the
+          sentence would be a promise this cannot keep. The NAME is the promise. */}
+      <div className={`mb-3 ${SKIN.pathwayHead}`}>
+        <p className={SKIN.pathwayCaption}>The demo will greet them as</p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2">
+          <div className={SKIN.greetingName}>
+            <EditableText
+              value={greeting}
+              onCommit={ops.set(PATH.greeting, greeting)}
+              ariaLabel="the name the demo greets"
+              placeholder={DEMO_MEMBER_FIRST_NAME}
+              editingClassName={SKIN.editEditing}
+              restingClassName={SKIN.editResting}
+            />
+          </div>
+          {/* A MEASURED ABSENCE, which is a fact and not a verdict — the same
+              tone the card's other "we found nothing" chips carry. It says the
+              church is about to be greeted by a name that is not anybody's. */}
+          {isDefault && (
+            <span
+              className={`${SKIN.flagChip} ${SKIN.flagTone.plain}`}
+              title="No named staff contact was found for this church, so the demo falls back to its stock member. Type a name to change it."
+            >
+              default
+            </span>
+          )}
+          {card.greeting && (
+            <button
+              type="button"
+              onClick={ops.revert(PATH.greeting)}
+              className={SKIN.btnSmall}
+              title="Go back to the name derived from their contacts"
+            >
+              revert
+            </button>
+          )}
+        </div>
+      </div>
+
       {card.contactNote && <p className={`mb-2 ${SKIN.absent}`}>{card.contactNote}</p>}
       {shipping.length === 0 && (
         // Actionable, not measured: nobody to send to is the reviewer's problem to
@@ -1120,6 +1406,15 @@ export interface ChurchCardProps {
    * `memo()` below still holds across twenty cards.
    */
   palette: PaletteState;
+  /**
+   * Every image this church could be represented by, ours first.
+   *
+   * `undefined` until the batch's one preview request lands — the same
+   * not-asked-yet-versus-there-are-none distinction `palette` makes, and for the
+   * same reason: a picker that renders "no other options" before it has asked
+   * would assert something about the church we have not looked up.
+   */
+  logoOptions: LogoOption[] | undefined;
   onOp: (op: GroupOp) => void;
   /**
    * Removing a church is not just another op, which is why it is not sent through
@@ -1140,12 +1435,14 @@ function ChurchCardInner({
   stale,
   departed,
   palette,
+  logoOptions,
   onOp,
   onRemoveChurch,
 }: ChurchCardProps) {
   const [addingStep, setAddingStep] = useState(false);
   const [addingPathway, setAddingPathway] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   /**
    * ONE DIALOG PER CARD, holding whichever removal was asked for.
@@ -1157,6 +1454,23 @@ function ChurchCardInner({
   const frozen = useReadOnly();
   const ops = opsFor(card.orgId, onOp, setPending);
   const plate = PLATE_CLASS[logoPlate(card.logo?.theme)];
+
+  /**
+   * THE COLOURS THAT GO WITH THE LOGO ON THIS CARD RIGHT NOW.
+   *
+   * Every candidate carries its own ramp, measured from its own pixels, and the
+   * export paints the demo from whichever one the reviewer settled on. So the
+   * swatches have to move when the logo moves — a preview that kept showing the
+   * pipeline's colours after a switch would be a preview of a demo nobody is
+   * going to receive.
+   *
+   * WITH NO LOGO IT FALLS BACK TO `palette`, which is the record's own ramp and
+   * exactly what the export uses in that case: removing the picture does not
+   * remove the church's colours.
+   */
+  const chosen = card.logo ? logoOptions?.find((o) => o.sha === card.logo!.sha) : undefined;
+  const shownPalette = chosen && chosen.colors !== undefined ? chosen.colors : palette;
+
   const touched = card.editedCount > 0 || card.suppressedCount > 0;
   const liveSteps = card.steps.filter((s) => !s.suppressed).length;
   const liveContacts = exportContacts(card.contacts).filter((r) => r.rank !== null).length;
@@ -1320,6 +1634,31 @@ function ChurchCardInner({
                   put back
                 </button>
               )}
+
+              {/* ── the way to a different logo ──
+                  WE PICK ONE IMAGE AND ARE CONFIDENTLY WRONG OFTEN ENOUGH TO
+                  MATTER. Every alternative on this menu cleared the same bar our
+                  pick did, so offering one is not a shrug — it is saying we could
+                  not tell which of these is the church, and the person looking at
+                  the church can.
+
+                  Shown ONLY when there is somewhere to go, and hidden entirely
+                  while the batch's preview request is still in flight, so it
+                  never appears and then vanishes. On a struck-out logo it is
+                  hidden too: `put back` occupies that spot and is the move. */}
+              {!frozen && !card.logoRemoved && (logoOptions?.length ?? 0) > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPicking(true);
+                  }}
+                  title="This church published more than one usable mark. Choose which one their demo is built with."
+                  className={`absolute -bottom-2 left-1/2 -translate-x-1/2 ${SKIN.btnSmall}`}
+                >
+                  {logoOptions!.length} options
+                </button>
+              )}
             </div>
 
             <div className="min-w-0 flex-1 space-y-2">
@@ -1412,7 +1751,16 @@ function ChurchCardInner({
           review. It answers a different question from the five fields below —
           not "is this true" but "is this what we want to send" — so it is not one
           of them and carries no `data-field`. See `Palette.tsx`. */}
-      <PalettePreview palette={palette} churchName={card.name.text} />
+      <PalettePreview
+        palette={shownPalette}
+        churchName={card.name.text}
+        source={{
+          switched: card.logoSwitched,
+          removed: card.logoRemoved,
+          hasLogo: !!card.logo,
+          gate: chosen?.gate ?? "",
+        }}
+      />
 
       {/* ALL FIVE FIELDS, ALWAYS, IN `REVIEW_FIELDS` ORDER. `name` and `slogan`
           render inside the band above and the other three below it, but every one
@@ -1429,6 +1777,14 @@ function ChurchCardInner({
           <div className={SKIN.value}>{bodies[id]}</div>
         </details>
       ))}
+
+      <LogoPicker
+        open={picking}
+        card={card}
+        options={logoOptions ?? []}
+        onClose={() => setPicking(false)}
+        onOp={onOp}
+      />
 
       {/* Mounted always, `open` driven by state — see `ConfirmDialog`, which has
           to call `showModal()` on a node React already put in the tree. */}

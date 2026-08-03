@@ -53,3 +53,101 @@ export function givenName(full: string): string {
   }
   return "";
 }
+
+/**
+ * A first name as it should be READ ALOUD, because the demo greets somebody with
+ * it: "Welcome back, Mark."
+ *
+ * The corpus takes staff names as the page spelled them, and church websites
+ * shout: 5,291 of 164,370 named contacts have an ALL-CAPS first name (staff
+ * directories set in uppercase), and 739 are entirely lowercase. Passed through,
+ * those become "Welcome back, MARK." and "Welcome back, alex." on a page being
+ * sent to that person's own church.
+ *
+ * TWO RULES, AND THE SECOND IS THE CAREFUL ONE.
+ *
+ *  · ALL CAPS is a styling decision on their website, not a spelling, so it is
+ *    undone: `MARK` -> `Mark`.
+ *  · Anything else has only its FIRST LETTER raised, and the rest is left
+ *    exactly as given: `alex` -> `Alex`, while `McKenzie`, `DeShawn` and
+ *    `O'Brien` keep the capitals a person chose. Title-casing the whole token
+ *    would "fix" those into `Mckenzie` and `Deshawn`, which is a different way
+ *    of getting somebody's name wrong.
+ *
+ * Not a general name formatter, and deliberately not applied to surnames or
+ * contact lists — this is the one string a demo says TO a reader.
+ *
+ * IT MOVED HERE FROM `lib/generateDemo.ts` so the review card can show the exact
+ * word the demo will use. That file imports the React template registry, so a
+ * client component importing it would pull the templates into the leads bundle —
+ * and `node --test` cannot reach it either, which is the argument this file's
+ * header already makes for `givenName`.
+ */
+export function properCase(word: string): string {
+  if (!word) return "";
+  const shouted = word.length > 1 && word === word.toUpperCase() && word !== word.toLowerCase();
+  const rest = shouted ? word.slice(1).toLowerCase() : word.slice(1);
+  return word[0].toUpperCase() + rest;
+}
+
+/**
+ * The stock demo member's given name, for a church with nobody to greet.
+ *
+ * HERE RATHER THAN ONLY IN `generateDemo.ts`, because the review card has to
+ * show it — and has to be able to say "default" beside it — without importing
+ * that file's template registry. `DEMO_MEMBER` still owns the rest of the
+ * fictional person; this is the one field two worlds need.
+ */
+export const DEMO_MEMBER_FIRST_NAME = "Sarah";
+
+/** The shape `demoGreeting` reads. Only the fields it needs are named. */
+export interface GreetablePerson {
+  name?: string;
+  rank?: number;
+}
+
+export interface Greeting {
+  /** The word the demo will address them by. Never empty. */
+  name: string;
+  /** Nobody usable was found, so this is the stock demo member's name. */
+  isDefault: boolean;
+}
+
+/**
+ * THE NAME THE DEMO WILL ACTUALLY GREET THEM BY, and why it matters that this is
+ * one function.
+ *
+ * The review card shows this to a reviewer as a promise about the page a church
+ * is going to receive. If the card computed it even slightly differently from
+ * the demo — say by reading the first contact on screen rather than the first
+ * one with a usable name — the promise would be false exactly when it mattered,
+ * on the churches whose data is odd. So `demoFirstName` in `generateDemo.ts`
+ * calls this too, and there is no second copy of the rule.
+ *
+ * THE SKIP IS THE SUBTLE PART. Lowest `rank` wins, ties keep source order, and
+ * anyone with a blank name is passed over — which is not a detail: rank 1 can be
+ * a church office address, or a person whose name a reviewer just cleared, and
+ * in both cases the demo walks on down the list rather than greeting nobody.
+ */
+export function demoGreeting(
+  people: readonly GreetablePerson[] | null | undefined,
+  fallback: string,
+): Greeting {
+  if (!Array.isArray(people)) return { name: fallback, isDefault: true };
+
+  let best: GreetablePerson | undefined;
+  let bestRank = Infinity;
+  for (const p of people) {
+    if (!(p?.name ?? "").trim()) continue;
+    const rank = typeof p?.rank === "number" ? p.rank : Infinity;
+    if (rank < bestRank) {
+      bestRank = rank;
+      best = p;
+    }
+  }
+
+  const first = givenName(best?.name ?? "");
+  // `""` is a real answer from `givenName` — a contact recorded as nothing but
+  // "Pastor" — and it falls back rather than greeting an empty string.
+  return first ? { name: properCase(first), isDefault: false } : { name: fallback, isDefault: true };
+}

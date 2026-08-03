@@ -51,7 +51,7 @@ const ROOT = resolve(HERE, "..");
  * reshaped pack gets fresh Blob keys instead of writing new bytes under keys a
  * running deployment is already reading.
  */
-const PACK_FORMAT = 1;
+const PACK_FORMAT = 2;
 
 /** Shards are ndjson, so the separator is a byte, not a string join. */
 const NEWLINE = Buffer.from([0x0a]);
@@ -62,12 +62,23 @@ const OUT = process.env.LEADS_PACK_DIR
   : resolve(ROOT, "data/leads/pack");
 const FORCE = process.argv.includes("--force");
 
-/** A file the package must contain. Missing one is a hard error, never a skip. */
+/**
+ * A file the package must contain. Missing one is a hard error, never a skip.
+ *
+ * `logos-alt.tar` IS REQUIRED, not optional, and that is the whole reason this
+ * list exists. Nothing here checks for UNEXPECTED files — several are ignored on
+ * purpose (`DELTA.json`, `changed.ndjson.gz`) — so a package that simply lacked
+ * the alternates would have packed clean, reported success, and produced a
+ * console where every church silently has exactly one logo option. This file's
+ * doctrine is that a silently skipped logo is indistinguishable from a church
+ * that has none; the same argument applies a level up, to the archive.
+ */
 const REQUIRED = [
   "MANIFEST.json",
   "index.json.gz",
   "records.ndjson.gz",
   "logos-thumb.tar",
+  "logos-alt.tar",
 ] as const;
 
 interface Manifest {
@@ -75,6 +86,17 @@ interface Manifest {
   built_at: string;
   records: Record<string, string>;
   logos: Record<string, { sha: string; ext: string }>;
+  /**
+   * Runner-up logos, keyed by org_id, under a `churches` map beside a `_README`.
+   *
+   * SHAS AND NOTHING ELSE. This map used to carry the whole objects; upstream cut
+   * it back to the bare shas when the palettes landed, because a second copy of
+   * every alternative took MANIFEST.json to 34 MB. Everything else about an
+   * alternative — kind, theme, dimensions, url, its own colour ramp — lives on
+   * the record, once. What is here is what a publisher needs: which archive
+   * members belong to which church.
+   */
+  logo_alts?: { churches?: Record<string, string[]> };
 }
 
 interface IndexRowish {
@@ -82,6 +104,8 @@ interface IndexRowish {
   rec?: string;
   sl?: string;
   ss?: string;
+  /** How many runner-up logos this church has — the length of `logo_alts`. */
+  la?: number;
 }
 
 function die(msg: string): never {
@@ -259,6 +283,31 @@ let seenCount = 0;
 let shaFailed = 0;
 let sloganFilled = 0;
 const seen = new Set<string>();
+/**
+ * The runner-up logo shas each church offers, harvested while the records stream
+ * past. Checked against the index, the MANIFEST and the unpacked files once the
+ * archives are open — see "the alternates line up" below. Collected here because
+ * the line is already parsed; a second pass over 15,273 records to read one array
+ * would be the expensive way to ask the same question.
+ */
+const altShasByOrg = new Map<string, string[]>();
+
+/**
+ * THE COLOURS MUST BELONG TO THE PICTURE THEY WERE MEASURED FROM.
+ *
+ * A reviewer switches a church's logo and the demo is repainted in that logo's
+ * ramp. The join that makes that possible is `logo_alts[i].palette.palette_sha8
+ * === logo_alts[i].sha8` — a sha1 prefix, deliberately NOT the sha256 that keys
+ * the archives, because the two hashes are computed by different tools. Upstream
+ * asserts it on their side; nothing here did, and this is the failure it catches:
+ * a palette attached to a logo it was not measured from renders perfectly and
+ * renders wrong, on a page a church receives.
+ *
+ * Collected as first offenders rather than counted, because the useful thing on
+ * a mismatch is which church to go and look at.
+ */
+const paletteBad: string[] = [];
+const rampMissing: string[] = [];
 
 for (let i = 0; i <= ndjson.length; i++) {
   if (i !== ndjson.length && ndjson[i] !== 0x0a) continue;
@@ -268,11 +317,51 @@ for (let i = 0; i <= ndjson.length; i++) {
 
   const rec = JSON.parse(line.toString("utf8")) as {
     org_id?: string;
-    brand?: { slogan?: unknown; slogan_scope?: unknown };
+    brand?: { slogan?: unknown; slogan_scope?: unknown; logo_sha8?: unknown };
+    logo_palette?: Record<string, unknown>;
+    logo_alts?: { sha?: unknown; sha8?: unknown; palette?: Record<string, unknown> }[];
   };
   const orgId = rec.org_id;
   if (!orgId) die(`a record line has no org_id (byte offset ${start})`);
   if (seen.has(orgId)) die(`${orgId} appears twice in records.ndjson`);
+
+  /**
+   * The pick's own palette is joined the same way, against `brand.logo_sha8`.
+   * Checked even though nothing switches it: it is the ramp 15,273 demos are
+   * painted with today, and it is one equality.
+   */
+  const pickPalette = rec.logo_palette;
+  const pickSha8 = rec.brand?.logo_sha8;
+  if (pickPalette?.palette_sha8 && pickSha8 && pickPalette.palette_sha8 !== pickSha8) {
+    if (paletteBad.length < 5) {
+      paletteBad.push(`${orgId} pick: measured ${pickPalette.palette_sha8}, shipping ${pickSha8}`);
+    }
+  }
+
+  if (Array.isArray(rec.logo_alts) && rec.logo_alts.length) {
+    altShasByOrg.set(
+      orgId,
+      rec.logo_alts.map((a) => (typeof a?.sha === "string" ? a.sha : "")),
+    );
+    for (const a of rec.logo_alts) {
+      const p = a?.palette;
+      if (!p || !a.sha8 || p.palette_sha8 !== a.sha8) {
+        if (paletteBad.length < 5) {
+          paletteBad.push(
+            `${orgId} alt ${String(a?.sha).slice(0, 8)}: measured ${
+              String(p?.palette_sha8 ?? "(no palette)")
+            }, shipping ${String(a?.sha8 ?? "(no sha8)")}`,
+          );
+        }
+      } else if (!p.theme_light && !p.theme_dark) {
+        // Every one of the 19,803 carries both ramps, including the 6,740 with no
+        // colour in the mark — "greyscale" costs the accent, not the ramp. An
+        // alternative with neither would export a demo in the studio's default
+        // clay while the card promised the church's own colours.
+        if (rampMissing.length < 5) rampMissing.push(`${orgId} -> ${String(a.sha).slice(0, 8)}`);
+      }
+    }
+  }
 
   const want = manifest.records[orgId];
   if (want && sha256(line) !== want) shaFailed++;
@@ -354,37 +443,169 @@ console.log(`  ! ${sloganFilled} rows had their slogan projected in from the rec
 /* --------------------------------------------------------------- logo thumbs */
 
 /**
- * A minimal reader for the one tar shape this package ships: flat, no
- * directories, `<sha>.webp` names far inside the 100-byte limit. Anything else —
- * a PAX or GNU long-name header, a nested path — is refused rather than guessed
- * at, because a silently skipped logo looks exactly like a church that has none,
- * and `lo` being absent is a MEANINGFUL answer we must not counterfeit.
+ * ONE DIRECTORY FOR BOTH ARCHIVES, AND THE DATA FORCES IT.
+ *
+ * The package ships two tars: `logos-thumb.tar` (the logo we picked for each
+ * church) and `logos-alt.tar` (the runner-ups a reviewer may switch to). They are
+ * DISJOINT — an alternate whose sha is already in the thumbs archive, because it
+ * is some other church's pick, is omitted from the alternates archive rather than
+ * duplicated. Measured on this build: 14,253 + 19,118 members, overlap exactly 0.
+ *
+ * So a `logo_alts[].sha` can live in EITHER archive, and nothing downstream can
+ * tell which from the sha alone. Splitting them into two prefixes would mean
+ * every alternate costs a failed R2 GET before the successful one, and would put
+ * a second prefix through `leads-publish.mts` — which lists existing keys by
+ * prefix in two separate places, and re-uploads everything it cannot see.
+ *
+ * Unpacking both into `logos-thumb/` makes a sha resolve to exactly one file, for
+ * free, with no change to the publisher, the asset route or any caller. The cost
+ * is the name: this prefix now means "every 108px thumb we hold", picks and
+ * runner-ups alike. Renaming it would orphan 14,253 objects already live in R2.
  */
-const tar = readFileSync(pkgPath("logos-thumb.tar"));
-const logoNames: string[] = [];
+function unpackTar(file: string, into: string): string[] {
+  /**
+   * A minimal reader for the one tar shape this package ships: flat, no
+   * directories, `<sha>.webp` names far inside the 100-byte limit. Anything else —
+   * a PAX or GNU long-name header, a nested path — is refused rather than guessed
+   * at, because a silently skipped logo looks exactly like a church that has none,
+   * and `lo` being absent is a MEANINGFUL answer we must not counterfeit.
+   */
+  const tar = readFileSync(pkgPath(file));
+  const names: string[] = [];
 
-for (let off = 0; off + 512 <= tar.length; ) {
-  const header = tar.subarray(off, off + 512);
-  const name = header.subarray(0, 100).toString("utf8").replace(/\0.*$/, "");
-  if (!name) break; // two zero blocks end the archive
+  for (let off = 0; off + 512 <= tar.length; ) {
+    const header = tar.subarray(off, off + 512);
+    const name = header.subarray(0, 100).toString("utf8").replace(/\0.*$/, "");
+    if (!name) break; // two zero blocks end the archive
 
-  const type = String.fromCharCode(header[156]);
-  if (type !== "0" && type !== "\0") {
-    die(`logos-thumb.tar entry ${name} has unsupported type '${type}'`);
+    const type = String.fromCharCode(header[156]);
+    if (type !== "0" && type !== "\0") {
+      die(`${file} entry ${name} has unsupported type '${type}'`);
+    }
+    if (name.includes("/") || name.includes("..")) {
+      die(`${file} is not flat: ${name}`);
+    }
+
+    const size = parseInt(header.subarray(124, 136).toString("utf8").replace(/\0.*$/, "").trim(), 8);
+    if (!Number.isFinite(size)) die(`${file} entry ${name} has an unreadable size`);
+
+    write(`${into}/${name}`, tar.subarray(off + 512, off + 512 + size));
+    names.push(name);
+    off += 512 + Math.ceil(size / 512) * 512;
   }
-  if (name.includes("/") || name.includes("..")) {
-    die(`logos-thumb.tar is not flat: ${name}`);
-  }
-
-  const size = parseInt(header.subarray(124, 136).toString("utf8").replace(/\0.*$/, "").trim(), 8);
-  if (!Number.isFinite(size)) die(`logos-thumb.tar entry ${name} has an unreadable size`);
-
-  write(`logos-thumb/${name}`, tar.subarray(off + 512, off + 512 + size));
-  logoNames.push(name);
-  off += 512 + Math.ceil(size / 512) * 512;
+  return names;
 }
 
-console.log(`  logos-thumb/        ${logoNames.length} files`);
+const pickNames = unpackTar("logos-thumb.tar", "logos-thumb");
+const altNames = unpackTar("logos-alt.tar", "logos-thumb");
+
+/**
+ * The disjointness is ASSERTED, not assumed. If upstream ever starts repeating a
+ * sha across the two archives the second write would silently win — identical
+ * bytes under a content-addressed name, so harmless in fact, but it would mean
+ * the counts printed below and in `publish.json` no longer describe the files on
+ * disk, and `n_logos` is what the publisher's "did everything land" check reads.
+ */
+const overlap = pickNames.filter((n) => new Set(altNames).has(n));
+if (overlap.length) {
+  die(
+    `the two logo archives share ${overlap.length} entries (e.g. ${overlap[0]}).\n` +
+      `  They are meant to be disjoint — an alternate already in logos-thumb.tar is omitted from logos-alt.tar.`,
+  );
+}
+
+const logoNames = [...pickNames, ...altNames];
+
+console.log(
+  `  logos-thumb/        ${logoNames.length} files ` +
+    `(${pickNames.length} picks · ${altNames.length} alternates)`,
+);
+
+/* ------------------------------------------------------- the alternates line up */
+
+/**
+ * FOUR PLACES DESCRIBE THE SAME FACT, AND THEY MUST AGREE.
+ *
+ * A church's runner-up logos appear on the record (`logo_alts`), as a count on
+ * the index row (`la`), in the MANIFEST map, and as files in the archives. The
+ * reviewer picks from that list and the church receives whichever they choose, so
+ * a disagreement is not cosmetic: an `la` that overstates the array badges an
+ * option that is not offered, and a sha with no file behind it renders as a
+ * broken tile and then exports a demo with NO LOGO AT ALL — silently, because
+ * the export route treats missing bytes as "a missing picture is a worse demo,
+ * not a wrong one".
+ *
+ * There is no equivalent check for `lo` today, and there should be; this is the
+ * same argument the per-record sha verification above already won.
+ */
+const haveLogo = new Set(logoNames);
+const laMismatch: string[] = [];
+const shaMissing: string[] = [];
+const manifestAlts = manifest.logo_alts?.churches ?? {};
+
+for (const row of index) {
+  const shas = altShasByOrg.get(row.id) ?? [];
+  const declared = row.la ?? 0;
+  const fromManifest = manifestAlts[row.id] ?? [];
+
+  // COMPARED BY IDENTITY, NOT BY LENGTH. The MANIFEST now carries the shas
+  // themselves, so "two alternatives here and two there" can be checked as "the
+  // same two" — and it is the publisher that reads this map, so a manifest naming
+  // a member the record does not offer uploads an object nothing will ever ask
+  // for, while a record offering one the manifest omits is a tile that 404s.
+  if (
+    declared !== shas.length ||
+    (Object.keys(manifestAlts).length && fromManifest.join(",") !== shas.join(","))
+  ) {
+    if (laMismatch.length < 5) {
+      laMismatch.push(
+        `${row.id}: la=${declared} record=${shas.length} manifest=${fromManifest.length}` +
+          (fromManifest.length === shas.length ? " (same count, different shas)" : ""),
+      );
+    }
+  }
+  for (const sha of shas) {
+    if (!sha || !haveLogo.has(`${sha}.webp`)) {
+      if (shaMissing.length < 5) shaMissing.push(`${row.id} -> ${sha || "(no sha)"}`);
+    }
+  }
+}
+
+if (laMismatch.length) {
+  die(
+    `the index's 'la' count disagrees with the records' logo_alts:\n    ` +
+      laMismatch.join("\n    "),
+  );
+}
+if (shaMissing.length) {
+  die(
+    `${shaMissing.length}+ logo_alts shas have no file in either archive:\n    ` +
+      shaMissing.join("\n    ") +
+      `\n  An option we cannot render is an option we must not offer.`,
+  );
+}
+
+if (paletteBad.length) {
+  die(
+    `a colour ramp does not belong to the logo it is attached to:\n    ` +
+      paletteBad.join("\n    ") +
+      `\n  This one is invisible: it renders, and it renders the wrong church's colours.`,
+  );
+}
+if (rampMissing.length) {
+  die(
+    `${rampMissing.length}+ alternatives carry a palette with no theme ramp:\n    ` +
+      rampMissing.join("\n    "),
+  );
+}
+
+const withAlts = altShasByOrg.size;
+console.log(
+  `  logo_alts           ${withAlts} churches offer alternatives · every sha resolves`,
+);
+console.log(
+  `  palettes            every ramp joins to the logo it was measured from`,
+);
 
 /* ------------------------------------------------------------------- dev-only */
 
@@ -435,7 +656,10 @@ const publish = {
   packed_from: PKG.slice(ROOT.length + 1).replace(/\\/g, "/"),
   n_churches: manifest.n_churches,
   n_shards: shards.size,
+  /** Every thumb in the prefix — picks and runner-ups, which share one namespace. */
   n_logos: logoNames.length,
+  n_logo_picks: pickNames.length,
+  n_logo_alts: altNames.length,
   index_sha256: sha256(indexGz),
   index_bytes: indexGz.length,
   shards: shardShas,

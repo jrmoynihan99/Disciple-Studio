@@ -32,6 +32,7 @@
 import type { RawChurch, RawDiscPathway, RawNextStep } from "@/lib/generateDemo";
 import type { ResolvedCard } from "./group-types.ts";
 import { exportContacts } from "./contacts.ts";
+import { paletteOfLogo } from "./logo.ts";
 
 /**
  * The parts of a church a reviewer cannot see or correct, read off the live
@@ -49,11 +50,20 @@ export interface DemoExtras {
   bgSourceDark?: string;
 }
 
-/** `q9.times` is already `"Sun 10:30 AM"`; the palette lives under `logo_palette`. */
-export function extrasOf(record: unknown): DemoExtras {
+/**
+ * `q9.times` is already `"Sun 10:30 AM"`; the palette lives under `logo_palette`.
+ *
+ * `chosenSha` IS THE LOGO THE REVIEWER SETTLED ON, and passing it is what makes
+ * the colours follow the picture. Every candidate carries its own ramp, measured
+ * from its own pixels; `paletteOfLogo` finds the one belonging to this sha and
+ * falls back to the record's when the sha is the pipeline's own pick, or unknown,
+ * or absent. Omitting the argument is the pre-alternatives behaviour, which is
+ * still correct for a church nobody switched.
+ */
+export function extrasOf(record: unknown, chosenSha?: string | null): DemoExtras {
   const r = (record ?? {}) as Record<string, unknown>;
   const q9 = (r.q9 ?? {}) as Record<string, unknown>;
-  const p = (r.logo_palette ?? {}) as Record<string, unknown>;
+  const p = (paletteOfLogo(record, chosenSha) ?? {}) as Record<string, unknown>;
   const bg = (p.theme_bg_source ?? {}) as Record<string, unknown>;
   const brand = (r.brand ?? {}) as Record<string, unknown>;
 
@@ -258,8 +268,27 @@ export function toRawChurch(card: ResolvedCard, extras: DemoExtras = {}): RawChu
       slogan: card.slogan.kind === "slogan" ? card.slogan.voice.text.trim() : undefined,
       website_url: card.churchUrl || undefined,
       service_times: extras.serviceTimes,
-      logo_theme: extras.logoTheme ?? card.logo?.theme,
+      /**
+       * THE CARD'S LOGO DECIDES ITS OWN THEME, and this used to be the other way
+       * round.
+       *
+       * `extras.logoTheme` is the live record's `brand.logo_theme`, which
+       * describes the image the PIPELINE picked. That was harmless while the card
+       * could only carry that same image or nothing — and wrong the moment a
+       * reviewer could switch to a runner-up, because the theme is not decoration:
+       * it decides the demo's opening light/dark mode (`generateDemo`'s
+       * `initialMode`) and the plate the logo is drawn on. Most picks are
+       * wordmarks and most alternatives are icons, often with the opposite ink
+       * polarity, so a switched logo could ship as a near-white cut-out on a white
+       * page — invisible, which is indistinguishable from having no logo at all.
+       *
+       * The record is still the fallback, for a card whose snapshot predates the
+       * theme being carried.
+       */
+      logo_theme: card.logo?.theme || extras.logoTheme,
       contacts: contactsOf(card),
+      // "" means nobody overrode it, and `generateDemo` derives it as before.
+      greeting_first_name: card.greeting || undefined,
       discipleship_pathway: pathway,
       next_steps: nextSteps,
       // Spread, not restated — see `paletteFieldsOf`. The swatches on the review

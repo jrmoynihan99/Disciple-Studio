@@ -420,6 +420,26 @@ export interface EntryEdits {
   /** itemId → suppressedAt. Pipeline items are suppressed, never removed. */
   suppressed: Record<string, number>;
   added: AddedItem[];
+  /**
+   * A LOGO THE REVIEWER CHOSE INSTEAD OF OURS. Absent means ours stands — the
+   * same convention `fields` uses, for the same reason.
+   *
+   * We pick one image per church from several candidates and are confidently
+   * wrong often enough to matter: a cookie-consent badge, a children's-ministry
+   * sub-brand, a photo of the building, a stock-photo cross. Every one of those
+   * had the church's real mark one row down the candidate list. Which picture
+   * represents a church is a judgement about an image — we cannot cite it and no
+   * rule decided it reliably — so the runner-ups are offered and a person decides.
+   *
+   * THE WHOLE TRIPLE IS STORED, not just the sha. `theme` decides the plate the
+   * logo is drawn on and the demo's opening light/dark mode, and it varies per
+   * candidate — most picks are wordmarks and most alternatives are icons, often
+   * with the opposite ink polarity. Storing the sha alone would mean re-deriving
+   * the other two from a live record every time, which is exactly the kind of
+   * second lookup `resolve()` exists to avoid: it is pure, and it must be able to
+   * answer "what will this church's demo be built with" from the entry alone.
+   */
+  logoPick?: SnapshotLogo;
 }
 
 export interface GroupEntry {
@@ -611,6 +631,20 @@ export function earlierBatches(m: Membership, orgId: string): MembershipRef[] {
 export const PATH = {
   name: "name",
   slogan: "slogan",
+  /**
+   * WHAT THE DEMO CALLS THE PERSON IT GREETS.
+   *
+   * A card-level path rather than one hung off the rank-1 contact, because the
+   * thing being overridden is the demo's greeting, not that contact's name — and
+   * because rank 1 can change under it. Strike out the contact the demo was
+   * greeting and the greeting should stay what the reviewer approved.
+   *
+   * Editing the CONTACT's name still moves the greeting on its own, which is the
+   * behaviour you want when the name is simply wrong. This is for the other case:
+   * the name is right and the greeting derived from it is not — "Rev. Tom
+   * Blanchard" belongs on the card, and "Tom" is what the page should say.
+   */
+  greeting: "greeting",
   step: (id: string, field: "label" | "quote") => `steps.${id}.${field}`,
   pathwayStep: (id: string, field: "label" | "blurb" | "quote") => `pathway.${id}.${field}`,
   finding: (field: "quote" | "label") => `finding.${field}`,
@@ -689,6 +723,18 @@ export type GroupOp =
   | { op: "item.restore"; orgId: string; itemId: string }
   | { op: "item.add"; orgId: string; item: AddedItem }
   | { op: "item.remove"; orgId: string; itemId: string }
+  /**
+   * SWITCH THE CHURCH'S LOGO to one of the runner-ups, or `null` to go back to
+   * ours. See `EntryEdits.logoPick`.
+   *
+   * ITS OWN OP, unlike removal — which deliberately reuses `item.suppress`
+   * because suppress/restore already carried everything removal needed. Nothing
+   * existing carries "which of these five images", and the honest alternatives
+   * are both worse: a `field.set` would smuggle a structured triple through a
+   * text field, and three separate field paths would make one choice into three
+   * operations that can half-apply.
+   */
+  | { op: "logo.pick"; orgId: string; logo: SnapshotLogo | null }
   | { op: "church.remove"; orgId: string };
 
 /* ------------------------------------------------------------------ *
@@ -772,6 +818,16 @@ export interface ResolvedCard {
    * `toRawChurch` reads `card.logo`, which is already null here.
    */
   logoRemoved: boolean;
+  /**
+   * THE REVIEWER OVERRULED OUR PICK — this image is one of the runner-ups.
+   *
+   * Separate from `logoRemoved` because they are separate facts and the card
+   * says different things about them. It also marks the one case where the
+   * shipped colour palette stops describing the logo on screen: the ramp is
+   * measured from the image the PIPELINE chose, and there is no field tying a
+   * palette to a sha, so nothing downstream can notice on its own.
+   */
+  logoSwitched: boolean;
   slogan: ResolvedSlogan;
   stepsLooked: boolean;
   steps: ResolvedStep[];
@@ -783,6 +839,15 @@ export interface ResolvedCard {
   };
   contacts: ResolvedContact[];
   contactNote: string;
+  /**
+   * A NAME THE REVIEWER TYPED FOR THE DEMO TO GREET, or "" for ours.
+   *
+   * Empty means the rule stands and the card derives the name from the contacts
+   * — it is NOT "greet nobody". The card resolves the displayed word itself,
+   * because doing it here would need the export's contact ranking and `resolve()`
+   * is deliberately upstream of that.
+   */
+  greeting: string;
   editedCount: number;
   suppressedCount: number;
 }

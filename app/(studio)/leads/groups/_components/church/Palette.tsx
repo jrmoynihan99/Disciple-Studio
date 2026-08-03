@@ -16,10 +16,16 @@ import { SKIN } from "./skin";
  *
  * THESE ARE THE REAL COLOURS, NOT AN APPROXIMATION OF THEM. The values come from
  * `mapTheme` — the same function `generateDemo` calls — resolved server-side per
- * batch by `/api/leads/groups/<id>/palette`. That is the whole reason this is a
+ * batch by `/api/leads/groups/<id>/preview`. That is the whole reason this is a
  * request rather than something read off the snapshot: the export takes the ramp
  * LIVE, so a preview built from the frozen entry would be a preview of a
  * different demo.
+ *
+ * AND THEY ARE MEASURED FROM ONE PARTICULAR PICTURE, which is why this block now
+ * names it. Every candidate logo carries its own ramp, so switching the logo
+ * repaints these swatches — and a reviewer looking at a colour they did not
+ * expect deserves to know it came from the mark they chose rather than from
+ * somewhere unaccountable.
  *
  * NO LINKS IN HERE. `/leads/audit` asserts that the only `a[href]` on a card is
  * inside `[data-identity]`, which is what keeps `Visit` the single outbound link
@@ -118,12 +124,42 @@ function ModeTile({
   );
 }
 
+/**
+ * WHICH PICTURE THESE COLOURS CAME OUT OF.
+ *
+ * `gate` is the measurement's own account of itself: `""` means a brand colour
+ * was found in the mark, anything else names why there was none to find. It is
+ * NOT a failure — 40% of these logos are greyscale, and inventing a colour for
+ * them is precisely the thing this pipeline refuses to do. Said plainly, because
+ * "why is this church grey" is otherwise unanswerable from the card.
+ */
+const GATE: Record<string, string> = {
+  greyscale: "This mark has no colour in it, so the demo takes its tone from the logo’s ink.",
+  tie: "No single colour dominates this mark, so the demo takes its tone from the logo’s ink.",
+  share_below_floor:
+    "Too little of this mark is coloured to call it a brand colour, so the demo takes its tone from the logo’s ink.",
+  many_colors:
+    "This mark carries too many colours to single one out, so the demo takes its tone from the logo’s ink.",
+  no_measurement: "The colours in this mark could not be measured, so the demo uses a derived tone.",
+};
+
+export interface PaletteSource {
+  /** The reviewer chose a candidate other than the pipeline's pick. */
+  switched: boolean;
+  removed: boolean;
+  hasLogo: boolean;
+  /** Why there is no brand accent, or `""` if there is one. See `GATE`. */
+  gate: string;
+}
+
 export function PalettePreview({
   palette,
   churchName,
+  source,
 }: {
   palette: PaletteState;
   churchName: string;
+  source?: PaletteSource;
 }) {
   return (
     <div data-palette className={SKIN.paletteBox}>
@@ -152,6 +188,27 @@ export function PalettePreview({
           )}
           {palette.dark && <ModeTile mode="dark" set={palette.dark} churchName={churchName} />}
         </div>
+      )}
+
+      {/* THE PROVENANCE LINE. One sentence, and only when there is something a
+          reviewer could not have worked out from the swatches: that they moved
+          because of a choice they made, that they did not move when a logo was
+          taken away, or that the church has no colour of its own. */}
+      {palette !== undefined && source && (
+        <>
+          {source.switched && source.hasLogo && (
+            <p className={`mt-2 ${SKIN.absent}`}>Measured from the logo you chose.</p>
+          )}
+          {source.removed && (
+            <p className={`mt-2 ${SKIN.absent}`}>
+              Measured from the logo you removed. The demo ships without the picture and keeps
+              these colours.
+            </p>
+          )}
+          {source.hasLogo && GATE[source.gate] && (
+            <p className={`mt-1 ${SKIN.absent}`}>{GATE[source.gate]}</p>
+          )}
+        </>
       )}
     </div>
   );

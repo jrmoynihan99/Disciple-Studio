@@ -1,7 +1,11 @@
 import type { ChurchConfig, ColorSet, IconName, PathwayStep, StepStatus, ThemeOverrides } from "@/lib/types";
 import { darken } from "@/lib/color";
 import { TEMPLATES } from "@/components/templates";
-import { givenName } from "@/lib/leads/engine/person-name";
+import {
+  demoGreeting,
+  DEMO_MEMBER_FIRST_NAME,
+  type GreetablePerson,
+} from "@/lib/leads/engine/person-name";
 
 /**
  * Turns one church row from the pilot `next_steps.json` into a full
@@ -90,6 +94,16 @@ export interface RawChurch {
   service_times?: string;
   website_url?: string;
   contacts?: unknown;
+  /**
+   * The name the demo greets its member by, when a reviewer chose one.
+   *
+   * Absent means derive it from `contacts` the usual way. It exists because the
+   * derivation is right most of the time and unfixable when it is not: a contact
+   * recorded as "Pastor Mike Ruiz — Español" or "Dr. M. David Chambers" is
+   * correct ON THE CARD and wrong as a greeting, and until now the only way to
+   * change what the page said was to falsify the contact.
+   */
+  greeting_first_name?: string;
   discipleship_pathway?: RawDiscPathway | null;
   next_steps?: RawNextStep[];
   /** Pre-computed per-mode color ramps derived from the logo (pilot-palette
@@ -154,7 +168,8 @@ const DEFAULT_PROSE = "One more way to get involved and keep taking steps forwar
 
 /** The demo member's fixed fields (mirrors /admin's DEMO_MEMBER). */
 const DEMO_MEMBER = {
-  firstName: "Sarah",
+  // From the engine, so the review card can name the same fallback it will get.
+  firstName: DEMO_MEMBER_FIRST_NAME,
   lastName: "Thompson",
   email: "sarah.t@example.com",
   campus: "Downtown",
@@ -164,72 +179,18 @@ const DEMO_MEMBER = {
 const DEFAULT_WELCOME_LINE =
   "We're so glad you're here — here are your next steps, your group, your giving, and more";
 
-/** A church contact person (only the fields we read are typed). */
-interface RawContactPerson {
-  name?: string;
-  rank?: number;
-}
-
-/** First name for the demo member: the given name of the highest-ranked contact
- *  (lowest `rank` number wins; ties keep source order; people with no name or no
- *  numeric rank are skipped). Falls back to the default "Sarah" when the church
- *  has no usable contact. */
-function demoFirstName(contacts: unknown): string {
-  const people = (contacts as { people?: RawContactPerson[] } | null | undefined)?.people;
-  if (!Array.isArray(people)) return DEMO_MEMBER.firstName;
-
-  let best: RawContactPerson | undefined;
-  let bestRank = Infinity;
-  for (const p of people) {
-    if (!(p?.name ?? "").trim()) continue;
-    const rank = typeof p?.rank === "number" ? p.rank : Infinity;
-    if (rank < bestRank) {
-      bestRank = rank;
-      best = p;
-    }
-  }
-
-  /**
-   * NOT `split(/\s+/)[0]`, WHICH IS WHAT THIS USED TO BE.
-   *
-   * That is the obvious reading of "first name" and it is wrong on a fifth of
-   * this corpus: for "Rev. Tom Blanchard" it returns the title, and `properCase`
-   * below then tidies "REV." into "Rev." so the mistake ships looking deliberate
-   * — "Welcome back, Rev." above an avatar reading "RT", on a page being sent to
-   * that person's own church. See `givenName`, which lives in the engine because
-   * the rule needed a test and this file cannot be imported by one.
-   */
-  const first = givenName(best?.name ?? "");
-  return first ? properCase(first) : DEMO_MEMBER.firstName;
-}
-
 /**
- * A first name as it should be READ ALOUD, because the demo greets somebody with
- * it: "Welcome back, Mark."
+ * First name for the demo member.
  *
- * The corpus takes staff names as the page spelled them, and church websites
- * shout: 5,291 of 164,370 named contacts have an ALL-CAPS first name (staff
- * directories set in uppercase), and 739 are entirely lowercase. Passed through,
- * those become "Welcome back, MARK." and "Welcome back, alex." on a page being
- * sent to that person's own church.
- *
- * TWO RULES, AND THE SECOND IS THE CAREFUL ONE.
- *
- *  · ALL CAPS is a styling decision on their website, not a spelling, so it is
- *    undone: `MARK` -> `Mark`.
- *  · Anything else has only its FIRST LETTER raised, and the rest is left
- *    exactly as given: `alex` -> `Alex`, while `McKenzie`, `DeShawn` and
- *    `O'Brien` keep the capitals a person chose. Title-casing the whole token
- *    would "fix" those into `Mckenzie` and `Deshawn`, which is a different way
- *    of getting somebody's name wrong.
- *
- * Not a general name formatter, and deliberately not applied to surnames or
- * contact lists — this is the one string a demo says TO a reader.
+ * THE RULE ITSELF LIVES IN THE ENGINE — see `demoGreeting`. The review card
+ * shows a reviewer the exact word this will produce, as a promise about the page
+ * a church is going to receive, and a promise computed by a second copy of the
+ * rule would come apart on precisely the churches whose data is odd. This is a
+ * one-line adapter from `RawChurch.contacts`, which is `unknown` by design.
  */
-function properCase(word: string): string {
-  const shouted = word.length > 1 && word === word.toUpperCase() && word !== word.toLowerCase();
-  const rest = shouted ? word.slice(1).toLowerCase() : word.slice(1);
-  return word[0].toUpperCase() + rest;
+function demoFirstName(contacts: unknown): string {
+  const people = (contacts as { people?: GreetablePerson[] } | null | undefined)?.people;
+  return demoGreeting(people, DEMO_MEMBER.firstName).name;
 }
 
 /** A rating "passes" only when it's medium or high (blank/none/low all fail). */
@@ -508,7 +469,10 @@ export function generateDemo(church: RawChurch, opts: GenerateOptions = {}): Chu
     nextSteps,
     demoMember: {
       ...DEMO_MEMBER,
-      firstName: demoFirstName(church.contacts),
+      // A reviewer's choice outranks the derivation — they were looking at the
+      // contact when they made it. Trimmed-empty falls through rather than
+      // greeting a blank.
+      firstName: church.greeting_first_name?.trim() || demoFirstName(church.contacts),
       steps: memberSteps,
     },
     meta: {

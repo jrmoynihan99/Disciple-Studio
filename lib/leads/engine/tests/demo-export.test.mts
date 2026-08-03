@@ -18,7 +18,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { applyOp, cardFlags, resolve } from "../group.ts";
+import { applyOp, cardFlags, resolve, sanitizeOp } from "../group.ts";
 import { extrasOf, toRawChurch } from "../demo-export.ts";
 import { LOGO_ITEM_ID } from "../group-types.ts";
 import type { ChurchSnapshot, GroupEntry, SnapshotStep } from "../group-types.ts";
@@ -323,6 +323,89 @@ describe("extras from the live record", () => {
   });
 });
 
+/**
+ * THE COLOURS BELONG TO THE PICTURE THEY WERE MEASURED FROM.
+ *
+ * A demo is a page in a church's own colours, and "their colours" is a
+ * measurement taken from one particular image. Once a reviewer can choose a
+ * different image, a ramp that stays put is not stale in a way anybody notices —
+ * it renders, and it renders the colours of the mark they just rejected. At
+ * `rushcreek_org` the pipeline's pick is a cookie-consent plugin's badge, so
+ * every demo would have shipped in `#003399` while displaying the church's own
+ * logo. Nothing downstream could have caught it: `logo_palette` is one object on
+ * the record and `mapTheme` maps whatever it is handed.
+ *
+ * The join is `sha256 -> logo_alts[i]`, because the sha256 is the only thing the
+ * entry stores. The palette's own `palette_sha8` is a sha1 prefix and cannot be
+ * derived from it — `leads:pack` asserts `palette_sha8 === sha8` on all 19,803
+ * alternatives instead, so this lookup can trust what it finds.
+ */
+describe("the palette follows the chosen logo", () => {
+  const ALT = "b".repeat(64);
+  const record = {
+    brand: { logo_theme: "light" },
+    logo_palette: {
+      theme_light: { bg: "#ffffff", accent: "#003399" },
+      accent_light: "#003399",
+      palette_gate: "",
+    },
+    logo_alts: [
+      {
+        sha: ALT,
+        sha8: "87622514",
+        ext: "png",
+        theme: "dark",
+        palette: {
+          palette_sha8: "87622514",
+          theme_light: { bg: "#f7f3ea", accent: "#009cff" },
+          accent_light: "#009cff",
+          palette_gate: "",
+        },
+      },
+    ],
+  };
+
+  test("choosing an alternative takes its ramp, not the pick's", () => {
+    const extras = extrasOf(record, ALT);
+    assert.equal(extras.accentLight, "#009cff");
+    assert.equal(extras.themeLight?.bg, "#f7f3ea");
+  });
+
+  test("the pipeline's own pick still reads the record's ramp", () => {
+    // The pick's sha matches no alternative — that IS the pick — so the lookup
+    // falls through to `logo_palette`, which is where its own measurement lives.
+    const extras = extrasOf(record, "a".repeat(64));
+    assert.equal(extras.accentLight, "#003399");
+  });
+
+  test("asking without a sha is the pre-alternatives behaviour, unchanged", () => {
+    assert.equal(extrasOf(record).accentLight, "#003399");
+  });
+
+  /**
+   * A snapshot can name a logo the record no longer offers — the corpus is
+   * republished and the entry is frozen. The record's own ramp is then both the
+   * best answer available and the one that ships today; guessing nothing would
+   * paint the church in the studio's default clay instead of their colours.
+   */
+  test("a sha the record has never heard of falls back rather than blanking", () => {
+    assert.equal(extrasOf(record, "f".repeat(64)).accentLight, "#003399");
+  });
+
+  test("it survives a record with no alternatives and no palette at all", () => {
+    assert.equal(extrasOf({}, ALT).accentLight, undefined);
+    assert.equal(extrasOf(null, ALT).themeLight, undefined);
+  });
+
+  /** End to end: the field `generateDemo` actually reads. */
+  test("the switched logo's colours reach the RawChurch", () => {
+    const { church } = toRawChurch(resolve(entry()), extrasOf(record, ALT));
+    assert.ok(church);
+    assert.equal(church.logo_accent_light, "#009cff");
+    assert.equal(church.theme_light?.accent, "#009cff");
+  });
+});
+
 describe("contacts", () => {
   const person = (id: string, name: string, email: string) => ({
     id,
@@ -409,6 +492,51 @@ describe("contacts", () => {
       assert.equal(cardFlags(card).some((f) => f.key === "logo"), false);
     });
 
+    /**
+     * THE TEST THAT WAS MISSING, AND THE FEATURE SHIPPED INERT WITHOUT IT.
+     *
+     * Every other test in this block builds `edits.suppressed` BY HAND, and the
+     * only one that drove `applyOp` drove `item.restore` — which has no gate. So
+     * the resolve half, the export half and the flag were all correct and
+     * covered, while the one operation that reaches them did nothing at all:
+     * `suppress()` accepted an itemId only if it matched a step, a pathway step
+     * or a contact, and the logo is none of those. The ✕ was a no-op in the
+     * browser and on the server, silently, for as long as it existed.
+     *
+     * This drives the REAL op, the way the button does.
+     */
+    test("the ✕ on the logo actually removes it", () => {
+      const e = entry({ snapshot: withLogo() });
+      assert.equal(resolve(e).logo?.sha, "a".repeat(64), "precondition: there is a logo");
+
+      const after = applyOp(
+        { entries: [e] } as unknown as Parameters<typeof applyOp>[0],
+        { op: "item.suppress", orgId: e.orgId, itemId: LOGO_ITEM_ID },
+        1,
+      );
+      assert.equal(
+        after.entries[0].edits.suppressed[LOGO_ITEM_ID],
+        1,
+        "the op must reach storage — it used to be dropped on the floor",
+      );
+
+      const card = resolve(after.entries[0]);
+      assert.equal(card.logo, null);
+      assert.equal(card.logoRemoved, true);
+    });
+
+    /** Suppressing a logo that was never there would let the card claim somebody
+     *  removed something that does not exist. The op is refused, not stored. */
+    test("the op is refused on a church that has no logo", () => {
+      const e = entry({ snapshot: snapshot({ logo: null }) });
+      const after = applyOp(
+        { entries: [e] } as unknown as Parameters<typeof applyOp>[0],
+        { op: "item.suppress", orgId: e.orgId, itemId: LOGO_ITEM_ID },
+        1,
+      );
+      assert.deepEqual(after.entries[0].edits.suppressed, {});
+    });
+
     test("resolves to no logo once struck out, and says who did it", () => {
       const card = resolve(
         entry({
@@ -435,6 +563,132 @@ describe("contacts", () => {
       const card = resolve(restored.entries[0]);
       assert.equal(card.logo?.sha, "a".repeat(64));
       assert.equal(card.logoRemoved, false);
+    });
+
+    /* -------------------------------------------------------------- *
+     * Switching to one of the runner-ups
+     * -------------------------------------------------------------- */
+
+    /**
+     * WE PICK ONE IMAGE PER CHURCH AND ARE CONFIDENTLY WRONG OFTEN ENOUGH TO
+     * MATTER — a cookie-consent badge, a children's-ministry sub-brand, a photo
+     * of the building, a stock-photo cross, each with the church's real mark one
+     * row down the candidate list. 11,749 of 15,273 churches now ship runner-ups
+     * so a reviewer can overrule us.
+     *
+     * What these assert is what reaches the congregation: which bytes the export
+     * fetches, and which theme the demo opens in.
+     */
+    const alt = { sha: "b".repeat(64), ext: "svg", theme: "dark" };
+    const pick = (e: ReturnType<typeof entry>, logo: typeof alt | null) =>
+      applyOp(
+        { entries: [e] } as unknown as Parameters<typeof applyOp>[0],
+        { op: "logo.pick", orgId: e.orgId, logo },
+        3,
+      ).entries[0];
+
+    test("a picked alternative is what the card carries", () => {
+      const card = resolve(pick(entry({ snapshot: withLogo() }), alt));
+      assert.equal(card.logo?.sha, "b".repeat(64));
+      assert.equal(card.logo?.theme, "dark", "the plate and the demo's mode ride on this");
+      assert.equal(card.logoSwitched, true);
+      assert.equal(card.editedCount, 1, "switching is work somebody did");
+    });
+
+    /**
+     * 241 churches have alternatives and NO pick of ours. For them this turns an
+     * empty plate into a real choice, and the "why there is no logo" sentence has
+     * to stop being said about a church that now has one.
+     */
+    test("a church we found no logo for can still be given one", () => {
+      const e = entry({ snapshot: snapshot({ logo: null, noLogo: { reason: "too_small" } }) });
+      assert.equal(resolve(e).logo, null);
+
+      const card = resolve(pick(e, alt));
+      assert.equal(card.logo?.sha, "b".repeat(64));
+      assert.equal(card.noLogo, null, "the absence reason must not survive the logo arriving");
+      assert.equal(cardFlags(card).some((f) => f.key === "noLogo"), false);
+    });
+
+    /** Picking ours again is a revert, not a stored choice that happens to match. */
+    test("choosing our own logo again clears the override", () => {
+      const switched = pick(entry({ snapshot: withLogo() }), alt);
+      assert.equal(resolve(switched).logoSwitched, true);
+
+      const back = pick(switched, { sha: "a".repeat(64), ext: "png", theme: "light" });
+      assert.equal(back.edits.logoPick, undefined, "the key must be gone, not merely equal");
+      assert.equal(resolve(back).logo?.sha, "a".repeat(64));
+      assert.equal(resolve(back).logoSwitched, false);
+      assert.equal(resolve(back).editedCount, 0);
+    });
+
+    test("`null` puts ours back too", () => {
+      const back = pick(pick(entry({ snapshot: withLogo() }), alt), null);
+      assert.equal(resolve(back).logo?.sha, "a".repeat(64));
+      assert.equal(resolve(back).logoSwitched, false);
+    });
+
+    /**
+     * THE WHOLE POINT OF THE FEATURE IS THAT IT IS PLAYABLE: pick, remove, pick
+     * again, put back, in any order. Removal and choice are independent, so
+     * putting one back restores whichever image was CHOSEN rather than ours.
+     */
+    test("switching and removing compose in either order", () => {
+      const e = entry({ snapshot: withLogo() });
+
+      const switchedThenStruck = applyOp(
+        { entries: [pick(e, alt)] } as unknown as Parameters<typeof applyOp>[0],
+        { op: "item.suppress", orgId: e.orgId, itemId: LOGO_ITEM_ID },
+        4,
+      ).entries[0];
+      let card = resolve(switchedThenStruck);
+      assert.equal(card.logo, null, "struck out wins over any choice");
+      assert.equal(card.logoRemoved, true);
+
+      const restored = applyOp(
+        { entries: [switchedThenStruck] } as unknown as Parameters<typeof applyOp>[0],
+        { op: "item.restore", orgId: e.orgId, itemId: LOGO_ITEM_ID },
+        5,
+      ).entries[0];
+      card = resolve(restored);
+      assert.equal(card.logo?.sha, "b".repeat(64), "put back restores THEIR choice, not ours");
+
+      // …and switching again while struck out leaves it struck out.
+      const stillStruck = pick(switchedThenStruck, { sha: "c".repeat(64), ext: "png", theme: "light" });
+      assert.equal(resolve(stillStruck).logo, null);
+      assert.equal(resolve(stillStruck).logoRemoved, true);
+    });
+
+    /** The export reads `card.logo`, so the switch reaches the demo for free. */
+    test("the picked logo, and its theme, are what the demo is built with", () => {
+      const card = resolve(pick(entry({ snapshot: withLogo() }), alt));
+      const { church } = toRawChurch(card, { logoTheme: "light" });
+      assert.equal(
+        church?.logo_theme,
+        "dark",
+        "the record describes the logo we picked; the card describes the one they chose",
+      );
+    });
+
+    /* -------------------------------------------------------------- *
+     * The op is a boundary, so it is checked like one
+     * -------------------------------------------------------------- */
+
+    test("sanitizeOp refuses a forged logo", () => {
+      const ok = { op: "logo.pick", orgId: "x", logo: { sha: "a".repeat(64), ext: "png", theme: "light" } };
+      assert.ok(sanitizeOp(ok), "a well-formed pick must survive");
+      assert.equal(sanitizeOp({ ...ok, logo: { ...ok.logo, sha: "../../churches/secret" } }), null);
+      assert.equal(sanitizeOp({ ...ok, logo: { ...ok.logo, sha: "A".repeat(64) } }), null, "hex is lower-case");
+      assert.equal(sanitizeOp({ ...ok, logo: { ...ok.logo, sha: "a".repeat(63) } }), null);
+      assert.equal(sanitizeOp({ ...ok, logo: { ...ok.logo, ext: "html" } }), null);
+      assert.equal(sanitizeOp({ ...ok, logo: { ...ok.logo, theme: "chartreuse" } }), null);
+      assert.equal(sanitizeOp({ ...ok, orgId: "" }), null);
+      // `null` is a real instruction — "go back to ours" — not a malformed body.
+      assert.deepEqual(sanitizeOp({ op: "logo.pick", orgId: "x", logo: null }), {
+        op: "logo.pick",
+        orgId: "x",
+        logo: null,
+      });
     });
 
     /**

@@ -268,6 +268,16 @@ export const SKIN = {
   pathwayName: "mt-1 font-serif text-[21px] leading-snug font-semibold text-lead-ink",
   pathwayFinding: "font-serif text-[15px] leading-relaxed text-lead-ink",
   /**
+   * The name the demo greets its member by.
+   *
+   * Sized like the pathway name and set in the same serif, because it is the
+   * same kind of thing: one short string that HEADLINES a page a church will
+   * read, as against the many small facts around it. `inline-block` so the
+   * editable field is only as wide as the word — a full-width click target for
+   * "Tom" reads as a form field rather than as a name you can correct.
+   */
+  greetingName: "inline-block min-w-[7ch] font-serif text-[21px] leading-snug font-semibold text-lead-ink",
+  /**
    * A reviewer's own note on a step they added.
    *
    * Deliberately quieter than a quote and set in the mono face the other

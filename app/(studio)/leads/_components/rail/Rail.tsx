@@ -115,7 +115,6 @@ export function Rail({
   filters,
   setFilters,
   state,
-  groups,
   openBatch,
   collecting,
   onSwitchBatch,
@@ -136,7 +135,10 @@ export function Rail({
   filters: LeadFilters;
   setFilters: (f: LeadFilters) => void;
   state: LeadState;
-  groups: ExportGroupSummary[];
+  /* The whole batch LIST used to come in here, for an "Earlier batches" column
+     under the All batches button. That column is gone — the index page is the
+     one place batches are listed now — and with it the rail's only reason to
+     know about any batch but the open one. */
   /** The batch ✆ collects into, or null before the first church of the day. */
   openBatch: ExportGroupSummary | null;
   collecting: number;
@@ -173,17 +175,6 @@ export function Rail({
   const countries = withCurrent(countryValues(forCountry), filters.country);
   const subdivs = withCurrent(subdivValues(forSubdiv, filters.country), filters.subdiv);
   const networks = withCurrent(networkValues(forNetwork), filters.network);
-
-  // Exported last — finished work stays reachable without competing with the
-  // batch being built.
-  const earlier = groups
-    .filter((g) => g.id !== openBatch?.id)
-    .slice()
-    .sort((a, b) => {
-      const ax = a.status === "exported" ? 1 : 0;
-      const bx = b.status === "exported" ? 1 : 0;
-      return ax - bx || (a.updatedAt < b.updatedAt ? 1 : -1);
-    });
 
   const set = (patch: Partial<LeadFilters>) => setFilters({ ...filters, ...patch });
 
@@ -327,9 +318,17 @@ export function Rail({
       {/* ── every batch ──
           THE RAIL HAD NO WAY TO REACH THE BATCH INDEX. It carried exactly two
           links, both deep into ONE batch: "Review these N" (today's, and only
-          while it has churches in it) and the earlier-batches list below. So the
-          page that lists all of them was reachable only from inside a batch you
-          already knew the id of — a dead end at the top of the funnel.
+          while it has churches in it) and an "Earlier batches" list under this
+          button. So the page that lists all of them was reachable only from
+          inside a batch you already knew the id of — a dead end at the top of
+          the funnel.
+
+          THAT LIST IS GONE NOW, by owner's decision, and this is what replaced
+          it: the same destination, one control instead of a growing column, and
+          the index has room to show a batch's date, size and status properly.
+          Duplicating it in the rail meant the sidebar got longer every day you
+          worked, pushing the filters — the thing the rail is actually for — off
+          the screen.
 
           Outside the tray card rather than in it, so it does not read as another
           fact about today's collecting, and filled because getting to the work
@@ -341,32 +340,6 @@ export function Rail({
         All batches
         <span aria-hidden="true">→</span>
       </Link>
-
-      {/* ── earlier batches ──
-          Exported ones last: the daily job is finding the next twenty, so
-          finished work should be reachable without being in the way. */}
-      {earlier.length > 0 && (
-        <section className="mt-4">
-          <h4 className="mb-2 font-mono text-[10px] font-bold tracking-widest text-lead-ink2 uppercase">
-            Earlier batches
-          </h4>
-          <div className="space-y-1">
-            {earlier.map((g) => (
-              <Link
-                key={g.id}
-                href={`/leads/groups/${g.id}`}
-                className="flex items-baseline gap-2 rounded-md border border-lead-line bg-lead-panel px-2 py-1.5 text-[11px] text-lead-ink hover:border-lead-brand"
-              >
-                <span className="min-w-0 flex-1 truncate">{g.name}</span>
-                {g.status === "exported" && (
-                  <span className="shrink-0 font-mono text-[9px] text-lead-dl">sent</span>
-                )}
-                <span className="shrink-0 font-mono text-[10px] text-lead-ink2">{g.count}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* ── region cascade ── */}
       <section className="mt-4">
