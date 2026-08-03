@@ -17,7 +17,14 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { facetCounts, visibleFacetValues } from "../filter.ts";
+import {
+  computeView,
+  defaultFilters,
+  facetCounts,
+  subdivValues,
+  visibleFacetValues,
+} from "../filter.ts";
+import { TUNING_DEFAULTS } from "../favor.ts";
 import { churchFromIndex } from "../adapt.ts";
 import { HAVE_FIXTURE, loadIndex } from "./fixture.mts";
 
@@ -109,4 +116,87 @@ describe("facet options", () => {
       );
     },
   );
+
+  /* ---------------------------------------------------------------- *
+   * What a region filter is NOT showing you
+   * ---------------------------------------------------------------- */
+
+  /**
+   * AN ABSENCE MUST NEVER READ AS A NON-MATCH.
+   *
+   * 4,617 churches — 30% of the corpus — carry no region at all, because the
+   * geography pass reads the homepage footer only. Choosing a state therefore
+   * removes a third of the list for a reason that has nothing to do with the
+   * state, and a shorter list says nothing about why. Upstream ships that number
+   * as `MANIFEST.coverage._no_region` precisely so a UI cannot filter on it in
+   * silence.
+   *
+   * `summary.noRegion` is the same fact measured live against whatever else is
+   * filtered, and the deck prints it beside the count it qualifies.
+   *
+   * AGAINST THE REAL CORPUS, because the number only means anything if the blanks
+   * are really there — a stub with two invented churches would pass while the
+   * shipped index had a value for everybody.
+   */
+  describe("what a region filter is not showing", () => {
+    const setup = () => {
+      const rows = loadIndex();
+      return { views: rows.map(churchFromIndex), ctx: { overrides: {}, favor: TUNING_DEFAULTS, rows } };
+    };
+
+    test(
+      "no region chosen means no count — it is the price of a choice, not a fact about the corpus",
+      { skip: !HAVE_FIXTURE && "fixture not present" },
+      () => {
+        const { views, ctx } = setup();
+        assert.equal(computeView(views, defaultFilters(), ctx).summary.noRegion, 0);
+      },
+    );
+
+    test(
+      "choosing a country counts the churches that have none",
+      { skip: !HAVE_FIXTURE && "fixture not present" },
+      () => {
+        const { views, ctx } = setup();
+        const { summary } = computeView(views, { ...defaultFilters(), country: "USA" }, ctx);
+        assert.equal(summary.noRegion, views.filter((v) => !v.country).length);
+      },
+    );
+
+    test(
+      "choosing a state counts the churches inside that country with no state",
+      { skip: !HAVE_FIXTURE && "fixture not present" },
+      () => {
+        const { views, ctx } = setup();
+        const state = subdivValues(views, "USA")[0];
+        assert.ok(state, "the fixture has no US subdivisions to filter by");
+
+        const { summary } = computeView(
+          views,
+          { ...defaultFilters(), country: "USA", subdiv: state },
+          ctx,
+        );
+        /**
+         * BOTH CLAUSES COUNT. A church with no country cannot match "USA" and
+         * cannot match a state within it either; a church in the USA with no
+         * state is hidden by the second clause alone. A church in CANADA is a
+         * real non-match and must NOT be counted, or the number degenerates into
+         * "everything the filter removed".
+         *
+         * The first implementation counted only the state clause and returned 0
+         * here — geography in this corpus is all-or-nothing, so every blank is
+         * missing the country. Zero at the exact moment the list lost a third of
+         * its rows is the failure this whole count exists to prevent.
+         */
+        const unlocated = views.filter(
+          (v) => !v.country || (v.country === "USA" && !v.subdiv),
+        ).length;
+        assert.equal(summary.noRegion, unlocated);
+        assert.ok(
+          summary.noRegion > 0,
+          "the corpus really does hold churches with no region — that is the whole point",
+        );
+      },
+    );
+  });
 });

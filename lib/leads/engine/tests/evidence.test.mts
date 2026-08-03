@@ -106,6 +106,30 @@ describe("evidence", { skip: !HAVE_FIXTURE && "fixture not present" }, () => {
     // empty quote and a step that still ships. Measured at 10 of 73,758 —
     // upstream's to fix, ours to refuse to draw.
     /^\.next_steps\[\d+\]\.quote$/,
+    /**
+     * A QUESTION CARD'S OWN QUOTE — `Evidence.tsx`'s `Quote`, which opens with
+     * `if (!safeUrl(url ?? "")) return null`.
+     *
+     * ONE RENDERER, NOT ONE FIELD, which is why the pattern is `q\d+` rather than
+     * `q3`. Every question card pushes its quote through that single component,
+     * so the guarantee is uniform across q1–q12 and naming one question would
+     * suggest the other eleven were checked some other way.
+     *
+     * NEW IN package-v2-final, and it is the cost of an improvement rather than a
+     * regression in disguise: the build "dropped unopenable source_urls to ''",
+     * which is the right call — a URL that 404s is worse than no URL — but it
+     * leaves the quote beside it with nothing to cite. Eight q3 quotes landed
+     * that way (`hillcrestchurchlr_com`, `tccde_com`, `wearecrossway_org`,
+     * `riverstonevineyard_com`, `mpcc_info`, `bethelfree_com`, `eastsideky_church`,
+     * `bethelmarquette_com`), every one of them `verified: "exact"` — so the span
+     * really is on the page and we simply can no longer say which page.
+     *
+     * Worth telling upstream: dropping the URL should probably drop the quote
+     * with it, or move it to a field that does not read as a citation. Until then
+     * the reviewer sees the card's answer with no quotation under it, which is
+     * the honest outcome.
+     */
+    /^\.q\d+\.quote$/,
   ];
 
   test("every unattributed quote sits where a renderer already abstains", () => {

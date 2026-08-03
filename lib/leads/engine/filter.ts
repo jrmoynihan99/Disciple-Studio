@@ -258,6 +258,22 @@ export interface Summary {
   dist: number[];
   /** How many of `n` were already collected in an earlier batch. Reported, never hidden. */
   collected: number;
+  /**
+   * HOW MANY CHURCHES A REGION FILTER IS EXCLUDING FOR HAVING NO REGION AT ALL —
+   * `0` when no region filter is set.
+   *
+   * The distinction this exists for is between "did not match" and "we never
+   * learned this", which a filtered list cannot express on its own. The upstream
+   * package now ships the number that makes it urgent: 4,617 churches (30%) carry
+   * no state, because the geography pass reads the homepage footer only. So the
+   * moment somebody picks a state, a THIRD of the corpus leaves the list — and
+   * every one of those churches might be in that state.
+   *
+   * Counted against the set narrowed by every OTHER filter, so it answers the
+   * question actually being asked: of the churches I would otherwise be looking
+   * at, how many is the region filter dropping for lack of an answer.
+   */
+  noRegion: number;
 }
 
 /**
@@ -272,6 +288,7 @@ export function summarize(
   axisMax: number,
   scores: Map<string, number>,
   isEarlier: (orgId: string) => boolean = () => false,
+  noRegion = 0,
 ): Summary {
   const max = Math.max(1, axisMax);
   const dist = Array<number>(max + 1).fill(0);
@@ -280,7 +297,60 @@ export function summarize(
     dist[favorBucket(scores.get(v.id) ?? 0, max)]++;
     if (isEarlier(v.id)) collected++;
   }
-  return { n: base.length, total, dist, collected };
+  return { n: base.length, total, dist, collected, noRegion };
+}
+
+/**
+ * How many churches the region filter is dropping FOR HAVING NO REGION, as
+ * opposed to for having a different one.
+ *
+ * Zero unless a region filter is actually set — the number is only meaningful
+ * as an account of what a specific choice is costing, and reporting "4,617 have
+ * no state" over an unfiltered list would be noise on every screen.
+ *
+ * Measured against everything else the user has already narrowed to, by re-running
+ * the same filter with only the region clause removed. The alternative — counting
+ * blanks across the whole corpus — would answer a question nobody asked and would
+ * disagree with the list on screen the moment any other facet was set.
+ *
+ * ONE EXTRA PASS, and only while a region is chosen. The console already makes
+ * several for the facet counts.
+ */
+function unlocatedCount(
+  views: readonly ChurchView[],
+  f: LeadFilters,
+  ctx: EngineCtx,
+  isMarked: MarkLookup,
+): number {
+  if (!f.country && !f.subdiv) return 0;
+
+  /**
+   * BOTH CLAUSES AT ONCE, because both hide for the same reason.
+   *
+   * The first version dropped only the narrower clause — with a state chosen it
+   * counted "in this country, no state" and stopped there. Against the real
+   * corpus that reports ZERO, and the reason is worth writing down: geography
+   * arrives all-or-nothing. A church has city, region and country together or it
+   * has none of them, so the 4,617 blanks are all missing the COUNTRY, and a
+   * count that only looked at the state clause found nothing to report at
+   * precisely the moment the list had shrunk by a third.
+   */
+  const wider = baseFiltered(views, { ...f, country: "", subdiv: "" }, ctx, isMarked);
+
+  let n = 0;
+  for (const v of wider) {
+    // No country at all — it cannot match any country, nor any state within one.
+    if (!v.country) {
+      n++;
+      continue;
+    }
+    // A DIFFERENT country is a real non-match. Counting it here would turn this
+    // number into "everything the filter removed", which is just `total - n`.
+    if (f.country && v.country !== f.country) continue;
+    // In the chosen country, but we never learned which part of it.
+    if (f.subdiv && !v.subdiv) n++;
+  }
+  return n;
 }
 
 export interface ViewResult {
@@ -306,7 +376,14 @@ export function computeView(
 
   // Scored over every church, so the axis does not move while filtering.
   const axisMax = favorAxisMax(views, ctx);
-  const summary = summarize(base, views.length, axisMax, scores, isEarlier);
+  const summary = summarize(
+    base,
+    views.length,
+    axisMax,
+    scores,
+    isEarlier,
+    unlocatedCount(views, f, ctx, isMarked),
+  );
 
   let rows = base;
   if (f.favorBucket != null) {

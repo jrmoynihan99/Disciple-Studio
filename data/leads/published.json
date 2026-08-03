@@ -1,12 +1,12 @@
 {
-  "publish_id": "p1-941b209c9b6355e0",
+  "publish_id": "p1-390544a4d3885558",
   "pack_format": 1,
-  "built_at": "2026-08-02T16:22:52-04:00",
+  "built_at": "2026-08-02T21:08:37-04:00",
   "n_churches": 15273,
   "n_shards": 256,
   "n_logos": 14253,
-  "index_sha256": "9ea5f96f5db9bf3722483da371903a923fed9962d934d42174703f63d52edc83",
-  "index_bytes": 2725907,
-  "published_at": "2026-08-02T21:13:37.494Z",
+  "index_sha256": "96f3bcd91f27f3f1e219942f2eb3ca2cba56f4bdc00e461c596ffa4e49a66b0d",
+  "index_bytes": 2726635,
+  "published_at": "2026-08-03T01:59:41.209Z",
   "note": "Written by scripts/leads-publish.mts. Names the build this deployment serves; every key is derived from publish_id (logos are content-addressed and shared across publishes). Contains no church data and no account-specific URL — see data/leads/README.md."
 }

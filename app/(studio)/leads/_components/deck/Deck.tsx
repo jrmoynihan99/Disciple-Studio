@@ -41,6 +41,31 @@ export function Deck({
           <span className="ml-1.5 font-mono text-xs text-lead-ink2">
             / {fmt(summary.total)} churches
           </span>
+          {/* ── WHAT THE REGION FILTER IS NOT SHOWING YOU ──
+              An empty or short list must never read as "no matches" when it means
+              "we never learned this". 4,617 churches — 30% of the corpus — carry
+              no state at all, because the geography pass reads the homepage footer
+              only; the upstream package now ships that number in
+              `MANIFEST.coverage._no_region` precisely so a UI cannot filter on it
+              in silence.
+
+              So the moment a region is chosen, the churches dropped for having NO
+              region are counted here, beside the count they qualify. They are not
+              silently re-included: any one of them might be in the chosen state
+              and we have no basis to say so. Saying how many were set aside is
+              what makes the smaller number honest.
+
+              Not shown when no region is set — 4,617 on every screen is noise,
+              and the fact only means something as the price of a choice. */}
+          {summary.noRegion > 0 && (
+            <span
+              data-no-region
+              title="These churches have no region on file at all, so they cannot match any region — they were set aside rather than ruled out. The pipeline reads the homepage footer only."
+              className="ml-2 font-mono text-[10px] text-lead-warn-ink"
+            >
+              {fmt(summary.noRegion)} have no region — not shown
+            </span>
+          )}
         </div>
 
         <span className="self-center font-mono text-[10px] text-lead-ink2">Favor →</span>
