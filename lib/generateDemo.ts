@@ -338,8 +338,10 @@ function mapLogoPlate(church: RawChurch): { light?: boolean; dark?: boolean } | 
   return light || dark ? { light, dark } : undefined;
 }
 
-/** Base slug for a church (no collision handling — the caller resolves those). */
-export function baseSlugFor(church: RawChurch): string {
+/** Base slug for a church (no collision handling — the caller resolves those).
+ *  Narrowed to the two fields it reads, so a caller deciding collisions across a
+ *  whole batch can ask about twenty churches without building twenty of them. */
+export function baseSlugFor(church: Pick<RawChurch, "church_title" | "org_id">): string {
   return slugify(church.church_title) || `church-${church.org_id}`;
 }
 
@@ -448,6 +450,11 @@ export function generateDemo(church: RawChurch, opts: GenerateOptions = {}): Chu
   return {
     slug,
     churchName: church.church_title,
+    // The identity the slug cannot carry — see `ChurchConfig.sourceOrgId`.
+    // Stringified because `org_id` is `string | number` (the pilot corpus used
+    // numeric ids), and a comparison that has to be exact cannot be one that
+    // depends on which of the two a given record happened to ship.
+    sourceOrgId: String(church.org_id ?? "").trim() || undefined,
     tagline,
     initialMode,
     logoUrl: opts.logoUrl || church.logo_url || undefined,

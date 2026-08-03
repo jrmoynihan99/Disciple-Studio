@@ -139,7 +139,7 @@ describe("the reviewed church is what gets generated", () => {
   /**
    * `generateDemo` drops a `misc` step unless all four audits pass. A reviewer who
    * left it on the card has decided it ships, so `misc` is the one category where
-   * the name audits are allowed through — safe only because `name` is still empty.
+   * the audits are all allowed through — safe only because `name` is still empty.
    */
   test("a misc step the reviewer kept is not silently dropped", () => {
     const misc = entry({
@@ -150,6 +150,47 @@ describe("the reviewed church is what gets generated", () => {
     assert.equal(s.name_confidence, "high");
     assert.equal(s.name_fit, "high");
     assert.equal(s.name, "", "even here, final_name must still win the label");
+  });
+
+  /**
+   * THE CASE THE TEST ABOVE LOOKED LIKE IT COVERED AND DID NOT.
+   *
+   * `step()` supplies a quote by default, so the assertion above only ever ran
+   * the quoted branch. `keepMisc` set the name audits alone, which left a
+   * quote-less `misc` step failing the other two — `generateDemo` requires all
+   * four — so it was dropped from the demo after being displayed, counted and
+   * approved on the review card. 360 churches in the corpus, because
+   * `snapshot.ts` blanks the quote whenever the pipeline had no `source_url` to
+   * attribute it to.
+   *
+   * The absence of a quote must NOT be repaired here — it is the description that
+   * falls back to the generic prose, not the step that disappears.
+   */
+  test("a misc step with no quote still reaches the demo", () => {
+    const bare = entry({
+      snapshot: snapshot({
+        steps: [
+          step({ id: "s_misc", key: "misc", label: "Prayer Wall", quote: "", sourceUrl: "" }),
+        ],
+      }),
+    });
+    const [s] = raw(bare).next_steps!;
+    assert.equal(s.quote, "", "no quote may be invented for it");
+    for (const audit of ["quote_confidence", "quote_category_fit", "name_confidence", "name_fit"] as const) {
+      assert.equal(s[audit], "high", `${audit} must pass or generateDemo drops the step`);
+    }
+  });
+
+  /** The licence is `misc`-only: everywhere else a missing quote must still read
+   *  as missing, or every step would claim words the church never said. */
+  test("a non-misc step with no quote keeps its quote audits blank", () => {
+    const bare = entry({
+      snapshot: snapshot({ steps: [step({ quote: "", sourceUrl: "" })] }),
+    });
+    const [s] = raw(bare).next_steps!;
+    assert.equal(s.category, "group");
+    assert.equal(s.quote_confidence, "");
+    assert.equal(s.quote_category_fit, "");
   });
 
   /**

@@ -73,6 +73,19 @@ export const config = {
     // coverage that nothing can check, and the day somebody re-adds an
     // `/api/import` they should have to decide whether it is gated.
     "/api/groups/:path*",
+    /**
+     * The logo uploader. It serves no church data, which is why it was missed —
+     * but it is a WRITE, and the thing it writes to is the store whose
+     * advanced-operation allowance being exhausted "suspended this store once
+     * already and took the live demos down with it" (see `lib/logo.ts`). Nothing
+     * in this codebase ever deletes a logo, so an unauthenticated POST loop is a
+     * one-way ratchet towards that outage.
+     *
+     * Safe to gate: the only caller is `/admin`, which is already behind this
+     * same matcher. `/api/asset` — the public READ side — is deliberately not
+     * here, because `/c/<slug>` has to serve logos to a church with no password.
+     */
+    "/api/upload/:path*",
     "/api/ccb/consent-link",
     "/api/pushpay/consent-link",
   ],

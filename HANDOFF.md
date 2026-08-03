@@ -310,7 +310,7 @@ one, and it says why. The audit takes about two minutes to finish — it reads a
 ## Two things not to change without reading first
 
 - **Never make `disciple-studio-leads` public.** It holds real contact details
-  for 15,274 congregations. The logos bucket is the one that can safely go on a
+  for 15,274 congregations. While it's all publicly collected data, it's best practice not to release a curation. The logos bucket is the one that can safely go on a
   CDN.
 - **Never commit the church data.** `data/leads/.gitignore` blocks everything in
   that folder except four small files, deliberately. This repository is public.

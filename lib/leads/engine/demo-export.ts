@@ -159,14 +159,41 @@ function stepOf(label: string, quote: string, category: string): RawNextStep {
 }
 
 /**
- * A `misc` step needs all four audits to pass or `generateDemo` drops it. A
- * reviewer who left it on the card has decided it ships, so `misc` is the one
- * category where the name audits are allowed to pass — and it is safe, because
- * `name` is still empty, so `final_name` still wins the label.
+ * A `misc` step a reviewer kept must reach the demo.
+ *
+ * `generateDemo` drops a `misc` step unless ALL FOUR audits pass — quote
+ * confidence, quote fit, name confidence and name fit — because upstream a
+ * miscellaneous row with weak evidence is more likely to be page furniture than
+ * a next step. Here somebody has read it, and either kept it or struck it out;
+ * "kept" is the strongest warrant available and it outranks the pipeline's own
+ * uncertainty about a row it has never seen a human look at.
+ *
+ * ALL FOUR, NOT TWO. This used to set only the name pair, and its comment
+ * claimed that was enough. It was not: a `misc` step with no quote left both
+ * quote audits blank, failed the same test, and vanished from the demo — the
+ * card counted it, the reviewer approved it, and the church never saw it. It
+ * hits 360 churches in the current corpus, because `snapshot.ts` blanks a quote
+ * whenever the pipeline gave no `source_url` to attribute it to, so "has words
+ * but no page" lands in the same bucket as "has nothing".
+ *
+ * PASSING THE QUOTE AUDITS CANNOT INVENT A QUOTATION. `generateDemo` guards the
+ * description with `!!quote &&` before it consults them, so a step with none
+ * still falls through to the static per-category prose — `misc` has its own, so
+ * nothing ships blank. The audits decide whether the step EXISTS; the quote text
+ * decides whether its own words are used. Only the first is a reviewer's call.
+ *
+ * Safe for the title rule either way: `name` is still empty, so `final_name` —
+ * the reviewed title — still wins.
  */
 function keepMisc(step: RawNextStep): RawNextStep {
   return step.category === "misc"
-    ? { ...step, name_confidence: APPROVED, name_fit: APPROVED }
+    ? {
+        ...step,
+        quote_confidence: APPROVED,
+        quote_category_fit: APPROVED,
+        name_confidence: APPROVED,
+        name_fit: APPROVED,
+      }
     : step;
 }
 

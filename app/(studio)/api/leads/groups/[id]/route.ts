@@ -1,6 +1,6 @@
 import { getUserId } from "@/lib/leads/server/userId";
 import { readGroup, removeGroup, writeGroup } from "@/lib/leads/server/groups";
-import { applyOps, sanitizeOp } from "@/lib/leads/engine/group";
+import { applyOps, sanitizeOp, statusOf } from "@/lib/leads/engine/group";
 import { isSafeGroupId } from "@/lib/leads/engine/group-types";
 import type { GroupOp } from "@/lib/leads/engine/group-types";
 
@@ -73,6 +73,27 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   const group = await readGroup(userId, id);
   if (!group) return bad(`No group named ${id}`, 404);
+
+  /**
+   * A SENT BATCH IS A RECORD, AND A RECORD DOES NOT CHANGE.
+   *
+   * Its demos are built and their `/c/<slug>` links may already be in a church's
+   * inbox, so an edit here cannot correct anything — it can only make the stored
+   * account of what a reviewer approved disagree with what was actually sent. Of
+   * all the things this engine protects, that account is the one it exists for.
+   *
+   * The other two writers already refused (`setCurrentGroup`, the per-church
+   * export); this was the gap, and it was the widest one, because the review page
+   * rendered every field of a sent batch fully editable. `DELETE` is deliberately
+   * still allowed: removing a history entry is a decision about the record, not a
+   * silent revision of it.
+   */
+  if (statusOf(group) === "exported") {
+    return bad(
+      "This batch has been sent. Its demos are already built, so it can no longer be edited.",
+      409,
+    );
+  }
 
   const now = Date.now();
   const next = applyOps(group, ops, now);

@@ -12,11 +12,17 @@ import type { ExportGroupSummary } from "@/lib/leads/engine/group-types";
  * both wrong and unactionable — a person who wanted the churches to go somewhere
  * else had no control anywhere on the page to say so.
  *
- * SWITCHING IS NOT A CLIENT-SIDE SELECTION. It moves the one open batch on the
- * server; `reopenGroup` explains why a stored per-browser selection would be a
- * second source of truth that drifts. The consequence worth knowing here is that
- * picking a batch CLOSES whichever one was open — which is stated on screen,
- * because it happens to a thing the person cannot see from this list.
+ * SWITCHING IS NOT A CLIENT-SIDE SELECTION. It moves a POINTER on the server —
+ * `state/leads/groups/<uid>/current.json`, written by `setCurrentGroup` — because
+ * a per-browser selection would be a second source of truth that drifts from the
+ * one the API acts on.
+ *
+ * PICKING A BATCH DOES NOTHING TO THE OTHERS, and this used to say the opposite.
+ * When the pointer did not exist, ✆'s target was derived ("the one batch whose
+ * status is open"), so choosing a new one had to CLOSE the previous one — and the
+ * copy on screen said so. `closed` is gone along with the derivation: every
+ * un-exported batch is open, switching is purely additive, and whatever you were
+ * collecting into is still there, still collectable, exactly as you left it.
  *
  * A SENT BATCH IS SHOWN AND CANNOT BE PICKED. Hiding it would leave the reviewer
  * hunting for a batch they can see on `/leads/groups`; a disabled row with a
@@ -35,8 +41,10 @@ export function BatchSwitcher({
   groups: readonly ExportGroupSummary[];
   currentId: string | null;
   error: string;
-  onPick: (id: string) => void;
-  onCreate: () => void;
+  /** Awaited, so the latch below can be released when the round trip ENDS —
+   *  including when it ends in a refusal. */
+  onPick: (id: string) => void | Promise<unknown>;
+  onCreate: () => void | Promise<unknown>;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -68,9 +76,24 @@ export function BatchSwitcher({
     if (!open && el.open) el.close();
   }, [open]);
 
-  const pick = (id: string) => {
+  /**
+   * THE LATCH IS RELEASED WHEN THE ROUND TRIP ENDS, NOT WHEN THE DIALOG CLOSES.
+   *
+   * It used to be cleared only by closing, and a pick that FAILED does not close
+   * — the dialog is deliberately left open so the reason stays readable. So the
+   * error appeared above a list in which every row was `disabled={sent || busy}`
+   * and `＋ New batch` was `disabled={busy}`: the whole dialog was inert except
+   * `Close`, which is the worst possible moment to take away the controls, since
+   * the obvious response to "that batch was sent in another tab" is to pick a
+   * different one.
+   */
+  const settle = async (run: () => void | Promise<unknown>) => {
     setBusy(true);
-    onPick(id);
+    try {
+      await run();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -88,8 +111,8 @@ export function BatchSwitcher({
       <div className="p-5">
         <h2 className="font-serif text-[19px] leading-snug font-semibold">Collect into…</h2>
         <p className="mt-1 font-mono text-[10.5px] leading-relaxed text-lead-ink2">
-          ✆ adds churches to whichever batch is picked here. Picking one finishes
-          whatever you were collecting into — nothing is sent and nothing is lost.
+          ✆ adds churches to whichever batch is picked here. Switching leaves every
+          other batch exactly as it is — you can come back to any of them.
         </p>
 
         {error && (
@@ -113,7 +136,7 @@ export function BatchSwitcher({
                 key={g.id}
                 type="button"
                 disabled={sent || busy}
-                onClick={() => pick(g.id)}
+                onClick={() => void settle(() => onPick(g.id))}
                 title={
                   sent
                     ? "This batch has been sent. Nothing more can be collected into it."
@@ -142,7 +165,14 @@ export function BatchSwitcher({
                         : "text-lead-ink2"
                   }`}
                 >
-                  {current ? "collecting" : sent ? "sent" : "finished"}
+                  {/* NOT "finished" — that word named the `closed` state, which
+                      was retired when the export was built. Every un-exported
+                      batch is open, so the only distinction left is whether ✆ is
+                      pointing at this one. `/leads/groups` and the review header
+                      both say "collecting"; this used to be the one screen that
+                      disagreed, calling a batch you could pick right here
+                      finished. */}
+                  {current ? "collecting" : sent ? "sent" : "open"}
                 </span>
               </button>
             );
@@ -153,10 +183,7 @@ export function BatchSwitcher({
           <button
             type="button"
             disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              onCreate();
-            }}
+            onClick={() => void settle(onCreate)}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-lead-brand px-3.5 font-mono text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             <span aria-hidden className="text-[13px] leading-none">

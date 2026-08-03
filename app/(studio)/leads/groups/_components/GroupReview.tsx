@@ -9,6 +9,7 @@ import { ChurchCard } from "./church/parts";
 import type { PaletteState } from "./church/Palette";
 import { SKIN } from "./church/skin";
 import { EditableText } from "./EditableText";
+import { ReadOnlyProvider } from "./ReadOnly";
 import { ExportBar } from "./ExportBar";
 import { ExportDialog } from "./ExportDialog";
 
@@ -37,7 +38,7 @@ import { ExportDialog } from "./ExportDialog";
 const DISCLAIMER_TITLE = "WARNING: MANUALLY CHECK BEFORE SENDING";
 
 export function GroupReview({ id }: { id: string }) {
-  const { group, loading, error, save, pending, apply, flush, reload } = useGroup(id);
+  const { group, loading, error, save, pending, apply, flush, drain, reload } = useGroup(id);
   const { rows } = useDataset();
 
   /**
@@ -264,23 +265,46 @@ export function GroupReview({ id }: { id: string }) {
         </p>
       </section>
 
+      {/* ── the frozen banner ──
+          A sent batch is a record, and the page has to say so where somebody is
+          about to try to correct something. Without it, cards whose controls have
+          all gone read as a page that failed to finish loading. */}
+      {status === "exported" && (
+        <section className={SKIN.frozenBox}>
+          <p className={SKIN.frozenBody}>
+            <b>This batch has been sent and can no longer be edited.</b> Its demo sites are
+            built and their links may already be with the churches, so a change here would
+            alter the record of what you approved without altering what they received. To
+            change a demo, edit it in the studio; to work on a church again, collect it into
+            a new batch.
+          </p>
+        </section>
+      )}
+
       {group.entries.length === 0 ? (
         <p className={SKIN.emptyBatch}>
           This batch is empty. Press ✆ on a church in the console to collect it.
         </p>
       ) : (
-        cards.map((card, i) => (
-          <ChurchCard
-            key={card.orgId}
-            card={card}
-            index={i + 1}
-            stale={stale.has(card.orgId)}
-            departed={departed.has(card.orgId)}
-            palette={paletteFor?.[card.orgId]}
-            onOp={onOp}
-            onRemoveChurch={onRemoveChurch}
-          />
-        ))
+        /**
+         * ONE PROVIDER FOR THE WHOLE LIST — see `ReadOnly.tsx`. A card draws
+         * around forty controls that have to go inert together, and a prop
+         * threaded to forty places is thirty-nine chances to leave one live.
+         */
+        <ReadOnlyProvider value={status === "exported"}>
+          {cards.map((card, i) => (
+            <ChurchCard
+              key={card.orgId}
+              card={card}
+              index={i + 1}
+              stale={stale.has(card.orgId)}
+              departed={departed.has(card.orgId)}
+              palette={paletteFor?.[card.orgId]}
+              onOp={onOp}
+              onRemoveChurch={onRemoveChurch}
+            />
+          ))}
+        </ReadOnlyProvider>
       )}
 
       <ExportBar
@@ -288,6 +312,20 @@ export function GroupReview({ id }: { id: string }) {
         acknowledged={acknowledged}
         onAcknowledge={(on) => setAck({ id, on })}
         onExport={() => setExporting(true)}
+        /**
+         * THE SERVER HAS TO HAVE WHAT THE REVIEWER READ.
+         *
+         * The export builds from the stored batch, so an unsaved page and an
+         * armed export button are a contradiction that used to sit on screen
+         * side by side — the nav bar reading "offline — 3 held" above a live
+         * `Export group`. The dialog refuses too, but a button that looks armed
+         * and then refuses is a worse answer than one that says why up front.
+         */
+        blocked={
+          save === "error"
+            ? `Your last ${pending} change${pending === 1 ? "" : "s"} could not be saved. Exporting now would build the demos without ${pending === 1 ? "it" : "them"}.`
+            : undefined
+        }
         sent={status === "exported"}
         demoGroupId={group.demoGroupId}
         skin={SKIN.exportBar}
@@ -298,6 +336,7 @@ export function GroupReview({ id }: { id: string }) {
         batchId={id}
         batchName={group.name}
         churches={exportTargets}
+        commitEdits={drain}
         onClose={() => setExporting(false)}
         onExported={(demoGroupId) => {
           /**

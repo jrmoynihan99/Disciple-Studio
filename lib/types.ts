@@ -187,6 +187,25 @@ export interface ChurchConfig {
   slug: string;
   /** Display name, e.g. "Grace Community Church". */
   churchName: string;
+  /**
+   * WHICH CHURCH THIS IS, as opposed to what it is called.
+   *
+   * The lead corpus's `org_id` for the congregation this demo was generated
+   * from. Absent on demos authored by hand in `/admin`, and on every demo made
+   * before this field existed.
+   *
+   * IT EXISTS BECAUSE A NAME IS NOT AN IDENTITY. The export derives a slug from
+   * the church's name and has to decide, when that slug is taken, whether it is
+   * looking at the same church being re-exported or a different one that happens
+   * to share a name. It used to answer by comparing `churchName`, which cannot
+   * distinguish the two cases at all — and the corpus has 4,403 churches sharing
+   * a byte-identical name with another (84 of them called "First Baptist
+   * Church"). Two of those in one batch silently overwrote each other, and one
+   * congregation was told its demo was a page built from the other's content.
+   *
+   * Compared, never displayed, and never part of a URL.
+   */
+  sourceOrgId?: string;
   /** Optional short tagline. */
   tagline?: string;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useReadOnly } from "./ReadOnly";
 
 /**
  * Click the text, fix the text.
@@ -60,6 +61,15 @@ export function EditableText({
   const editing = draft !== null;
   const ref = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
 
+  /**
+   * Frozen by the batch, or frozen by this call site — the same thing to draw.
+   *
+   * Read from context so a sent batch cannot leave one field editable because a
+   * prop was missed at one of thirty call sites. See `ReadOnly.tsx`.
+   */
+  const locked = useReadOnly();
+  const frozen = !!disabled || locked;
+
   useEffect(() => {
     if (!editing || !multiline) return;
     const el = ref.current;
@@ -87,7 +97,7 @@ export function EditableText({
     "w-full px-2 py-1 text-inherit font-[inherit] leading-[inherit] outline-none " +
     (editingClassName ?? "rounded-md border border-lead-brand bg-lead-bg text-lead-ink");
 
-  if (editing && !disabled) {
+  if (editing && !frozen) {
     return multiline ? (
       <textarea
         ref={ref as React.RefObject<HTMLTextAreaElement>}
@@ -121,10 +131,28 @@ export function EditableText({
     );
   }
 
+  /**
+   * A FROZEN VALUE IS NOT A BUTTON.
+   *
+   * `<button disabled>` would still read as a control to a screen reader and
+   * still announce "Edit church name" for something nobody can edit. On a sent
+   * batch there is no edit to offer, so what is drawn is the text.
+   */
+  if (frozen) {
+    return (
+      <div
+        className={`w-full px-2 py-1 text-left ${
+          value ? "" : (emptyClassName ?? "text-lead-ink2 italic opacity-60")
+        } ${className ?? ""}`}
+      >
+        {value || placeholder || "—"}
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"
-      disabled={disabled}
       aria-label={`Edit ${ariaLabel}`}
       onClick={() => setDraft(value)}
       // Dotted underline on hover, no permanent box: forty cards of outlined

@@ -37,6 +37,7 @@ export function ExportBar({
   acknowledged,
   onAcknowledge,
   onExport,
+  blocked,
   sent,
   demoGroupId,
   skin = CONSOLE_EXPORT_BAR,
@@ -45,6 +46,18 @@ export function ExportBar({
   acknowledged: boolean;
   onAcknowledge: (on: boolean) => void;
   onExport: () => void;
+  /**
+   * Why the export cannot run right now, in words a reviewer can act on — or
+   * `undefined` when nothing is in the way.
+   *
+   * THE TICK IS NO LONGER THE ONLY GATE, and pretending otherwise is what this
+   * prop fixes. A batch whose saves are failing renders "offline — 3 held" in the
+   * nav bar while the export button sits fully armed beside it; the export reads
+   * the batch from the SERVER, so pressing it there builds demos from a version
+   * of the batch missing the last three corrections. The acknowledgement gates
+   * "has a person read this"; this gates "does the server have what they read".
+   */
+  blocked?: string;
   /** Already sent. The bar becomes a receipt rather than a control. */
   sent: boolean;
   demoGroupId?: string;
@@ -75,6 +88,9 @@ export function ExportBar({
     );
   }
 
+  /** All three gates in one place, so the button and its dressing cannot disagree. */
+  const armed = acknowledged && count > 0 && !blocked;
+
   return (
     <div className={skin.box}>
       <label className={skin.label}>
@@ -104,18 +120,18 @@ export function ExportBar({
         <button
           type="button"
           data-group-export
-          disabled={!acknowledged || count === 0}
+          disabled={!armed}
           onClick={onExport}
           title={
-            count === 0
-              ? "There is nothing in this batch to send."
-              : acknowledged
-                ? "Generate a demo site for every church in this batch"
-                : "Confirm you have read the batch first"
+            blocked
+              ? blocked
+              : count === 0
+                ? "There is nothing in this batch to send."
+                : acknowledged
+                  ? "Generate a demo site for every church in this batch"
+                  : "Confirm you have read the batch first"
           }
-          className={`${skin.button} ${
-            acknowledged && count > 0 ? "" : "cursor-not-allowed opacity-40"
-          }`}
+          className={`${skin.button} ${armed ? "" : "cursor-not-allowed opacity-40"}`}
         >
           Export group
         </button>
@@ -124,6 +140,16 @@ export function ExportBar({
           corrections included, struck-out items excluded.
         </p>
       </div>
+
+      {/* THE REASON IS ON SCREEN, not only in a `title`. A blocked export is the
+          one disabled state a reviewer cannot work out for themselves — an
+          unticked box explains itself and an empty batch is visible, but "the
+          server does not have your last three edits" is invisible from here. */}
+      {blocked && (
+        <p data-export-blocked className={`mt-2 ${skin.note} text-lead-bad`}>
+          {blocked}
+        </p>
+      )}
     </div>
   );
 }

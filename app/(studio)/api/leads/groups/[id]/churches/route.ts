@@ -1,6 +1,7 @@
 import { getUserId } from "@/lib/leads/server/userId";
 import { readGroup, writeGroup } from "@/lib/leads/server/groups";
 import { buildEntry } from "@/lib/leads/engine/snapshot";
+import { statusOf } from "@/lib/leads/engine/group";
 import { isSafeGroupId } from "@/lib/leads/engine/group-types";
 import { getCurrent, getIndex, getRecord } from "@/lib/leads/server/dataset";
 import type { GroupEntry } from "@/lib/leads/engine/group-types";
@@ -53,6 +54,20 @@ export async function POST(req: Request, ctx: Ctx) {
 
   const group = await readGroup(userId, id);
   if (!group) return bad(`No group named ${id}`, 404);
+
+  /**
+   * NOTHING GOES INTO A BATCH THAT HAS ALREADY BEEN SENT.
+   *
+   * The demos are built from the entries that existed at export time, so a
+   * church added afterwards would sit in the batch for ever with no demo and no
+   * way to get one — the export refuses a sent batch. The console never offers
+   * this (`✆` targets the current batch, and an exported batch cannot be the
+   * current one), so this closes the direct call rather than a path through the
+   * UI. Same reasoning as the `PATCH` refusal in the parent route.
+   */
+  if (statusOf(group) === "exported") {
+    return bad("This batch has been sent. Nothing more can be collected into it.", 409);
+  }
 
   const [index, pointer] = await Promise.all([getIndex(), getCurrent()]);
   const byId = new Map(index.map((r) => [r.id, r]));

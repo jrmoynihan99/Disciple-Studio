@@ -21,6 +21,7 @@ import { Chevron } from "../../../_components/Chevron";
 import { ConfirmDialog } from "../../../_components/ConfirmDialog";
 import { AttributionLine } from "../Attribution";
 import { EditableText } from "../EditableText";
+import { useReadOnly } from "../ReadOnly";
 import { EMPTY_TEXT, EMPTY_VALUE, SKIN } from "./skin";
 import { PalettePreview, type PaletteState } from "./Palette";
 
@@ -283,6 +284,15 @@ function SuppressShell({
   onRestore: () => void;
   children: React.ReactNode;
 }) {
+  /**
+   * A SENT BATCH KEEPS ITS STRIKE-THROUGHS AND LOSES ITS CONTROLS.
+   *
+   * What was struck out is part of the record — it is why the demo does not
+   * contain it — so the styling stays. `put back` does not: putting it back
+   * would change nothing about the demo that has already gone out, and offering
+   * it would suggest otherwise.
+   */
+  const frozen = useReadOnly();
   return (
     <div
       data-provenance={provenance}
@@ -316,7 +326,7 @@ function SuppressShell({
             : "opacity-0 group-hover/item:opacity-100 focus-within:opacity-100"
         }`}
       >
-        {suppressed ? (
+        {frozen ? null : suppressed ? (
           // KEEPS ITS WORDS — the audit checks for the literal text. Stays in the
           // neutral skin on purpose: the way OUT of a destructive action is not
           // itself destructive, and painting it red would say the opposite.
@@ -592,6 +602,9 @@ function AddForm({
  * exists to let somebody do.
  */
 function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
+  // Nothing can be added to a sent batch, and an add form that saves nowhere is
+  // worse than no form at all.
+  if (useReadOnly()) return null;
   return (
     <button type="button" onClick={onClick} className={`mt-3 ${SKIN.btn}`}>
       <span aria-hidden className="text-[13px] leading-none">
@@ -1081,6 +1094,7 @@ function ChurchCardInner({
    * elements in the top layer waiting to be opened, and only one can ever be.
    */
   const [pending, setPending] = useState<PendingRemoval | null>(null);
+  const frozen = useReadOnly();
   const ops = opsFor(card.orgId, onOp, setPending);
   const plate = PLATE_CLASS[logoPlate(card.logo?.theme)];
   const touched = card.editedCount > 0 || card.suppressedCount > 0;
@@ -1204,8 +1218,12 @@ function ChurchCardInner({
           </div>
         </div>
 
+        {/* A sent batch cannot lose a church: the demo for it exists, and its
+            link may already be in that church's inbox. Removing the row would
+            only make the record disagree with what went out. */}
         <button
           type="button"
+          hidden={frozen}
           onClick={() =>
             setPending({
               title: "Remove this church from the batch?",
@@ -1294,8 +1312,25 @@ function ChurchCardInner({
 }
 
 /**
- * Every committed keystroke replaces the whole group object, so `GroupReview`
- * re-`resolve()`s all twenty cards. Without this, fixing one typo re-renders
- * nineteen churches that did not change.
+ * WHAT THIS ACTUALLY BUYS, which is less than it used to claim.
+ *
+ * It said "fixing one typo re-renders nineteen churches that did not change",
+ * and that is not what happens. `GroupReview` holds
+ * `useMemo(() => group.entries.map(resolve), [group])`, and every op replaces the
+ * whole group object — so all twenty cards are re-resolved and all twenty get a
+ * fresh `card` identity, which the shallow compare here fails on. The memo does
+ * not stop the re-render.
+ *
+ * It is kept because it stops the OTHER cause. Ops are committed on blur, not per
+ * keystroke, so the resolve happens a few times a minute; the props that change
+ * on every render — `onOp`, `onRemoveChurch`, `palette` — are the ones deliberately
+ * stabilised at the call site, and without this component being memoised at all
+ * there would be nothing for that stabilisation to be for.
+ *
+ * Fixing it properly means memoising `resolve` PER ENTRY (entry identity is
+ * preserved for the nineteen that did not change, so a small cache keyed on it
+ * would work). Not done: at twenty cards a few times a minute the cost is not
+ * measurable, and a comment that overstates a guarantee is worse than the
+ * guarantee being modest.
  */
 export const ChurchCard = memo(ChurchCardInner);

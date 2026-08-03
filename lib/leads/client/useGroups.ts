@@ -59,7 +59,16 @@ class GroupStore {
   private queue: GroupOp[] = [];
   private idle: ReturnType<typeof setTimeout> | null = null;
   private ceiling: ReturnType<typeof setTimeout> | null = null;
-  private inFlight = false;
+  /**
+   * The write currently on the wire, or `null`.
+   *
+   * A PROMISE RATHER THAN A BOOLEAN, so a caller can JOIN a save already in
+   * progress instead of being told "busy" and carrying on. With a boolean,
+   * `await flush()` returned immediately whenever a debounced save happened to be
+   * mid-flight — which reads as "everything is saved" and is the opposite of the
+   * truth. `drain()` is only meaningful because of this.
+   */
+  private inFlight: Promise<void> | null = null;
   private channel: BroadcastChannel | null = null;
 
   constructor(private id: string) {
@@ -138,11 +147,46 @@ class GroupStore {
    *  body is a delta — see the note at the top of this file. */
   flush = async (opts: { keepalive?: boolean } = {}): Promise<void> => {
     this.clearTimers();
-    if (this.inFlight || !this.queue.length) return;
+    // Join the write already going out rather than starting a second one — see
+    // `inFlight`. Returning here without awaiting was the bug.
+    if (this.inFlight) return this.inFlight;
+    if (!this.queue.length) return;
 
+    this.inFlight = this.send(opts);
+    try {
+      await this.inFlight;
+    } finally {
+      this.inFlight = null;
+      if (this.queue.length) this.schedule();
+    }
+  };
+
+  /**
+   * SEND EVERYTHING, AND SAY WHETHER IT LANDED.
+   *
+   * `flush` cannot answer that: it resolves the same way whether the PATCH
+   * succeeded or failed and left the ops queued, because its callers are the
+   * autosave timers and `pagehide`, which have nothing to do about a failure.
+   * The export does — a demo built from a batch missing the reviewer's last three
+   * corrections is precisely what this whole page exists to prevent — so it needs
+   * a verb that can say no.
+   *
+   * Bounded rather than looping until clear: nothing can enqueue while the export
+   * dialog is modal, so more than one extra pass means something is wrong and
+   * spinning would just hide it.
+   */
+  drain = async (): Promise<boolean> => {
+    for (let i = 0; i < 3; i++) {
+      await this.flush();
+      if (this.snap.save === "error") return false;
+      if (!this.queue.length && !this.inFlight) return true;
+    }
+    return !this.queue.length && this.snap.save !== "error";
+  };
+
+  private send = async (opts: { keepalive?: boolean }): Promise<void> => {
     const sending = this.queue;
     this.queue = [];
-    this.inFlight = true;
     this.set({ save: "saving" });
 
     const send = () =>
@@ -182,9 +226,6 @@ class GroupStore {
     } catch {
       this.queue = [...sending, ...this.queue];
       this.set({ save: "error", error: "Offline — your changes are held.", pending: this.queue.length });
-    } finally {
-      this.inFlight = false;
-      if (this.queue.length) this.schedule();
     }
   };
 }
@@ -216,6 +257,13 @@ export interface GroupHandle extends GroupSnapshot {
    * autosave path still fires and forgets.
    */
   flush: () => Promise<void>;
+  /**
+   * Flush, and report whether every queued op actually reached the server.
+   *
+   * For the one caller that must not proceed on a failure — the export. See
+   * `GroupStore.drain`.
+   */
+  drain: () => Promise<boolean>;
   reload: () => void;
 }
 
@@ -224,8 +272,12 @@ export function useGroup(id: string): GroupHandle {
   const snap = useSyncExternalStore(s.subscribe, s.getSnapshot, s.getServerSnapshot);
   const apply = useCallback((op: GroupOp) => s.apply(op), [s]);
   const flush = useCallback(() => s.flush(), [s]);
+  const drain = useCallback(() => s.drain(), [s]);
   const reload = useCallback(() => void s.load(), [s]);
-  return useMemo(() => ({ ...snap, apply, flush, reload }), [snap, apply, flush, reload]);
+  return useMemo(
+    () => ({ ...snap, apply, flush, drain, reload }),
+    [snap, apply, flush, drain, reload],
+  );
 }
 
 /* ------------------------------------------------------------------ *

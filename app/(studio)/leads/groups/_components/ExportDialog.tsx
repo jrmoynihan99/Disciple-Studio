@@ -22,6 +22,19 @@ import type { GroupRow } from "@/lib/groups";
  * group to point at — history that has lost the thing it is a record of. In this
  * order the same crash leaves a batch you can simply export again, and the demo
  * slugs are deterministic so the retry overwrites rather than duplicates.
+ *
+ * A CHURCH THAT FAILED STOPS THE WHOLE THING. Step 3 used to run whenever ONE
+ * demo had been built, so three timeouts out of twenty still marked the batch
+ * sent — and a sent batch refuses every further export (409) and renders no
+ * export control at all. The only way back to those three was to collect them
+ * into a fresh batch, which re-snapshots from the live record and therefore
+ * discards every correction that had been typed into them. A transient 500 must
+ * not be able to destroy a reviewer's work, so nothing irreversible happens until
+ * every church has either succeeded or been deliberately skipped.
+ *
+ * SKIPPED IS NOT FAILED, and only one of them blocks. A skip is an answer —
+ * "no church name", "every step was struck out" — and retrying produces it again;
+ * a failure is the network, and retrying is exactly the right response.
  */
 
 const BATCH_SIZE = 3;
@@ -31,8 +44,10 @@ interface Progress {
   done: number;
   ok: number;
   skipped: { name: string; reason: string }[];
-  failed: string[];
+  failed: ExportTarget[];
 }
+
+const EMPTY_PROGRESS: Progress = { total: 0, done: 0, ok: 0, skipped: [], failed: [] };
 
 export interface ExportTarget {
   orgId: string;
@@ -44,6 +59,7 @@ export function ExportDialog({
   batchId,
   batchName,
   churches,
+  commitEdits,
   onClose,
   onExported,
 }: {
@@ -52,6 +68,21 @@ export function ExportDialog({
   batchName: string;
   /** Exactly the churches on the page — the reviewer's list, not the stored one. */
   churches: readonly ExportTarget[];
+  /**
+   * Send every queued edit, and report whether it landed.
+   *
+   * NOT A BELT-AND-BRACES — it closes a race the reviewer always loses the same
+   * way. Saves are debounced 1.5s and the export reads the batch from the SERVER.
+   * Clicking `Export group` is itself what blurs an open field and queues that
+   * edit, so the PATCH is typically still in flight while this dialog is being
+   * read; anything still queued when the first demo is built simply is not in it,
+   * while the copy below promises "exactly what you see on this page".
+   *
+   * It has to return a verdict rather than just resolve. A save that failed and
+   * held its ops resolves exactly like one that succeeded, and building twenty
+   * demos on that basis is the one outcome this page exists to prevent.
+   */
+  commitEdits: () => Promise<boolean>;
   onClose: () => void;
   onExported: (demoGroupId: string) => void;
 }) {
@@ -65,15 +96,22 @@ export function ExportDialog({
    * screen still saying "Building the demos…" with the bar at 100%, which reads
    * as a hang at exactly the moment everything has in fact worked.
    */
-  const [phase, setPhase] = useState<"confirm" | "running" | "leaving" | "error">("confirm");
+  const [phase, setPhase] = useState<"confirm" | "running" | "partial" | "leaving" | "error">(
+    "confirm",
+  );
   const [error, setError] = useState("");
-  const [progress, setProgress] = useState<Progress>({
-    total: 0,
-    done: 0,
-    ok: 0,
-    skipped: [],
-    failed: [],
-  });
+  const [progress, setProgress] = useState<Progress>(EMPTY_PROGRESS);
+
+  /**
+   * The demos built so far, ACROSS ATTEMPTS, keyed by church.
+   *
+   * A ref rather than state because nothing renders from it directly and a retry
+   * must not lose the nineteen that already worked — re-exporting them would be
+   * correct (the slugs are deterministic) but would spend nineteen writes against
+   * the blob store's operation allowance to fix one timeout. Keyed so a church
+   * that succeeds on the second attempt replaces rather than duplicates its row.
+   */
+  const built = useRef(new Map<string, GroupRow>());
 
   // Adjusting to a prop change during render rather than in an effect — the
   // cascading-render mistake the lint rule catches, and the same pattern
@@ -85,7 +123,10 @@ export function ExportDialog({
       setName(batchName);
       setPhase("confirm");
       setError("");
-      setProgress({ total: 0, done: 0, ok: 0, skipped: [], failed: [] });
+      setProgress(EMPTY_PROGRESS);
+      // `built` is NOT cleared here — a ref may not be written during render, and
+      // `run` clears it on a fresh attempt anyway, which is the moment that
+      // actually matters.
     }
   }
 
@@ -99,19 +140,51 @@ export function ExportDialog({
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   /**
-   * The two phases with nothing in flight. Closing during `running` would not
-   * stop the requests, only hide them; closing during `leaving` would drop the
+   * The phases with nothing in flight. Closing during `running` would not stop
+   * the requests, only hide them; closing during `leaving` would drop the
    * reviewer back onto a page that is already navigating away.
+   *
+   * `partial` IS dismissible: nothing was sent, the batch is untouched, and
+   * whoever hit three timeouts may reasonably want to come back to it later
+   * rather than be held in a modal until the network recovers.
    */
-  const dismissible = phase === "confirm" || phase === "error";
+  const dismissible = phase === "confirm" || phase === "error" || phase === "partial";
 
-  async function run() {
+  /**
+   * @param targets the churches to build this pass — everything on the first
+   *        attempt, only the ones that failed on a retry.
+   * @param fresh  start the tally over. True for a first attempt (including one
+   *        after the dialog was closed and reopened), false for a retry, which
+   *        must keep the demos the earlier passes already built.
+   */
+  async function run(targets: readonly ExportTarget[], fresh: boolean) {
     setPhase("running");
-    const rows: GroupRow[] = [];
-    const skipped: { name: string; reason: string }[] = [];
-    const failed: string[] = [];
+    if (fresh) built.current = new Map();
+
+    /**
+     * THE CORRECTIONS LAND BEFORE THE FIRST DEMO IS BUILT.
+     *
+     * A failure here stops the export outright rather than falling through. The
+     * whole claim this dialog makes is that the demos are built from what the
+     * reviewer read; if the server could not be given that, there is nothing
+     * honest to build, and the batch is left exactly as it was so they can try
+     * again once they are back online.
+     */
+    if (!(await commitEdits().catch(() => false))) {
+      setPhase("error");
+      setError(
+        "Your latest changes could not be saved, so the demos would be built without them. Nothing was exported — check your connection and try again.",
+      );
+      return;
+    }
+
+    // Carried across a retry: a church skipped on the first pass is not in
+    // `targets` any more, and dropping its line would quietly turn "18 built, 2
+    // skipped" into "18 built" — the exact silent loss this list exists for.
+    const skipped = [...progress.skipped];
+    const failed: ExportTarget[] = [];
     let done = 0;
-    setProgress({ total: churches.length, done: 0, ok: 0, skipped: [], failed: [] });
+    setProgress({ ...EMPTY_PROGRESS, total: targets.length, ok: built.current.size, skipped });
 
     const one = async (church: ExportTarget) => {
       try {
@@ -125,32 +198,46 @@ export function ExportDialog({
           reason?: string;
           churchName?: string;
         };
-        if (!res.ok) failed.push(church.name);
+        if (!res.ok) failed.push(church);
         else if (data.skipped) {
           skipped.push({ name: data.churchName ?? church.name, reason: data.reason ?? "" });
-        } else if (data.row) rows.push(data.row);
+        } else if (data.row) built.current.set(church.orgId, data.row);
+        else failed.push(church);
       } catch {
-        failed.push(church.name);
+        failed.push(church);
       } finally {
         done++;
         setProgress({
-          total: churches.length,
+          total: targets.length,
           done,
-          ok: rows.length,
+          ok: built.current.size,
           skipped: [...skipped],
           failed: [...failed],
         });
       }
     };
 
-    for (let i = 0; i < churches.length; i += BATCH_SIZE) {
-      await Promise.all(churches.slice(i, i + BATCH_SIZE).map(one));
+    for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+      await Promise.all(targets.slice(i, i + BATCH_SIZE).map(one));
     }
 
-    if (!rows.length) {
+    /**
+     * NOTHING IRREVERSIBLE WHILE A CHURCH IS STILL RECOVERABLE.
+     *
+     * A failure is the network, not a verdict, so the batch stays open and
+     * exportable and the reviewer is offered the obvious next move. The demos
+     * that DID build are already written and are simply picked up by the retry —
+     * `built` keeps them, and the slugs are deterministic either way.
+     */
+    if (failed.length) {
+      setPhase("partial");
+      return;
+    }
+
+    if (!built.current.size) {
       setPhase("error");
       setError(
-        "No demos could be generated — every church was skipped or failed. The batch has not been marked sent.",
+        "No demos could be generated — every church was skipped. The batch has not been marked sent.",
       );
       return;
     }
@@ -159,7 +246,13 @@ export function ExportDialog({
       const groupRes = await fetch("/api/groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() || batchName, genericLink: GENERIC_DEMO_URL, rows }),
+        body: JSON.stringify({
+          name: name.trim() || batchName,
+          genericLink: GENERIC_DEMO_URL,
+          // Insertion order — the order the reviewer read them in, since the
+          // first pass walks `churches` and a retry only refills gaps.
+          rows: [...built.current.values()],
+        }),
       });
       const group = (await groupRes.json()) as { id?: string; error?: string };
       if (!groupRes.ok || !group.id) throw new Error(group.error ?? "Could not save the demo group");
@@ -204,7 +297,9 @@ export function ExportDialog({
             ? "Building the demos…"
             : phase === "leaving"
               ? `${progress.ok} demo${progress.ok === 1 ? "" : "s"} built — opening them…`
-              : "Send this batch"}
+              : phase === "partial"
+                ? `${progress.failed.length} church${progress.failed.length === 1 ? "" : "es"} could not be built`
+                : "Send this batch"}
         </h2>
 
         {phase === "confirm" && (
@@ -269,11 +364,25 @@ export function ExportDialog({
               </p>
             ))}
             {progress.failed.map((f) => (
-              <p key={f} className="mt-1 font-mono text-[10px] text-lead-bad">
-                failed {f}
+              <p key={f.orgId} className="mt-1 font-mono text-[10px] text-lead-bad">
+                failed {f.name}
               </p>
             ))}
           </div>
+        )}
+
+        {/* THE STATE THAT USED TO NOT EXIST. A partly-failed export marked the
+            batch sent anyway, which locked the failures out permanently — a sent
+            batch 409s every export and shows no export control. It now stops
+            here, changes nothing, and offers the move that fixes it. */}
+        {phase === "partial" && (
+          <p className="mt-3 rounded-md border border-lead-warn/50 bg-lead-warn/[0.08] px-2.5 py-2 text-[13px] leading-relaxed text-lead-warn-ink">
+            <strong>Nothing has been sent.</strong> The batch is untouched and still
+            collectable, and the {progress.ok} demo{progress.ok === 1 ? "" : "s"} already built
+            {progress.ok === 1 ? " is" : " are"} kept — retrying only re-runs the ones that
+            failed. This is usually a dropped connection rather than anything wrong with the
+            churches themselves.
+          </p>
         )}
 
         {phase === "error" && error && (
@@ -289,17 +398,28 @@ export function ExportDialog({
               onClick={onClose}
               className="inline-flex h-9 items-center rounded-lg border border-lead-line bg-lead-panel px-3.5 font-mono text-[11px] text-lead-ink2 transition-colors hover:border-lead-ink2 hover:text-lead-ink"
             >
-              {phase === "error" ? "Close" : "Cancel"}
+              {phase === "confirm" ? "Cancel" : "Close"}
             </button>
           )}
           {phase === "confirm" && (
             <button
               type="button"
-              onClick={() => void run()}
+              onClick={() => void run(churches, true)}
               disabled={churches.length === 0}
               className="inline-flex h-9 items-center rounded-lg bg-lead-brand px-3.5 font-mono text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-45"
             >
               Build {churches.length} demo{churches.length === 1 ? "" : "s"}
+            </button>
+          )}
+          {phase === "partial" && (
+            <button
+              type="button"
+              // The failed list is captured in progress, so the retry runs
+              // exactly those — not the whole batch again.
+              onClick={() => void run(progress.failed, false)}
+              className="inline-flex h-9 items-center rounded-lg bg-lead-brand px-3.5 font-mono text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Retry {progress.failed.length}
             </button>
           )}
         </div>

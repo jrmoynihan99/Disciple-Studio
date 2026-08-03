@@ -3,9 +3,10 @@ import { readGroup } from "@/lib/leads/server/groups";
 import { getAsset, getRecord } from "@/lib/leads/server/dataset";
 import { resolve, statusOf } from "@/lib/leads/engine/group";
 import { isSafeGroupId } from "@/lib/leads/engine/group-types";
+import type { ExportGroup } from "@/lib/leads/engine/group-types";
 import { extrasOf, toRawChurch } from "@/lib/leads/engine/demo-export";
 import { getChurch, saveChurch } from "@/churches";
-import { baseSlugFor, generateDemo } from "@/lib/generateDemo";
+import { baseSlugFor, generateDemo, slugify, type RawChurch } from "@/lib/generateDemo";
 import { LogoError, putLogo } from "@/lib/logo";
 
 /**
@@ -33,6 +34,57 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string; orgId: string }> };
 
 const bad = (error: string, status = 400) => Response.json({ error }, { status });
+
+/**
+ * WHERE THIS CHURCH'S DEMO LIVES — and which church that slug already belongs to.
+ *
+ * A NAME IS NOT AN IDENTITY. This used to read the demo already sitting at the
+ * slug and keep it when `churchName` matched, on the reasoning that an identical
+ * name meant the same church being re-exported. Measured against the corpus that
+ * is wrong 4,403 times: `First Baptist Church` names 84 different congregations,
+ * `Calvary Baptist Church` 54, `Grace Baptist Church` 33. Two of them in one
+ * batch overwrote each other's demo in silence, and both `GroupRow`s pointed at
+ * the same `/c/<slug>` — so one church was sent a page built from another
+ * church's steps, quotes and staff.
+ *
+ * TWO COLLISIONS, ANSWERED SEPARATELY, BECAUSE ONLY ONE OF THEM CAN BE LOOKED UP.
+ *
+ *  1. WITHIN THIS BATCH — decided from the batch itself, with no read at all.
+ *     Exports run three at a time and Vercel Blob is eventually consistent, so
+ *     `getChurch` can return null for a demo written a second earlier in this
+ *     same run: two churches called `First Baptist Church` would each look, each
+ *     see nothing, and each take the bare slug. The batch is already in hand and
+ *     is the same for every request in the run, so the answer is computed rather
+ *     than observed — and every colliding church is suffixed, including the
+ *     first, so the result does not depend on which request lands first.
+ *
+ *  2. AGAINST DEMOS ALREADY IN THE STORE — `sourceOrgId`, which is the identity
+ *     `churchName` never was. A demo written before that field existed has none,
+ *     and is therefore treated as SOMEBODY ELSE: the export takes a new slug
+ *     instead of overwriting a demo it cannot prove is the same church. Failing
+ *     towards a spare demo rather than towards a destroyed one is the only safe
+ *     direction here, because the thing at stake is a URL that may already have
+ *     been sent to a congregation.
+ */
+async function slugFor(
+  church: RawChurch,
+  group: ExportGroup,
+  orgId: string,
+): Promise<string> {
+  const base = baseSlugFor(church);
+
+  // `resolve` because the name a reviewer typed is the name the slug comes from.
+  // Twenty pure resolves per request, which is cheaper than being wrong.
+  const twinInBatch = group.entries.some(
+    (e) =>
+      e.orgId !== orgId &&
+      baseSlugFor({ church_title: resolve(e).name.text.trim(), org_id: e.orgId }) === base,
+  );
+  if (twinInBatch) return `${base}-${slugify(orgId)}`;
+
+  const existing = await getChurch(base);
+  return existing && existing.sourceOrgId !== orgId ? `${base}-${slugify(orgId)}` : base;
+}
 
 export async function POST(_req: Request, ctx: Ctx) {
   const userId = await getUserId();
@@ -89,14 +141,7 @@ export async function POST(_req: Request, ctx: Ctx) {
     }
   }
 
-  // Deterministic per church, diverging only on a genuine name collision, so a
-  // re-export overwrites the same demo rather than growing a second one. Same
-  // rule the import route applied.
-  let slug = baseSlugFor(church);
-  const existing = await getChurch(slug);
-  if (existing && existing.churchName !== church.church_title) {
-    slug = `${slug}-${church.org_id}`;
-  }
+  const slug = await slugFor(church, group, orgId);
 
   const config = generateDemo(church, { logoUrl, slug });
   if (!config) {

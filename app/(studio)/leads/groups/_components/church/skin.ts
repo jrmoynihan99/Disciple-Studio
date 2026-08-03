@@ -78,6 +78,17 @@ export const SKIN = {
     "mb-6 w-fit max-w-[78ch] rounded-xl border border-lead-warn/50 bg-lead-warn/[0.07] px-5 py-4",
   warnTitle: "font-serif text-[17px] font-semibold text-lead-ink",
   warnBody: "mt-2 text-[13.5px] leading-relaxed text-lead-ink2",
+  /**
+   * The sent-batch notice.
+   *
+   * DELIBERATELY NOT `warnBox`'s amber. That colour means "check this before you
+   * send"; there is nothing left to check and nothing left to send. This is a
+   * statement of fact about a batch that is finished, so it takes the same slate
+   * as the `sent` pill it agrees with.
+   */
+  frozenBox:
+    "mb-6 w-fit max-w-[78ch] rounded-xl border border-lead-dl/50 bg-lead-dl/[0.07] px-5 py-4",
+  frozenBody: "text-[13.5px] leading-relaxed text-lead-ink2",
   emptyBatch: "py-16 text-center font-serif text-[17px] italic text-lead-ink2",
   skeleton: "animate-pulse rounded-lg bg-lead-panel",
 

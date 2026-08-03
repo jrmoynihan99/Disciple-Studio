@@ -430,6 +430,7 @@ async function auditGroupCard(add: Add) {
   const { flushSync } = await import("react-dom");
   const { ChurchCard } = await import("../groups/_components/church/parts");
   const { ExportBar } = await import("../groups/_components/ExportBar");
+  const { AttributionLine } = await import("../groups/_components/Attribution");
   const { buildSnapshot } = await import("@/lib/leads/engine/snapshot");
   const { resolve, applyOp } = await import("@/lib/leads/engine/group");
   const { PATH } = await import("@/lib/leads/engine/group-types");
@@ -518,6 +519,27 @@ async function auditGroupCard(add: Add) {
             onOp={() => {}}
             onRemoveChurch={() => {}}
           />
+          {/* ── the control ──
+              A `cited` attribution rendered OUTSIDE any card, purely so the
+              checks below can prove they are able to see a citation at all.
+
+              Without it the card-level assertions are unfalsifiable: `cited` and
+              `uncited` are dropped at the call site in `parts.tsx`, so
+              `[data-source]` and `[data-verified]` never appear on a card, and
+              "0 source lines found" reads identically whether the drop is working
+              or the selector is simply wrong. One is a guarantee; the other is a
+              typo that reports PASS for ever. This makes the difference
+              observable — the component demonstrably produces both, and no card
+              does. */}
+          <div data-probe="attribution-control">
+            <AttributionLine
+              attribution={{
+                kind: "cited",
+                sourceUrl: "https://example.org/next-steps",
+                verified: "exact",
+              }}
+            />
+          </div>
           <div data-probe="export-unarmed">
             <ExportBar
               count={1}
@@ -533,6 +555,19 @@ async function auditGroupCard(add: Add) {
               acknowledged
               onAcknowledge={() => {}}
               onExport={() => {}}
+              sent={false}
+            />
+          </div>
+          {/* Ticked, but with unsaved work. The export reads the batch from the
+              SERVER, so an armed button over a failed save promises demos built
+              from a version of the batch nobody approved. */}
+          <div data-probe="export-blocked">
+            <ExportBar
+              count={1}
+              acknowledged
+              onAcknowledge={() => {}}
+              onExport={() => {}}
+              blocked="Your last 3 changes could not be saved."
               sent={false}
             />
           </div>
@@ -553,7 +588,7 @@ async function auditGroupCard(add: Add) {
     /**
      * THE COMPLAINT THIS LAYOUT EXISTS TO ANSWER.
      *
-     * A church renders as six labelled fields in one fixed order, empty or not.
+     * A church renders as five labelled fields in one fixed order, empty or not.
      * The order being constant is the whole skim mechanism: held the same on
      * every church the fields become a rhythm, and a break in a rhythm is
      * something you trip over rather than something you have to read for. Drop a
@@ -595,31 +630,75 @@ async function auditGroupCard(add: Add) {
      * edited quote stored beside the pipeline's URL passed it green — which is
      * why these checks read the rendered DOM and not the data.
      */
+    /**
+     * FIRST, PROVE THE INSTRUMENT WORKS.
+     *
+     * Everything below is an assertion that something is ABSENT from a card, and
+     * an absence check is worth exactly as much as the selector behind it. The
+     * control probe renders a `cited` attribution outside any card; if
+     * `[data-source]` and `[data-verified]` cannot be found THERE, every "0 found"
+     * below is meaningless and this is the check that says so.
+     *
+     * This is not hypothetical bookkeeping. `cited` and `uncited` stopped
+     * rendering on cards when the per-quote citations were dropped, which quietly
+     * turned three of these into assertions that could no longer fail — they went
+     * on reporting PASS about a guarantee nothing was testing.
+     */
+    const control = host.querySelector('[data-probe="attribution-control"]');
+    const instrument =
+      !!control?.querySelector("[data-source]") && !!control?.querySelector("[data-verified]");
+    add(
+      "the citation checks below can see a citation when there is one",
+      instrument,
+      instrument
+        ? "control renders a source line and a verified badge"
+        : "the control rendered neither — every absence check below is vacuous",
+    );
+
     const quotes = [...host.querySelectorAll("[data-quote]")];
     const strayLinks = [...host.querySelectorAll("[data-church] a[href]")].filter(
       (a) => !a.closest("[data-identity]"),
     );
     const sources = host.querySelectorAll("[data-church] [data-source]").length;
+    const verified = host.querySelectorAll("[data-church] [data-verified]").length;
     add(
       "a card links out exactly once, from the identity band, and nowhere else",
-      quotes.length > 0 && strayLinks.length === 0 && sources === 0,
+      instrument && quotes.length > 0 && strayLinks.length === 0 && sources === 0,
       `${quotes.length} quotes, ${strayLinks.length} links outside the header, ${sources} source lines`,
     );
 
-    const edited = [...host.querySelectorAll('[data-attribution="edited"]')];
+    /**
+     * WHICH CLAIMS A CARD IS ALLOWED TO MAKE.
+     *
+     * This replaces "an edited quote never renders a source link", which asked
+     * whether `[data-attribution="edited"]` contained a `[data-source]` — markup
+     * that consists of a span and a revert button, so the answer was structurally
+     * no and the check could never fail.
+     *
+     * The rule that CAN break is the one a step above it: `Provenance` in
+     * `parts.tsx` drops `cited` and `uncited` at the call site, so the only kinds
+     * a card may render are the three that make a claim about authorship —
+     * `edited` (we changed it), `user` (a person wrote it), `generated` (we
+     * invented it). Anything else on a card means the drop has been undone, which
+     * is exactly how a page starts citing a church for words it never said.
+     */
+    const ALLOWED = new Set(["edited", "user", "generated"]);
+    const kinds = [...host.querySelectorAll("[data-church] [data-attribution]")].map(
+      (el) => el.getAttribute("data-attribution") ?? "",
+    );
+    const disallowed = [...new Set(kinds.filter((k) => !ALLOWED.has(k)))];
     add(
-      "an edited quote never renders a source link",
-      edited.length > 0 && edited.every((e) => !e.querySelector("[data-source], a[href]")),
-      edited.length ? `${edited.length} edited, none cited` : "no edited attribution rendered — probe is broken",
+      "a card renders only attributions that make a claim, and never a citation",
+      instrument && kinds.includes("edited") && disallowed.length === 0 && verified === 0,
+      disallowed.length
+        ? `card rendered ${disallowed.join(", ")} — citations are dropped at the call site`
+        : `${kinds.length} attribution line(s): ${[...new Set(kinds)].join(", ") || "none"}, ${verified} verified badges`,
     );
 
     const mine = [...host.querySelectorAll('[data-provenance="user"]')];
     add(
-      "a hand-added item is labelled yours and carries no verified badge",
-      mine.length > 0 &&
-        mine.every(
-          (m) => m.querySelector('[data-attribution="user"]') && !m.querySelector("[data-verified]"),
-        ),
+      "a hand-added item is labelled yours",
+      mine.length > 0 && mine.every((m) => m.querySelector('[data-attribution="user"]')),
       `${mine.length} hand-added item(s)`,
     );
 
@@ -662,7 +741,7 @@ async function auditGroupCard(add: Add) {
     const armed = btnIn("export-armed");
     const unarmedCursor = unarmed ? getComputedStyle(unarmed).cursor : "";
     add(
-      "the export is armed by the acknowledgement and by nothing else",
+      "the acknowledgement is what arms the export",
       !!unarmed &&
         unarmed.disabled &&
         unarmedCursor !== "pointer" &&
@@ -671,6 +750,29 @@ async function auditGroupCard(add: Add) {
       unarmed && armed
         ? `unticked: disabled=${unarmed.disabled} cursor=${unarmedCursor} · ticked: disabled=${armed.disabled}`
         : "the export bar did not render in both states",
+    );
+
+    /**
+     * AND THE TICK IS NOT THE ONLY GATE — which is a change from what this file
+     * used to assert.
+     *
+     * "Armed by the acknowledgement and by nothing else" was true while the only
+     * question was whether a person had read the batch. It is not the only
+     * question: the export builds from the STORED batch, so unsaved corrections
+     * mean the demos would be built from something nobody approved. A ticked box
+     * over a failed save must not produce a live button, and the reason has to be
+     * on screen rather than only in a tooltip — a reviewer cannot deduce "the
+     * server does not have your last three edits" from a greyed control.
+     */
+    const blockedProbe = host.querySelector('[data-probe="export-blocked"]');
+    const blockedBtn = btnIn("export-blocked");
+    const blockedWhy = blockedProbe?.querySelector("[data-export-blocked]");
+    add(
+      "unsaved changes disarm the export, and say so",
+      !!blockedBtn && blockedBtn.disabled && !!blockedWhy?.textContent?.trim(),
+      blockedBtn
+        ? `disabled=${blockedBtn.disabled} · reason: ${blockedWhy?.textContent?.trim() ?? "NOT SHOWN"}`
+        : "the blocked export bar did not render",
     );
 
     /**
