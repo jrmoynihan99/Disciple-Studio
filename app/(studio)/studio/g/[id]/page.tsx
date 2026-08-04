@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ExternalLink, Pencil, Download, Link2, Trash2, Loader2 } from "lucide-react";
 import type { Group } from "@/lib/groups";
+import { PushToInstantly } from "./_components/PushToInstantly";
 
 /** First contact email from a church's contacts object, if any (display only). */
 function firstEmail(contacts: unknown): string {
@@ -132,6 +133,7 @@ export default function GroupPage() {
               <h1 className="mt-1 text-3xl font-bold tracking-tight text-fg">{group.name}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <PushToInstantly groupId={group.id} />
               <button
                 onClick={downloadJson}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90"

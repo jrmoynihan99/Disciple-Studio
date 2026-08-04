@@ -86,6 +86,22 @@ export const config = {
      * here, because `/c/<slug>` has to serve logos to a church with no password.
      */
     "/api/upload/:path*",
+    /**
+     * The cold-outreach bridge. Gated for two separate reasons, either of which
+     * would be enough on its own:
+     *
+     *  · It SPENDS AN ACCOUNT API KEY that is not scoped to a campaign. The POST
+     *    creates real leads in a real sending campaign, so an open route is an
+     *    open relay into a congregation's inbox under our own domain — and the
+     *    damage is to sender reputation, which does not un-damage.
+     *  · The GET leaks the campaign list, and the sibling under
+     *    `/api/groups/:path*` returns church names paired with staff email
+     *    addresses. That is the same customer data `/leads` is gated for.
+     *
+     * `/api/groups/:path*` above already covers the per-batch push route; this
+     * entry is for the campaign picker, which is not under it.
+     */
+    "/api/instantly/:path*",
     "/api/ccb/consent-link",
     "/api/pushpay/consent-link",
   ],
