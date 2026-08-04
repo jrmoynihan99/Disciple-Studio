@@ -199,6 +199,22 @@ export async function POST(req: Request, { params }: Ctx) {
           demo_link: row.demoLink,
           church_name: row.churchName,
           demo_slug: row.slug,
+          /**
+           * ALWAYS FILLED, WHICH IS THE ENTIRE POINT. Write `Hi {{greeting}},`
+           * and it reads correctly on every send.
+           *
+           * `first_name` is empty on roughly four sends in five — most churches
+           * are reached at `info@` or a shared inbox, and a shared inbox
+           * deliberately forfeits the name (see `pickRecipient`). That makes the
+           * nameless case the DEFAULT, not the exception, so the opener cannot
+           * depend on a merge-tag fallback rendering correctly in somebody
+           * else's template engine. `{{first_name}}` failing open means "Hi ,"
+           * arriving at a congregation.
+           *
+           * Computed here, from the same rule the tests cover, so the greeting
+           * in the email matches the one the preview showed.
+           */
+          greeting: row.firstName || "there",
           // Cohort tags: Jason runs two standing campaigns, so per-batch analytics
           // have to come from filtering inside one rather than from its name.
           batch_id: id,
