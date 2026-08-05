@@ -64,7 +64,7 @@ interface RawCampaign {
   id: string;
   name: string;
   status: number;
-  sequences?: { steps?: { variants?: { subject?: string; body?: string }[] }[] }[];
+  sequences?: { steps?: { delay?: number; variants?: { subject?: string; body?: string }[] }[] }[];
 }
 
 /**
@@ -89,6 +89,40 @@ export async function listCampaigns(): Promise<Campaign[]> {
       status: c.status,
       stepCount: written.length,
       hasSteps: written.length > 0,
+    };
+  });
+}
+
+export interface SequenceStep {
+  /** 1-based, as a person counts emails. */
+  number: number;
+  /** Days Instantly waits before this step. */
+  delay: number;
+  subject: string;
+  body: string;
+  /** How many A/B variants the step has; the preview renders the first. */
+  variants: number;
+}
+
+/**
+ * The steps of one campaign, flattened.
+ *
+ * A FOLLOW-UP WITH NO SUBJECT IS NOT A BUG — it is a reply on the same thread,
+ * which is how every sequence after step one is normally written. The preview
+ * says "same thread" rather than showing an empty subject line, because an empty
+ * subject is exactly what a missing variable also looks like.
+ */
+export async function getCampaignSteps(campaignId: string): Promise<SequenceStep[]> {
+  const c = await call<RawCampaign>(`/campaigns/${encodeURIComponent(campaignId)}`);
+  const steps = (c.sequences ?? []).flatMap((s) => s.steps ?? []);
+  return steps.map((s, i) => {
+    const v = (s.variants ?? [])[0] ?? {};
+    return {
+      number: i + 1,
+      delay: typeof (s as { delay?: number }).delay === "number" ? (s as { delay: number }).delay : 0,
+      subject: v.subject ?? "",
+      body: v.body ?? "",
+      variants: (s.variants ?? []).length,
     };
   });
 }

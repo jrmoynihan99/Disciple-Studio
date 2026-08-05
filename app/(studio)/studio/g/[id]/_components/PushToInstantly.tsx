@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AlertTriangle, Loader2, Send, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Loader2, Mail, Send, X } from "lucide-react";
+import { render } from "@/lib/leads/engine/merge";
 
 /**
  * The batch → campaign handoff, and the last screen before a congregation is
@@ -43,6 +44,15 @@ interface PlannedRow {
   source: "person" | "church_email" | null;
   why: string;
   priorContact: PriorContact | null;
+  vars: Record<string, string>;
+}
+
+interface SequenceStep {
+  number: number;
+  delay: number;
+  subject: string;
+  body: string;
+  variants: number;
 }
 
 interface Plan {
@@ -60,6 +70,7 @@ interface Plan {
 
 interface PushResult {
   ok: boolean;
+  redirectedTo: string | null;
   pushed: number;
   pushedNames: string[];
   skipped: { churchName: string; reason: string }[];
@@ -80,6 +91,82 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<PushResult | null>(null);
+  const [steps, setSteps] = useState<SequenceStep[] | null>(null);
+  const [previewSlug, setPreviewSlug] = useState("");
+  const [testMode, setTestMode] = useState(false);
+  const [redirectTo, setRedirectTo] = useState("");
+
+  /**
+   * `jason+dacus-church@gmail.com` — mirrors `testAddress` on the server so the
+   * dialog can SHOW the destination before anything is pushed. The server does
+   * this again and is the authority; this copy only has to be honest about what
+   * is about to happen.
+   */
+  const testAddressPreview = (slug: string) => {
+    const base = redirectTo.trim().toLowerCase();
+    const at = base.indexOf("@");
+    if (at <= 0) return "";
+    const stem = base.slice(0, at).split("+")[0];
+    const tag = slug.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "test";
+    return `${stem}+${tag}@${base.slice(at + 1)}`;
+  };
+
+  /**
+   * The sequence is fetched once per campaign and rendered in the browser against
+   * the variables the plan already returned — so flicking between churches to
+   * spot-check openers is instant instead of a request each.
+   */
+  useEffect(() => {
+    if (!campaignId) {
+      setSteps(null);
+      return;
+    }
+    let alive = true;
+    setSteps(null);
+    (async () => {
+      try {
+        const res = await fetch(`/api/instantly/campaigns/${campaignId}`);
+        const body = await res.json();
+        if (!alive) return;
+        if (res.ok) setSteps(body.steps);
+      } catch {
+        /* the preview is optional; the push does not depend on it */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [campaignId]);
+
+  /** Default to the first church that will actually receive something. */
+  useEffect(() => {
+    if (!previewSlug && plan) {
+      setPreviewSlug(plan.rows.find((r) => r.email)?.slug ?? "");
+    }
+  }, [plan, previewSlug]);
+
+  const previewRow = plan?.rows.find((r) => r.slug === previewSlug) ?? null;
+
+  /**
+   * Rendered on the fly. `empty` and `unknown` are the reason this exists: an
+   * opener that resolves to "Hi ," is invisible in a template and obvious here.
+   */
+  const rendered = useMemo(() => {
+    if (!steps || !previewRow) return null;
+    return steps.map((s) => {
+      const subject = render(s.subject, previewRow.vars, previewRow.slug);
+      const body = render(s.body, previewRow.vars, previewRow.slug);
+      return {
+        step: s,
+        subject,
+        body,
+        holes: [...new Set([...subject.empty, ...body.empty])],
+        unknown: [...new Set([...subject.unknown, ...body.unknown])],
+      };
+    });
+  }, [steps, previewRow]);
+
+  const totalHoles = (rendered ?? []).reduce((n, r) => n + r.holes.length, 0);
 
   /**
    * Both loads start together on open. The plan is the slow one — it asks
@@ -126,13 +213,21 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
 
   async function push(onlyNew: boolean) {
     if (!campaignId) return;
+    if (testMode && !redirectTo.trim()) {
+      setError("Enter the address to send the test to, or untick test mode.");
+      return;
+    }
     setSending(true);
     setError("");
     try {
       const res = await fetch(`/api/groups/${groupId}/instantly`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaignId, onlyNew }),
+        body: JSON.stringify({
+          campaignId,
+          onlyNew,
+          redirectTo: testMode ? redirectTo.trim() : "",
+        }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Push failed");
@@ -187,6 +282,12 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
               {result.pushed} of {plan?.counts.total ?? 0} pushed
               {chosen ? ` to “${chosen.name}”` : ""}.
             </p>
+            {result.redirectedTo && (
+              <p className="rounded-lg border border-brand/40 bg-brand/5 px-3 py-2 text-fg-secondary">
+                <strong className="text-fg">Test run.</strong> Every email went to{" "}
+                <span className="font-mono">{result.redirectedTo}</span> — no church was written to.
+              </p>
+            )}
             {result.skipped.length > 0 && (
               <details className="rounded-lg border border-line px-3 py-2">
                 <summary className="cursor-pointer text-fg-secondary">{result.skipped.length} skipped</summary>
@@ -248,6 +349,36 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
               </p>
             )}
 
+            {/* TEST MODE. Deliberately above the church table, because it changes
+                what every row in that table means. */}
+            <div className="mt-4 rounded-xl border border-line p-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-fg">
+                <input
+                  type="checkbox"
+                  checked={testMode}
+                  onChange={(e) => setTestMode(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                Send to me instead — no church receives anything
+              </label>
+              {testMode && (
+                <>
+                  <input
+                    type="email"
+                    value={redirectTo}
+                    onChange={(e) => setRedirectTo(e.target.value)}
+                    placeholder="you@example.com"
+                    className="mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg"
+                  />
+                  <p className="mt-1.5 text-xs text-fg-muted">
+                    Each church goes to its own <span className="font-mono">+tag</span> address so they arrive
+                    as separate emails rather than being deduped into one. Greeting, church name and demo link
+                    stay exactly as the real send.
+                  </p>
+                </>
+              )}
+            </div>
+
             {!plan ? (
               <p className="mt-6 inline-flex items-center gap-2 text-sm text-fg-muted">
                 <Loader2 className="h-4 w-4 animate-spin" /> Checking every address against Instantly…
@@ -296,10 +427,15 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
                               <div className="text-xs text-fg-muted">{r.why}</div>
                             </td>
                             <td className="px-3 py-2 align-top">
-                              {r.email ? (
-                                <span className="text-fg-secondary">{r.email}</span>
-                              ) : (
+                              {!r.email ? (
                                 <span className="text-warning">no address — skipped</span>
+                              ) : testMode && redirectTo.trim() ? (
+                                <>
+                                  <span className="text-brand">{testAddressPreview(r.slug)}</span>
+                                  <div className="text-xs text-fg-muted line-through">{r.email}</div>
+                                </>
+                              ) : (
+                                <span className="text-fg-secondary">{r.email}</span>
                               )}
                             </td>
                             <td className="px-3 py-2 align-top text-fg-secondary">
@@ -322,6 +458,69 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
                   </table>
                 </div>
 
+                {/* THE FINAL REVIEW. Rendered by our own renderer, not
+                    Instantly's — it proves a slot is EMPTY, which is the bug
+                    worth catching, but only a real send proves the exact bytes. */}
+                {steps && steps.length > 0 && previewRow && (
+                  <div className="mt-5 rounded-xl border border-line">
+                    <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+                      <Mail className="h-4 w-4 text-fg-muted" />
+                      <span className="text-sm font-medium text-fg">Preview the emails as</span>
+                      <select
+                        value={previewSlug}
+                        onChange={(e) => setPreviewSlug(e.target.value)}
+                        className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-fg"
+                      >
+                        {plan.rows
+                          .filter((r) => r.email)
+                          .map((r) => (
+                            <option key={r.slug} value={r.slug}>
+                              {r.churchName}
+                            </option>
+                          ))}
+                      </select>
+                      <span className="text-xs text-fg-muted">→ {previewRow.email}</span>
+                    </div>
+
+                    {totalHoles > 0 && (
+                      <p className="flex items-start gap-1.5 border-b border-line bg-warning/5 px-3 py-2 text-sm text-warning">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        {totalHoles} empty slot{totalHoles === 1 ? "" : "s"} for this church — the
+                        email would send with a gap. Give the tag a fallback, or use{" "}
+                        <code className="font-mono">{"{{greeting}}"}</code>, which is never empty.
+                      </p>
+                    )}
+
+                    <div className="max-h-96 space-y-4 overflow-y-auto p-3">
+                      {rendered!.map((r) => (
+                        <div key={r.step.number} className="rounded-lg bg-surface-raised p-3">
+                          <div className="flex flex-wrap items-baseline gap-x-3 text-xs text-fg-muted">
+                            <span className="font-semibold uppercase tracking-wide text-fg-secondary">
+                              Email {r.step.number}
+                            </span>
+                            <span>
+                              {r.step.delay > 0 ? `after ${r.step.delay} day${r.step.delay === 1 ? "" : "s"}` : "immediately"}
+                            </span>
+                            {r.step.variants > 1 && <span>{r.step.variants} variants — showing the first</span>}
+                          </div>
+                          <p className="mt-1.5 text-sm font-medium text-fg">
+                            {r.subject.text || <span className="text-fg-muted">(same thread — no new subject)</span>}
+                          </p>
+                          <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg-secondary">
+                            {r.body.text || <span className="text-fg-muted">(empty body)</span>}
+                          </pre>
+                          {(r.holes.length > 0 || r.unknown.length > 0) && (
+                            <p className="mt-2 text-xs text-warning">
+                              {r.holes.length > 0 && <>empty: {r.holes.join(", ")}. </>}
+                              {r.unknown.length > 0 && <>unknown: {r.unknown.join(", ")}.</>}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="mt-5 flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => push(false)}
@@ -329,7 +528,7 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-surface-inverted px-3 py-2 text-sm font-medium text-fg-inverted hover:opacity-90 disabled:opacity-50"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Push all {plan.counts.sendable}
+                    {testMode ? `Send ${plan.counts.sendable} test emails to me` : `Push all ${plan.counts.sendable}`}
                   </button>
                   {prior > 0 && (
                     <button

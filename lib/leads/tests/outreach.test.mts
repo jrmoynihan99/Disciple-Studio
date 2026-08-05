@@ -10,7 +10,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pickRecipient } from "../engine/outreach.ts";
+import { pickRecipient, testAddress } from "../engine/outreach.ts";
 
 const person = (name: string, email: string, rank: number, title = "") => ({ name, email, rank, title });
 
@@ -119,4 +119,37 @@ test("a contact recorded as nothing but a title is used, unnamed", () => {
   const r = pickRecipient({ people: [person("Pastor", "pastor@x.org", 0)] });
   assert.equal(r?.email, "pastor@x.org");
   assert.equal(r?.firstName, "", "'Pastor' is a title, not a name to greet by");
+});
+
+/**
+ * THE TEST-SEND REDIRECT. Its failure mode is the worst one available here — a
+ * "test" that quietly reaches a real congregation — so every malformed input
+ * returns null and the caller refuses to push rather than falling back.
+ */
+test("each church gets a distinct address, or the test is one email not fifteen", () => {
+  const a = testAddress("jrmoynihan99@gmail.com", "dacus-church");
+  const b = testAddress("jrmoynihan99@gmail.com", "living-word-church");
+  assert.equal(a, "jrmoynihan99+dacus-church@gmail.com");
+  assert.notEqual(a, b, "identical addresses would be deduped into a single lead");
+});
+
+test("an address that already has a tag does not accumulate more", () => {
+  assert.equal(
+    testAddress("jrmoynihan99+old@gmail.com", "new-church"),
+    "jrmoynihan99+new-church@gmail.com",
+  );
+});
+
+test("a slug is sanitised into something an address can hold", () => {
+  assert.equal(testAddress("j@x.org", "St. Mary's Church!"), "j+st-mary-s-church@x.org");
+});
+
+test("an empty tag still produces a usable address", () => {
+  assert.equal(testAddress("j@x.org", ""), "j+test@x.org");
+});
+
+test("anything that is not a plain address is refused, never guessed at", () => {
+  for (const bad of ["", "   ", "notanemail", "@x.org", "j@", "a@b@c.org", "j@nodot", "j smith@x.org", "+tag@x.org", "j@.org", "j@x."]) {
+    assert.equal(testAddress(bad, "t"), null, `${JSON.stringify(bad)} must not produce an address`);
+  }
 });

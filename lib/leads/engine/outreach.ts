@@ -116,6 +116,42 @@ function splitName(full: string): { first: string; last: string } {
 }
 
 /**
+ * A TEST ADDRESS THAT REACHES YOU BUT LOOKS LIKE A DIFFERENT PERSON.
+ *
+ * Pushing fifteen churches at one inbox does not produce fifteen test emails —
+ * it produces ONE. `addLead` sets `skip_if_in_campaign` and Instantly dedupes by
+ * address, so fourteen churches would be silently skipped and the run would look
+ * like it worked. Plus-addressing gives every church a distinct address that
+ * Gmail and Microsoft both deliver to the same mailbox.
+ *
+ * The tag is the church's slug, so the inbox sorts by church and it is obvious
+ * which email belongs to which demo.
+ *
+ * RETURNS NULL RATHER THAN GUESSING. The caller must refuse to push on null and
+ * must never fall back to the real recipient — "send this to me" quietly
+ * becoming "send this to fifteen congregations" is the worst outcome this
+ * codebase can produce.
+ */
+export function testAddress(base: string, tag: string): string | null {
+  const trimmed = base.trim().toLowerCase();
+  const at = trimmed.indexOf("@");
+  if (at <= 0 || at !== trimmed.lastIndexOf("@") || at === trimmed.length - 1) return null;
+  if (/\s/.test(trimmed)) return null;
+  const local = trimmed.slice(0, at);
+  const domain = trimmed.slice(at + 1);
+  if (!domain.includes(".") || domain.startsWith(".") || domain.endsWith(".")) return null;
+  // A local part that already carries a +tag keeps only what precedes it, so
+  // repeated tests do not build `jason+a+b+c@`.
+  const stem = local.split("+")[0];
+  if (!stem) return null;
+  // Lowercased with the rest of the address: a local part is case-insensitive in
+  // practice, and two tags differing only in case would read as two churches.
+  const safeTag =
+    tag.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "test";
+  return `${stem}+${safeTag}@${domain}`;
+}
+
+/**
  * The address this church's email goes to, or `null` when there is none.
  *
  * ORDER: a named person the reviewer approved, then the church's own office
