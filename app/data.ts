@@ -278,9 +278,9 @@ export const DATA = {
 
   testimonial: {
     quote:
-      "We went from dreading our website to actually using it every week. Events just show up on their own now, and our staff can update anything without calling anyone. It finally feels like ours.",
-    name: "Pastor [Name]",
-    role: "Grace Community Church",
+      "What we got with Jason was more than help building a pretty website. We got a man passionate about discipleship and passionate about using whatever digital tools we have to make disciples and fulfill the Great Commission. I’d recommend any church serious about making disciples work with him and his team.",
+    name: "Adam Mabry",
+    role: "Senior Pastor, Aletheia Church",
   },
 
   founders: {
