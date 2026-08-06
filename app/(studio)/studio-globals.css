@@ -251,3 +251,38 @@ html::-webkit-scrollbar {
   from { opacity: 1; transform: translateX(0); }
   to { opacity: 0; transform: translateX(-6px); }
 }
+
+/**
+ * The email preview in the push dialog renders sanitised campaign HTML, so its
+ * children cannot carry utility classes. These are the few rules needed for it
+ * to read like an email rather than a wall of unstyled markup — and for a link
+ * to LOOK like a link, since "is the link right" is what the preview is for.
+ */
+.preview-body a {
+  color: rgb(var(--brand, 59 130 246));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+.preview-body p,
+.preview-body div {
+  margin: 0 0 0.5rem;
+}
+.preview-body p:last-child,
+.preview-body div:last-child {
+  margin-bottom: 0;
+}
+.preview-body strong,
+.preview-body b {
+  font-weight: 600;
+  color: inherit;
+}
+.preview-body ul,
+.preview-body ol {
+  margin: 0 0 0.5rem 1.1rem;
+  list-style: disc;
+}
+.preview-body img {
+  max-width: 100%;
+  height: auto;
+}

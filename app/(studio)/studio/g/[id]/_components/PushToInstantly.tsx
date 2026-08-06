@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Loader2, Mail, Send, X } from "lucide-react";
-import { render } from "@/lib/leads/engine/merge";
+import { renderRich } from "@/lib/leads/engine/merge";
 
 /**
  * The batch → campaign handoff, and the last screen before a congregation is
@@ -154,8 +154,8 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
   const rendered = useMemo(() => {
     if (!steps || !previewRow) return null;
     return steps.map((s) => {
-      const subject = render(s.subject, previewRow.vars, previewRow.slug);
-      const body = render(s.body, previewRow.vars, previewRow.slug);
+      const subject = renderRich(s.subject, previewRow.vars, previewRow.slug);
+      const body = renderRich(s.body, previewRow.vars, previewRow.slug);
       return {
         step: s,
         subject,
@@ -255,7 +255,10 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8">
-      <div className="w-full max-w-3xl rounded-2xl border border-line bg-surface p-6 shadow-xl">
+      {/* Wide enough for three email columns to each hold a readable line
+          length. `max-w-6xl` puts them at roughly 22em apiece on a laptop,
+          which is close to the measure an email is actually read at. */}
+      <div className="w-full max-w-6xl rounded-2xl border border-line bg-surface p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold text-fg">Push to Instantly</h2>
@@ -491,26 +494,63 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
                       </p>
                     )}
 
-                    <div className="max-h-96 space-y-4 overflow-y-auto p-3">
+                    {/* SIDE BY SIDE, because the thing being reviewed is a
+                        SEQUENCE — whether email 2 follows from email 1 without
+                        repeating it, and whether the three escalate. Stacked and
+                        scrolling, you can only ever see one at a time, which is
+                        the one comparison the layout should make easy.
+
+                        Columns collapse to a stack under `lg`, where three of
+                        them would be too narrow to read a paragraph in. */}
+                    <div className="grid gap-3 p-3 lg:grid-cols-3">
                       {rendered!.map((r) => (
-                        <div key={r.step.number} className="rounded-lg bg-surface-raised p-3">
-                          <div className="flex flex-wrap items-baseline gap-x-3 text-xs text-fg-muted">
+                        <div
+                          key={r.step.number}
+                          className="flex min-w-0 flex-col rounded-lg bg-surface-raised p-3"
+                        >
+                          <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-fg-muted">
                             <span className="font-semibold uppercase tracking-wide text-fg-secondary">
                               Email {r.step.number}
                             </span>
                             <span>
                               {r.step.delay > 0 ? `after ${r.step.delay} day${r.step.delay === 1 ? "" : "s"}` : "immediately"}
                             </span>
-                            {r.step.variants > 1 && <span>{r.step.variants} variants — showing the first</span>}
                           </div>
-                          <p className="mt-1.5 text-sm font-medium text-fg">
-                            {r.subject.text || <span className="text-fg-muted">(same thread — no new subject)</span>}
+                          {r.step.variants > 1 && (
+                            <div className="mt-0.5 text-xs text-fg-muted">
+                              {r.step.variants} variants — showing the first
+                            </div>
+                          )}
+                          <p className="mt-1.5 border-b border-line pb-2 text-sm font-medium text-fg">
+                            {r.subject.text ? (
+                              // The subject is plain text in every mail client;
+                              // stripping tags here means a stray <b> in the
+                              // editor cannot render as bold in the preview and
+                              // set a false expectation.
+                              r.subject.text.replace(/<[^>]+>/g, "")
+                            ) : (
+                              <span className="text-fg-muted">(same thread — no new subject)</span>
+                            )}
                           </p>
-                          <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg-secondary">
-                            {r.body.text || <span className="text-fg-muted">(empty body)</span>}
-                          </pre>
+                          {/* THE REAL HTML, so bold reads as bold and a link is a
+                              link you can click to check it points at the right
+                              church. Sanitised in `renderRich` — allow-listed
+                              tags only, no handlers, no remote fetches — and the
+                              content is the user's own campaign read back over an
+                              authenticated API.
+
+                              Each column scrolls on its own so one long email
+                              cannot stretch the row and push the others off. */}
+                          {r.body.text ? (
+                            <div
+                              className="preview-body mt-2 max-h-[26rem] flex-1 overflow-y-auto break-words text-[13px] leading-relaxed text-fg-secondary"
+                              dangerouslySetInnerHTML={{ __html: r.body.text }}
+                            />
+                          ) : (
+                            <div className="mt-2 flex-1 text-[13px] text-fg-muted">(empty body)</div>
+                          )}
                           {(r.holes.length > 0 || r.unknown.length > 0) && (
-                            <p className="mt-2 text-xs text-warning">
+                            <p className="mt-2 border-t border-line pt-2 text-xs text-warning">
                               {r.holes.length > 0 && <>empty: {r.holes.join(", ")}. </>}
                               {r.unknown.length > 0 && <>unknown: {r.unknown.join(", ")}.</>}
                             </p>
