@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Loader2, Mail, Send, X } from "lucide-react";
 import { renderRich } from "@/lib/leads/engine/merge";
+import { sanitizeEmailHtml } from "@/lib/leads/client/sanitize";
 
 /**
  * The batch → campaign handoff, and the last screen before a congregation is
@@ -160,6 +161,11 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
         step: s,
         subject,
         body,
+        /**
+         * Sanitised HERE, at the point of use, and only here. `renderRich`
+         * returns raw merged markup by design — see the warning on it.
+         */
+        bodyHtml: sanitizeEmailHtml(body.text),
         holes: [...new Set([...subject.empty, ...body.empty])],
         unknown: [...new Set([...subject.unknown, ...body.unknown])],
       };
@@ -541,10 +547,13 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
 
                               Each column scrolls on its own so one long email
                               cannot stretch the row and push the others off. */}
-                          {r.body.text ? (
+                          {r.bodyHtml ? (
                             <div
                               className="preview-body mt-2 max-h-[26rem] flex-1 overflow-y-auto break-words text-[13px] leading-relaxed text-fg-secondary"
-                              dangerouslySetInnerHTML={{ __html: r.body.text }}
+                              // Fed only from `sanitizeEmailHtml` (DOMPurify), which
+                              // is what makes this call defensible. See the policy
+                              // in `lib/leads/engine/sanitize-policy.ts`.
+                              dangerouslySetInnerHTML={{ __html: r.bodyHtml }}
                             />
                           ) : (
                             <div className="mt-2 flex-1 text-[13px] text-fg-muted">(empty body)</div>

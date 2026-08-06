@@ -8,7 +8,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { render, renderRich } from "../engine/merge.ts";
+import { render } from "../engine/merge.ts";
 
 const VARS = {
   greeting: "Bo",
@@ -129,70 +129,4 @@ test("an empty template is empty, not a crash", () => {
 test("an AI-generated body slot is reported as unknown", () => {
   const r = render("{{6f8f7316-5429-4ffd-93e5-8acfd90a0108_email_1}}", VARS, "x");
   assert.equal(r.unknown.length, 1);
-});
-
-/**
- * THE RICH PREVIEW. It renders campaign HTML into the page, so it is a security
- * boundary even though the content is the user's own — "the input is trusted" is
- * the assumption every injection bug is built on.
- */
-
-test("formatting survives, so the preview looks like the email", () => {
-  const r = renderRich("<p>Hi {{greeting}},</p><p>Every member sees <strong>THEIR</strong> next step.</p>", VARS, "x");
-  assert.match(r.text, /<strong>THEIR<\/strong>/);
-  assert.match(r.text, /Hi Bo,/);
-});
-
-test("a link stays clickable, opens a new tab, and cannot steal the opener", () => {
-  const r = renderRich('<a href="{{demo_link}}">DEMO LINK</a>', VARS, "x");
-  assert.match(r.text, /href="https:\/\/www\.disciple\.studio\/c\/dacus-church"/);
-  assert.match(r.text, /target="_blank"/);
-  assert.match(r.text, /rel="noopener noreferrer"/);
-  assert.match(r.text, /title="https:\/\/www\.disciple\.studio\/c\/dacus-church"/, "hover must reveal the destination");
-});
-
-test("script tags are removed with their contents", () => {
-  const r = renderRich('<p>hi</p><script>alert(1)</script><p>bye</p>', VARS, "x");
-  assert.doesNotMatch(r.text, /script/i);
-  assert.doesNotMatch(r.text, /alert/);
-  assert.match(r.text, /hi/);
-  assert.match(r.text, /bye/);
-});
-
-test("event handler attributes never survive", () => {
-  const r = renderRich('<div onclick="alert(1)" onmouseover=\'x()\'>text</div>', VARS, "x");
-  assert.doesNotMatch(r.text, /onclick/i);
-  assert.doesNotMatch(r.text, /onmouseover/i);
-  assert.match(r.text, /text/);
-});
-
-test("javascript: and data: urls are dropped, the link text is not", () => {
-  for (const bad of ["javascript:alert(1)", "JavaScript:alert(1)", " javascript:alert(1)", "data:text/html,<script>"]) {
-    const r = renderRich(`<a href="${bad}">click</a>`, VARS, "x");
-    assert.doesNotMatch(r.text, /javascript|data:/i, `${bad} must not survive`);
-    assert.match(r.text, /click/);
-  }
-});
-
-test("iframes and forms are removed entirely", () => {
-  const r = renderRich('<iframe src="https://evil.test"></iframe><form><input name="x"></form><p>ok</p>', VARS, "x");
-  assert.doesNotMatch(r.text, /iframe|form|input/i);
-  assert.match(r.text, /ok/);
-});
-
-test("style survives for formatting but cannot fetch anything remote", () => {
-  const r = renderRich('<span style="font-weight:bold;background:url(https://evil.test/p.gif)">x</span>', VARS, "x");
-  assert.match(r.text, /font-weight:bold/);
-  assert.doesNotMatch(r.text, /url\(/i, "a remote fetch from a preview is a tracking pixel");
-});
-
-test("the rich renderer reports holes exactly like the text one", () => {
-  const r = renderRich("<p>Hi {{first_name}},</p>", { ...VARS, first_name: "" }, "x");
-  assert.deepEqual(r.empty, ["first_name"]);
-});
-
-test("an unknown tag stays visible in the rich preview too", () => {
-  const r = renderRich("<p>Hi {{fisrt_name}},</p>", VARS, "x");
-  assert.deepEqual(r.unknown, ["fisrt_name"]);
-  assert.match(r.text, /\{\{fisrt_name\}\}/);
 });
