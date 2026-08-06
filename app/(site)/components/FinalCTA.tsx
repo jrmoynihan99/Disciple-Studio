@@ -17,6 +17,7 @@ export default function FinalCTA({
   sub,
   demoHref,
   demoLabel = "See a live demo",
+  primary,
   links,
 }: {
   title: string;
@@ -24,6 +25,9 @@ export default function FinalCTA({
   sub?: ReactNode;
   demoHref: string;
   demoLabel?: string;
+  /* Overrides the "Let's Chat → /book" button — the booking pages point this
+     home instead, since sending /book back to itself would be circular. */
+  primary?: { href: string; label: ReactNode };
   links: { label: string; href: string }[];
 }) {
   return (
@@ -58,8 +62,12 @@ export default function FinalCTA({
             </p>
           ))}
         <Reveal delay={0.65} className="mt-[34px] flex flex-wrap justify-center gap-3.5">
-          <Btn href="/book">
-            Let{"’"}s Chat <Arrow />
+          <Btn href={primary?.href ?? "/book"}>
+            {primary?.label ?? (
+              <>
+                Let{"’"}s Chat <Arrow />
+              </>
+            )}
           </Btn>
           <Btn variant="ghostLight" href={demoHref} target="_blank" rel="noreferrer">
             {"▶"} {demoLabel}

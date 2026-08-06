@@ -1,25 +1,27 @@
 import type { Metadata } from "next";
 import Nav from "@/app/(site)/components/Nav";
-import Work from "@/app/(site)/components/home/Work";
 import FinalCTA from "@/app/(site)/components/FinalCTA";
 import { Arrow } from "@/components/ui";
 import { MEMBER_DEMO_URL } from "@/app/(site)/components/home/urls";
-import BookHero from "./components/BookHero";
+import ThanksHero from "../components/ThanksHero";
+
+/* Standalone confirmation page. /book lands here via history.replaceState
+   the moment Calendly reports a booking, so refreshes keep the confirmation;
+   it also works as a Calendly redirect target if we ever turn that on. */
 
 export const metadata: Metadata = {
-  title: "Let’s Chat — Disciple Studio",
+  title: "You’re booked — Disciple Studio",
   description:
-    "Pick a time for a quick call — tell us about your church and see how we can help.",
+    "Your call is on the calendar — check your inbox for the invite.",
+  robots: { index: false },
 };
 
-export default function BookPage() {
+export default function BookThanksPage() {
   return (
     <>
       <Nav active="/book" />
       <main>
-        <BookHero />
-        {/* The hero already shows the quote card, so Work drops its copy. */}
-        <Work kicker="The work" showTestimonial={false} />
+        <ThanksHero />
       </main>
       <FinalCTA
         title="Want the full tour"

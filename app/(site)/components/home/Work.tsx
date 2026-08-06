@@ -1,12 +1,22 @@
 import Image from "next/image";
 import { Btn, TrafficLights } from "@/components/ui";
 import { DemoLabel, Glow, SectionHead } from "@/app/(site)/components/ui";
+import TestimonialCard from "@/app/(site)/components/TestimonialCard";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
 import Reveal from "@/components/reveal-animations/Reveal";
 import GlowReveal from "@/components/reveal-animations/GlowReveal";
 import { LIVE_SITE_URL, MEMBER_DEMO_URL } from "./urls";
 
-export default function Work() {
+/* `kicker` — the home page numbers its sections; other pages reusing this
+   drop the number. `showTestimonial` — /book already shows the same quote
+   beside the calendar, so it hides the floating card here. */
+export default function Work({
+  kicker = "05 // The work",
+  showTestimonial = true,
+}: {
+  kicker?: string;
+  showTestimonial?: boolean;
+}) {
   return (
     <section
       id="work"
@@ -17,7 +27,7 @@ export default function Work() {
         <SectionReveal>
           <SectionHead
             animate
-            kicker="05 // The work"
+            kicker={kicker}
             title="Our latest build is live."
             sub="A ground-up discipleship engine built for Aletheia Church — website, app, CMS, and deep ChMS integration."
             subClassName="max-w-[30em]"
@@ -71,30 +81,14 @@ export default function Work() {
               />
             </div>
           </div>
-          <Reveal
-            delay={0.5}
-            className="absolute -right-9 bottom-9 z-[2] w-[350px] max-[860px]:static max-[860px]:mt-6 max-[860px]:w-full"
-          >
-            <div className="rounded-[18px] border border-paper/[0.13] bg-[#1f1a14] px-[26px] py-6 text-left shadow-[0_40px_90px_-35px_rgba(0,0,0,0.95)]">
-              <div className="font-serif text-[19px] italic leading-[1.4] tracking-[-0.01em]">
-                {"“"}They didn{"’"}t just build us a website — they built a
-                front door and a discipleship pathway in one.{"”"}
-              </div>
-              <div className="mt-4 flex items-center gap-2.5">
-                <span className="grid h-8 w-8 place-items-center rounded-full bg-[#3a332a] text-[11px] font-bold">
-                  A
-                </span>
-                <div>
-                  <div className="text-[13px] font-semibold">
-                    Aletheia Church
-                  </div>
-                  <div className="font-mono text-[10px] text-paper/50">
-                    BOSTON, MA
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Reveal>
+          {showTestimonial && (
+            <Reveal
+              delay={0.5}
+              className="absolute -right-9 bottom-9 z-[2] w-[350px] max-[860px]:static max-[860px]:mt-6 max-[860px]:w-full"
+            >
+              <TestimonialCard />
+            </Reveal>
+          )}
         </GlowReveal>
       </div>
     </section>
