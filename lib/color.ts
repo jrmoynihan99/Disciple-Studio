@@ -48,6 +48,55 @@ export function darken(hex: string, amount: number): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
+/**
+ * Lighten a hex color by mixing toward white. The mirror of `darken`, and the
+ * other half of what a hand-picked accent needs: a colour that reads on a white
+ * page is routinely invisible on the dark one the same demo can be opened in.
+ */
+export function lighten(hex: string, amount: number): string {
+  const rgb = parseHex(hex);
+  if (!rgb) return hex;
+  const [r, g, b] = rgb.map((c) => c + (255 - c) * amount);
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/**
+ * WCAG relative luminance, 0 (black) to 1 (white).
+ *
+ * The real formula, gamma expansion and all, rather than the "perceived
+ * brightness" average that gets pasted around: the difference decides whether
+ * white or black text goes on a saturated blue, and the cheap version gets that
+ * wrong in the exact middle of the range where accents live.
+ */
+export function luminance(hex: string): number {
+  const rgb = parseHex(hex);
+  if (!rgb) return 0;
+  const [r, g, b] = rgb.map((c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast ratio between two hex colors, 1 (identical) to 21. */
+export function contrastRatio(a: string, b: string): number {
+  const la = luminance(a);
+  const lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/**
+ * Black or white text for a filled swatch of this colour.
+ *
+ * The threshold is the crossover point where the two swap, computed rather than
+ * eyeballed: white text wins below it, near-black above. Near-black rather than
+ * pure, because a pure-black label on a mid-tone brand colour reads as a
+ * rendering fault next to the rest of the page's ink.
+ */
+export function inkOn(hex: string): string {
+  return contrastRatio(hex, "#ffffff") >= contrastRatio(hex, "#141414") ? "#ffffff" : "#141414";
+}
+
 /** Hex → "rgba(r, g, b, a)" string for inline styles. */
 export function withAlpha(hex: string, alpha: number): string {
   const rgb = parseHex(hex);

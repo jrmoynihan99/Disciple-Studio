@@ -28,6 +28,22 @@ export interface DemoContacts {
   }>;
   church_emails?: readonly string[];
   phone?: string;
+  /**
+   * THE ADDRESS A REVIEWER CHOSE, and the only thing here that outranks the
+   * ranking.
+   *
+   * `exportContacts` decides who ships and in what order, and until now that
+   * order was the whole answer to "who gets the email" — correct on average and
+   * unarguable with, which is the problem: a reviewer looking at three addresses
+   * usually knows which is the person to write to, and had no way to say so.
+   * `demo-export.ts` writes their answer here, resolved through the same
+   * function the review card renders from, so the address on the card and the
+   * address in the campaign are one value rather than two agreeing derivations.
+   *
+   * Absent on every group row written before this existed, which is exactly the
+   * case the fallback below covers.
+   */
+  send_to?: string;
 }
 
 export type RecipientSource = "person" | "church_email";
@@ -62,10 +78,21 @@ export interface Recipient {
 const NOT_A_HUMAN_INBOX =
   /^(no-?reply|do-?not-?reply|donotreply|postmaster|mailer-daemon|bounce[sd]?|abuse|webmaster|noc|hostmaster)([+.-]|$)/i;
 
-const usable = (email: unknown): email is string =>
-  typeof email === "string" &&
-  email.includes("@") &&
-  !NOT_A_HUMAN_INBOX.test(email.trim().split("@")[0] ?? "");
+/**
+ * EXPORTED, because the review card has to offer the same addresses this will
+ * accept. A "send here" control on `noreply@` is a choice the reviewer can make
+ * and the push will then silently overrule — so both sides ask this one
+ * function, rather than the card guessing at what a deliverable address is.
+ */
+export function usableInbox(email: unknown): email is string {
+  return (
+    typeof email === "string" &&
+    email.includes("@") &&
+    !NOT_A_HUMAN_INBOX.test(email.trim().split("@")[0] ?? "")
+  );
+}
+
+const usable = usableInbox;
 
 const norm = (email: string) => email.trim().toLowerCase();
 
@@ -169,6 +196,38 @@ export function pickRecipient(contacts: unknown): Recipient | null {
   const c = (contacts ?? {}) as DemoContacts;
   const people = Array.isArray(c.people) ? c.people : [];
   const churchEmails = Array.isArray(c.church_emails) ? c.church_emails : [];
+
+  /**
+   * THE REVIEWER'S CHOICE, FIRST AND WITHOUT A TIEBREAK.
+   *
+   * It comes before the ranking because it IS the ranking, made by the person
+   * who read the card — and it is the only branch that can name a church office
+   * address over a named person, which no derivation here would ever do. The
+   * name still comes from a person carrying that address when one does, so
+   * choosing the office inbox of a church whose secretary is listed at it still
+   * opens with her name.
+   *
+   * A `send_to` that is not deliverable falls THROUGH rather than returning
+   * null: it means the address was struck out or fixed after it was chosen, and
+   * refusing to write to a church because of a stale pointer would be the
+   * pointer deciding something nobody asked it to.
+   */
+  if (usable(c.send_to)) {
+    const email = norm(c.send_to);
+    const match = people.find((p) => usable(p?.email) && norm(p.email as string) === email);
+    const shared = ambiguous(people, email);
+    const { first, last } = match && !shared ? splitName(match.name ?? "") : { first: "", last: "" };
+    return {
+      email,
+      firstName: first,
+      lastName: last,
+      title: (match?.title ?? "").trim(),
+      source: match ? "person" : "church_email",
+      why: shared
+        ? "chosen by you — shared inbox, so no first name"
+        : `chosen by you${match?.title ? ` — ${match.title}` : ""}`,
+    };
+  }
 
   const candidates = people
     .filter((p) => usable(p?.email))

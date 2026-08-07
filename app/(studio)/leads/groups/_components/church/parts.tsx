@@ -9,7 +9,11 @@ import {
 } from "@/lib/leads/engine/logo";
 import { hostOf } from "@/lib/leads/engine/url";
 import { cardFlags, type CardFlag } from "@/lib/leads/engine/group";
-import { exportContacts } from "@/lib/leads/engine/contacts";
+import { exportContacts, recipientOf } from "@/lib/leads/engine/contacts";
+// The one test for "is this an address a person will read" — shared with the
+// rule that addresses the email, so the card cannot offer an inbox the push
+// would refuse. See `usableInbox`.
+import { usableInbox } from "@/lib/leads/engine/outreach";
 import { demoGreeting, DEMO_MEMBER_FIRST_NAME } from "@/lib/leads/engine/person-name";
 import { LOGO_ITEM_ID, PATH, REVIEW_FIELDS } from "@/lib/leads/engine/group-types";
 import type {
@@ -30,6 +34,7 @@ import { EditableText } from "../EditableText";
 import { useReadOnly } from "../ReadOnly";
 import { EMPTY_TEXT, EMPTY_VALUE, SKIN } from "./skin";
 import { PalettePreview, type PaletteState } from "./Palette";
+import { LogoCropper } from "./LogoCropper";
 
 /**
  * ONE CHURCH, TOP TO BOTTOM.
@@ -90,7 +95,16 @@ export const FIELD_LABEL: Record<ReviewField, string> = {
 
 const COPY = {
   noName: "Couldn't find name",
-  noSlogan: "Couldn't find slogan",
+  /**
+   * NOT "couldn't find slogan", WHICH WOULD NOW BE A LIE.
+   *
+   * One usually was found — off the page's `<title>`, which is where a church
+   * writes "Home | First Baptist Church | Springfield, IL". It read as a slogan
+   * often enough to be waved through and it HEADLINES the demo, so it is no
+   * longer offered at all (see `resolveSlogan`). This is a job, not an absence,
+   * and it is worded as one.
+   */
+  noSlogan: "Write their slogan — one line, in their voice",
   noQuote: "no quotation captured",
   noPathwayName: "Couldn't find a name for it",
   stepsNotRead:
@@ -174,6 +188,10 @@ interface Ops {
    */
   remove: (item: { noun: string; name: string; provenance: "source" | "user"; id: string }) => () => void;
   add: (item: AddedItem) => void;
+  /** The order somebody dragged a list into. See `useReorder`. */
+  reorder: (list: "steps" | "pathway", ids: string[]) => void;
+  /** Address the email to this contact, or `null` to let the ranking decide. */
+  sendTo: (contactId: string | null) => void;
 }
 
 function opsFor(
@@ -217,6 +235,8 @@ function opsFor(
       );
     },
     add: (item) => onOp({ op: "item.add", orgId, item }),
+    reorder: (list, ids) => onOp({ op: "items.reorder", orgId, list, ids }),
+    sendTo: (contactId) => onOp({ op: "contact.sendTo", orgId, contactId }),
   };
 }
 
@@ -498,12 +518,20 @@ function Flags({ flags }: { flags: CardFlag[] }) {
 function SuppressShell({
   suppressed,
   provenance,
+  chosen,
   onRemove,
   onRestore,
   children,
 }: {
   suppressed: boolean;
   provenance: "source" | "user";
+  /**
+   * THE CONTACT THE EMAIL IS ADDRESSED TO — the only "this one" this shell
+   * knows about. It is not a state like `suppressed`: nothing about the row is
+   * struck, doubtful or reversible-by-undo, it is simply the one that was
+   * picked, so it takes a ring rather than a wash. See `SKIN.itemShellChosen`.
+   */
+  chosen?: boolean;
   /**
    * ALREADY WRAPPED IN A CONFIRMATION by the caller, and already resolved to the
    * right verb — strike out for something the pipeline found, hard delete for
@@ -527,7 +555,9 @@ function SuppressShell({
     <div
       data-provenance={provenance}
       data-suppressed={suppressed ? "true" : "false"}
-      className={suppressed ? SKIN.itemShellStruck : SKIN.itemShell}
+      className={
+        suppressed ? SKIN.itemShellStruck : chosen ? SKIN.itemShellChosen : SKIN.itemShell
+      }
     >
       <div
         className={
@@ -640,6 +670,181 @@ function StepArrow() {
     <div aria-hidden className={SKIN.arrow}>
       ↓
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Putting the steps in the right order
+ * ------------------------------------------------------------------ */
+
+/**
+ * DRAG A STEP WHERE IT BELONGS.
+ *
+ * The order on this card is the order the church receives: `toRawChurch` maps
+ * the resolved list straight into `next_steps` and the pathway's `order`, and
+ * `generateDemo` walks both in that order to build the page. Until now the only
+ * order available was the pipeline's — page order for a pathway, category order
+ * for next steps — which is right often enough to be worth starting from and
+ * wrong in the way that matters most: the FIRST step is the one the demo makes
+ * focal, and "Give" landing above "Come to a service" is the kind of thing a
+ * church notices and nobody could fix without deleting and retyping the list.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * IT IS NOT DRAG-ONLY, AND THAT IS NOT A NICETY.
+ *
+ * HTML5 drag events are a mouse gesture: they are not keyboard-reachable, they
+ * are unreliable under a screen reader, and they are fiddly on a trackpad
+ * against a list of 90px blocks. So the grip is a real focusable button and
+ * ↑/↓ move the row while it holds focus — which also happens to be the fastest
+ * way to nudge one step past another, which is most of what this gets used for.
+ * Focus survives because React MOVES the existing node rather than recreating
+ * it: the `<li>` is keyed by item id.
+ * ────────────────────────────────────────────────────────────────────────────
+ *
+ * THE WHOLE LIST IS SENT, not a from/to pair — see `items.reorder`. A delta
+ * would have to be applied to the same list the browser was looking at, and the
+ * browser and the blob only agree about that between saves.
+ */
+type DropSide = "" | "dragging" | "before" | "after";
+
+interface Reorder {
+  /** False on a sent batch, and on a list too short to have an order. */
+  enabled: boolean;
+  side: (id: string) => DropSide;
+  rowProps: (id: string) => React.HTMLAttributes<HTMLElement>;
+  handleProps: (id: string) => React.HTMLAttributes<HTMLElement> & { draggable: boolean };
+}
+
+function useReorder(ids: string[], onReorder: (ids: string[]) => void): Reorder {
+  const [dragId, setDragId] = useState("");
+  const [overId, setOverId] = useState("");
+  const frozen = useReadOnly();
+
+  const put = (from: string, to: string) => {
+    const at = ids.indexOf(to);
+    const was = ids.indexOf(from);
+    if (!from || at < 0 || was < 0 || from === to) return;
+    const next = ids.filter((id) => id !== from);
+    // Dragged DOWN the list, it lands under the row it was dropped on; dragged
+    // up, above it. Either way it takes the place you dropped it, which is the
+    // only rule a person can predict without being told.
+    next.splice(at + (was < at ? 1 : 0), 0, from);
+    onReorder(next);
+  };
+
+  const nudge = (id: string, delta: number) => {
+    const at = ids.indexOf(id);
+    const to = at + delta;
+    if (at < 0 || to < 0 || to >= ids.length) return;
+    const next = ids.slice();
+    next.splice(to, 0, ...next.splice(at, 1));
+    onReorder(next);
+  };
+
+  const enabled = !frozen && ids.length > 1;
+
+  return {
+    enabled,
+    side: (id) => {
+      if (!dragId) return "";
+      if (id === dragId) return "dragging";
+      if (id !== overId) return "";
+      return ids.indexOf(dragId) < ids.indexOf(id) ? "after" : "before";
+    },
+    rowProps: (id) =>
+      enabled
+        ? {
+            onDragOver: (e) => {
+              if (!dragId || dragId === id) return;
+              // Without this the drop is refused by the browser and the whole
+              // gesture silently does nothing.
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (overId !== id) setOverId(id);
+            },
+            onDrop: (e) => {
+              e.preventDefault();
+              put(dragId, id);
+              setDragId("");
+              setOverId("");
+            },
+          }
+        : {},
+    handleProps: (id) => ({
+      draggable: enabled,
+      onDragStart: (e) => {
+        setDragId(id);
+        e.dataTransfer.effectAllowed = "move";
+        // Firefox refuses to start a drag without payload, whatever the handlers
+        // say.
+        e.dataTransfer.setData("text/plain", id);
+        // THE ROW IS THE DRAG IMAGE, not the grip. Dragging a 20px glyph across
+        // a page of 90px blocks gives no sense of what is being moved.
+        const row = (e.currentTarget as HTMLElement).closest("[data-drag-row]");
+        if (row instanceof HTMLElement) e.dataTransfer.setDragImage(row, 24, 20);
+      },
+      onDragEnd: () => {
+        setDragId("");
+        setOverId("");
+      },
+      onKeyDown: (e) => {
+        if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+        e.preventDefault();
+        nudge(id, e.key === "ArrowDown" ? 1 : -1);
+      },
+    }),
+  };
+}
+
+/**
+ * One row of an evidence list: the connector above it, the grip beside it, and
+ * whatever the list puts inside it.
+ *
+ * THE GRIP IS OUTSIDE THE ITEM. The item's corners already carry `✕` and `put
+ * back`, and a third control in that cluster would put the one destructive
+ * button next to the one you press by accident — see `SKIN.gripCol`.
+ */
+function StepRow({
+  id,
+  index,
+  title,
+  reorder,
+  children,
+}: {
+  id: string;
+  index: number;
+  /** For the grip's label, so "reorder" names the thing being moved. */
+  title: string;
+  reorder: Reorder;
+  children: React.ReactNode;
+}) {
+  const side = reorder.side(id);
+  return (
+    <li
+      data-drag-row
+      className={`relative ${side === "dragging" ? SKIN.dragging : ""} ${
+        side === "before" ? SKIN.dropBefore : side === "after" ? SKIN.dropAfter : ""
+      }`}
+      {...reorder.rowProps(id)}
+    >
+      {index > 0 && <StepArrow />}
+      <div className="flex items-start">
+        {reorder.enabled && (
+          <div className={SKIN.gripCol}>
+            <button
+              type="button"
+              aria-label={`Reorder ${title || "this step"}`}
+              title="Drag to move this step — or press it and use the arrow keys"
+              className={SKIN.grip}
+              {...reorder.handleProps(id)}
+            >
+              <span aria-hidden>⠿</span>
+            </button>
+          </div>
+        )}
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+    </li>
   );
 }
 
@@ -875,11 +1080,18 @@ function NameBody({ card, ops }: { card: ResolvedCard; ops: Ops }) {
 
 function SloganBody({ card, ops }: { card: ResolvedCard; ops: Ops }) {
   /**
-   * THE DATA HAS THREE STATES; THE UI SHOWS TWO. `slogan.kind` still separates
-   * `homepage_only` from `none` and `resolveSlogan` and its tests still defend
-   * it — but both absences read the same to a reviewer. "Inner pages were never
-   * read" describes our crawler, not the church, and this card is what somebody
-   * reads before writing to them. Owner's call.
+   * EVERY CARD STARTS BLANK HERE, ON PURPOSE — see `resolveSlogan`.
+   *
+   * The pipeline's slogan is still in the snapshot and is deliberately not
+   * offered: it comes off a `<title>` tag, it is the line that headlines the
+   * demo, and a plausible-looking wrong one is worse than an empty box. So this
+   * is the reviewer's field, and it gets the `Blank` treatment that marks the
+   * two things on this card that are somebody's job rather than something we
+   * found.
+   *
+   * The three data states are unchanged and untested-against here: `none` and
+   * `homepage_only` both mean "nothing to draw", which is now also what an
+   * un-written slogan means.
    */
   if (card.slogan.kind !== "slogan") {
     return (
@@ -901,15 +1113,17 @@ function SloganBody({ card, ops }: { card: ResolvedCard; ops: Ops }) {
   const voice = card.slogan.voice;
   return (
     <>
-      {/* QUOTATION MARKS AND A BLOCK, NOT ITALICS. Italics were carrying "these
-          are their words" on their own, which reads as emphasis rather than as
-          attribution. Quote marks say it literally; the tinted block with a brand
-          rule gives the line a shape you can find without reading it. */}
+      {/* NO QUOTATION MARKS, AND THAT IS THE CHANGE.
+          They used to say "these are their words", which was true of a line
+          lifted off the church's own page and is not true of one a reviewer
+          wrote. The tinted block with its brand rule stays: it is what gives the
+          line a shape you can find without reading it, and it claims nothing.
+          The `user` attribution under it does the claiming. */}
       <div className={SKIN.sloganBox}>
         <div className={SKIN.slogan}>
           <EditableText
-            value={quoted(voice.text)}
-            onCommit={(next) => ops.set(PATH.slogan, voice.text)(stripQuotes(next))}
+            value={voice.text}
+            onCommit={ops.set(PATH.slogan, "")}
             ariaLabel="slogan"
             multiline
             editingClassName={SKIN.editEditing}
@@ -917,7 +1131,13 @@ function SloganBody({ card, ops }: { card: ResolvedCard; ops: Ops }) {
           />
         </div>
       </div>
-      <Provenance voice={voice} onRevert={ops.revert(PATH.slogan)} />
+      {/* NO ATTRIBUTION LINE, and dropping it is the point rather than an
+          omission. `Provenance` would print "added by you — not from the
+          church's site" under every filled slogan: furniture, since there is no
+          other kind of slogan any more, and worse than furniture when the line
+          somebody typed IS the one off the church's homepage. The claim it used
+          to make — "this is their sentence, quoted" — is what the quote marks
+          carried, and both went together. */}
     </>
   );
 }
@@ -933,17 +1153,25 @@ function StepsBody({
   adding: boolean;
   setAdding: (on: boolean) => void;
 }) {
+  const reorder = useReorder(
+    card.steps.map((s) => s.id),
+    (ids) => ops.reorder("steps", ids),
+  );
   return (
     <>
       {!card.stepsLooked && <Absent>{COPY.stepsNotRead}</Absent>}
       {card.stepsLooked && card.steps.length === 0 && <Absent>{COPY.stepsNoneFound}</Absent>}
 
       {/* `<ul>`: a category list genuinely has no first, and that has not changed
-          — only the arrow has, which no longer says otherwise. See `SKIN.arrow`. */}
+          — only the arrow has, which no longer says otherwise. See `SKIN.arrow`.
+
+          DRAGGING ONE STILL DOES NOT MAKE THIS AN `<ol>`. The order is the order
+          the demo is built in, which is a decision about the page rather than a
+          claim about the church, and `<ol>` here would tell a screen reader the
+          church put these in a sequence. It did not; a reviewer did. */}
       <ul className={SKIN.list}>
         {card.steps.map((s: ResolvedStep, i) => (
-          <li key={s.id}>
-            {i > 0 && <StepArrow />}
+          <StepRow key={s.id} id={s.id} index={i} title={s.label.text} reorder={reorder}>
             <SuppressShell
               suppressed={s.suppressed}
               provenance={s.provenance}
@@ -966,7 +1194,7 @@ function StepsBody({
                 onQuoteRevert={ops.revert(PATH.step(s.id, "quote"))}
               />
             </SuppressShell>
-          </li>
+          </StepRow>
         ))}
       </ul>
 
@@ -1007,6 +1235,10 @@ function PathwayBody({
   setAdding: (on: boolean) => void;
 }) {
   const steps = card.pathway.steps;
+  const reorder = useReorder(
+    steps.map((s) => s.id),
+    (ids) => ops.reorder("pathway", ids),
+  );
   return (
     <>
       {!card.pathway.finding && !card.pathway.name && <Absent>{COPY.pathwayNothing}</Absent>}
@@ -1075,8 +1307,7 @@ function PathwayBody({
       {steps.length > 0 && (
         <Numbered numbered={card.pathway.numbered} className={`mt-3 ${SKIN.list}`}>
           {steps.map((s: ResolvedPathwayStep, i) => (
-            <li key={s.id}>
-              {i > 0 && <StepArrow />}
+            <StepRow key={s.id} id={s.id} index={i} title={s.label.text} reorder={reorder}>
               <SuppressShell
                 suppressed={s.suppressed}
                 provenance={s.provenance}
@@ -1113,7 +1344,7 @@ function PathwayBody({
                     export copy would be a different, deliberate decision. */}
                 {s.blurb && <p className={SKIN.stepNote}>{s.blurb}</p>}
               </SuppressShell>
-            </li>
+            </StepRow>
           ))}
         </Numbered>
       )}
@@ -1162,7 +1393,22 @@ function ContactsBody({
    * profiles that would never be sent and could miss the address that would.
    * `exportContacts` is the single rule this card and the exporter both read.
    */
-  const shipping = exportContacts(card.contacts);
+  const shipping = exportContacts(card.contacts, card.sendTo);
+
+  /**
+   * WHICH OF THEM ACTUALLY RECEIVES IT — the same function `demo-export.ts`
+   * writes into the group row as `send_to`, so this line and the address
+   * Instantly is handed are one value rather than two derivations.
+   */
+  const recipient = recipientOf(shipping);
+  const chosen = !!card.sendTo && recipient?.contact.id === card.sendTo;
+  /**
+   * A SENT BATCH KEEPS THE ANSWER AND LOSES THE CHOICE — the same rule the rest
+   * of this card follows. Which address the email went to is part of the record
+   * and stays on screen; changing it now would alter that record without
+   * altering the email, which has already gone.
+   */
+  const frozen = useReadOnly();
 
   /**
    * THE ONE WORD THE DEMO SAYS TO A HUMAN, shown before the contacts it comes
@@ -1188,6 +1434,52 @@ function ContactsBody({
 
   return (
     <>
+      {/* ── who the email is addressed to ──
+          THE FIRST THING IN THE BLOCK, because it is the only fact here that
+          says what will HAPPEN. The rest of this field is evidence about a
+          church; this is one address, and twenty of these go out in a batch.
+
+          It used to be inferable and nothing more: `exportContacts` ranked the
+          contacts, rank 1 got written to, and the only thing on screen saying
+          so was a `title` attribute on a small brand-blue `1`. Three plausible
+          addresses with no way to tell which one was live — and no way to
+          change it short of striking out the two you did not want, which
+          falsifies the card to steer the send. */}
+      <div className={`mb-3 ${SKIN.sendToBox}`}>
+        <p className={SKIN.pathwayCaption}>The email will be sent to</p>
+        {recipient ? (
+          <>
+            <p className={`mt-1 ${SKIN.sendToAddress}`}>{recipient.contact.email.trim()}</p>
+            <p className={SKIN.sendToWho}>
+              {recipient.contact.kind === "person"
+                ? [recipient.contact.name, recipient.contact.title].filter(Boolean).join(" — ") ||
+                  "a named contact with no name on file"
+                : "the church office address"}
+              {chosen ? " · chosen by you" : " · first on the list below"}
+            </p>
+            {chosen && !frozen && (
+              <button
+                type="button"
+                onClick={() => ops.sendTo(null)}
+                className={`mt-2 ${SKIN.btnSmall}`}
+                title="Go back to writing to whoever the ranking puts first"
+              >
+                undo — use the first on the list
+              </button>
+            )}
+          </>
+        ) : (
+          /* NOT A CONTROL, A FACT. `pickRecipient` returns null for 1,776 of the
+             15,273 churches, and the push reports them rather than shipping 18
+             leads for a batch of twenty. Better said here, while there is still
+             time to add an address by hand. */
+          <p className={`mt-1 ${SKIN.absent}`}>
+            No address here can be written to. Add one below, or this church will be reported
+            as unreachable when the batch is pushed.
+          </p>
+        )}
+      </div>
+
       {/* ── what the demo will call them ──
           A DEMO GREETS SOMEBODY BY NAME, and until now nothing on this page said
           who. The derivation is right most of the time and unfixable when it is
@@ -1250,11 +1542,20 @@ function ContactsBody({
       <div className={SKIN.list}>
         {shipping.map(({ contact: c, rank }) => {
           const isDetail = c.kind === "phone" || c.kind === "social";
+          /**
+           * ONLY ADDRESSES THAT CAN BE WRITTEN TO ARE OFFERED — and `usableInbox`
+           * is the same test the push applies, so the card cannot offer a choice
+           * the campaign will silently overrule. A phone row has no address at
+           * all; `noreply@` has one that bounces.
+           */
+          const addressable = !c.suppressed && rank !== null && usableInbox(c.email);
+          const isRecipient = recipient?.contact.id === c.id;
           return (
             <SuppressShell
               key={c.id}
               suppressed={c.suppressed}
               provenance={c.provenance}
+              chosen={isRecipient}
               onRemove={ops.remove({
                 noun: "this contact",
                 // Whatever identifies them on screen — a church address row has no
@@ -1342,6 +1643,28 @@ function ContactsBody({
                       restingClassName={SKIN.editResting}
                     />
                   </div>
+                  {/* THE CHOICE SITS UNDER THE ADDRESS IT IS ABOUT. Anywhere
+                      else — a column of radios down the left, a control in the
+                      header — and the reviewer has to carry "row 2" in their
+                      head from the address to the control. */}
+                  {addressable && (
+                    <p className="mt-1 px-2">
+                      {isRecipient ? (
+                        <span className={SKIN.sendToChip}>
+                          <span aria-hidden>✉</span> gets the email
+                        </span>
+                      ) : frozen ? null : (
+                        <button
+                          type="button"
+                          onClick={() => ops.sendTo(c.id)}
+                          className={SKIN.sendToPick}
+                          title={`Send this church's email to ${c.email.trim()} instead`}
+                        >
+                          send to this one instead
+                        </button>
+                      )}
+                    </p>
+                  )}
                   {c.provenance === "user" ? (
                     <AttributionLine attribution={{ kind: "user" }} skin={SKIN.attribution} />
                   ) : c.edited ? (
@@ -1443,6 +1766,7 @@ function ChurchCardInner({
   const [addingPathway, setAddingPathway] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [cropping, setCropping] = useState(false);
 
   /**
    * ONE DIALOG PER CARD, holding whichever removal was asked for.
@@ -1558,9 +1882,12 @@ function ChurchCardInner({
             <div className="group/logo relative w-[72px] shrink-0">
               <div className={`${SKIN.logoBox} ${plate}`}>
                 {card.logo ? (
+                  // THE TRIMMED IMAGE WHEN THERE IS ONE — the same URL the export
+                  // ships, so the plate shows the picture the church receives
+                  // rather than the one it was cut from.
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`/api/leads/asset/logos-thumb/${card.logo.sha}.webp`}
+                    src={card.logoCrop?.url ?? `/api/leads/asset/logos-thumb/${card.logo.sha}.webp`}
                     alt=""
                     className="h-full w-full object-contain p-1.5"
                   />
@@ -1670,6 +1997,33 @@ function ChurchCardInner({
                   </button>
                 </div>
               )}
+
+              {/* ── the way to trim it ──
+                  UNDER THE PLATE, beside the picker, because they answer the two
+                  halves of one question: which picture is the church, and how
+                  much of that picture is the church. The commonest miss is a
+                  mark with a tagline or a phone number baked into the export.
+
+                  Only on a logo we are actually shipping: there is nothing to
+                  crop when the plate is initials, and a struck-out logo's spot
+                  belongs to `put back`. `preventDefault` for the same reason as
+                  every other button in this `<summary>` — otherwise the card
+                  folds shut behind its own dialog. */}
+              {!frozen && card.logo && !card.logoRemoved && (
+                <div className="mt-1.5 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCropping(true);
+                    }}
+                    title="Trim this image — cut off a tagline, a strapline or a wide margin."
+                    className={`whitespace-nowrap ${SKIN.btnSmall}`}
+                  >
+                    {card.logoCrop ? "trimmed ✓" : "crop"}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="min-w-0 flex-1 space-y-2">
@@ -1771,6 +2125,8 @@ function ChurchCardInner({
           hasLogo: !!card.logo,
           gate: chosen?.gate ?? "",
         }}
+        accent={card.accent}
+        onAccent={(hex) => onOp({ op: "accent.set", orgId: card.orgId, accent: hex })}
       />
 
       {/* ALL FIVE FIELDS, ALWAYS, IN `REVIEW_FIELDS` ORDER. `name` and `slogan`
@@ -1796,6 +2152,21 @@ function ChurchCardInner({
         onClose={() => setPicking(false)}
         onOp={onOp}
       />
+
+      {/* Mounted only when there is a logo to cut, unlike the dialogs above:
+          it holds a canvas and an upload, and there is nothing for either to do
+          on a card whose plate is initials. */}
+      {card.logo && (
+        <LogoCropper
+          open={cropping}
+          orgId={card.orgId}
+          churchName={card.name.text || card.orgId}
+          logo={card.logo}
+          crop={card.logoCrop}
+          onClose={() => setCropping(false)}
+          onOp={onOp}
+        />
+      )}
 
       {/* Mounted always, `open` driven by state — see `ConfirmDialog`, which has
           to call `showModal()` on a node React already put in the tree. */}

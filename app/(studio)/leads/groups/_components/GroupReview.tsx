@@ -319,9 +319,14 @@ export function GroupReview({ id }: { id: string }) {
           nobody read; three lines that get read beat six that do not. */}
       <section className={SKIN.warnBox}>
         <h2 className={SKIN.warnTitle}>{DISCLAIMER_TITLE}</h2>
+        {/* SLOGANS ARE NO LONGER IN THIS LIST, because they are no longer
+            extracted onto the card — every church now arrives with the slogan
+            blank and somebody writes it. Leaving the word here would warn about
+            a mistake this page can no longer make while saying nothing about the
+            field that is now empty on purpose. See `resolveSlogan`. */}
         <p className={SKIN.warnBody}>
-          <b>Names, slogans, steps and contacts were extracted by LLM models that can make
-          mistakes.</b> This tool <b>does not</b> guarantee complete accuracy on data. Please review each church and <b>click any line to fix faulty details</b> before you send.
+          <b>Names, steps and contacts were extracted by LLM models that can make
+          mistakes.</b> This tool <b>does not</b> guarantee complete accuracy on data. Please review each church and <b>click any line to fix faulty details</b> before you send. <b>Slogans are blank on purpose</b> — write each one yourself.
         </p>
       </section>
 

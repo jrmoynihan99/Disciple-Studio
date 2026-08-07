@@ -124,6 +124,38 @@ export interface SnapshotNoLogo {
   reason: string;
 }
 
+/**
+ * A LOGO THE REVIEWER TRIMMED, stored as the trimmed image rather than as a rule
+ * for trimming it.
+ *
+ * WHY A URL AND NOT JUST A RECTANGLE. The demo is a public page and its logo is
+ * copied into the demo blob store at export time; a rectangle would have to be
+ * honoured by every template that draws a logo, in CSS, forever — four templates
+ * today and no way to check the fifth. The crop is performed once, in the
+ * browser, against the same thumbnail the export would have shipped, and what is
+ * stored is the result: a content-addressed image in the demo store that the
+ * export hands straight to `generateDemo`.
+ *
+ * `sha` IS WHICH PICTURE WAS CROPPED, and it is what makes this safe next to the
+ * logo picker. Switching to a different candidate must not leave the previous
+ * mark's crop on the card — `resolve()` ignores a crop whose sha is not the logo
+ * being shipped, and `logo.pick` drops it outright.
+ *
+ * The rectangle rides along in normalised (0–1) coordinates so re-opening the
+ * cropper starts from the selection somebody made rather than from the whole
+ * image again. Nothing downstream reads it.
+ */
+export interface LogoCrop {
+  /** `SnapshotLogo.sha` of the image this was cut from. */
+  sha: string;
+  /** `/api/asset/logos/<sha256>.png` — the cropped bytes, in the demo store. */
+  url: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface SnapshotSlogan {
   text: string;
   /**
@@ -440,6 +472,49 @@ export interface EntryEdits {
    * answer "what will this church's demo be built with" from the entry alone.
    */
   logoPick?: SnapshotLogo;
+  /**
+   * THE TRIMMED LOGO. See `LogoCrop` — absent means the whole image ships.
+   */
+  logoCrop?: LogoCrop;
+  /**
+   * THE CONTACT THIS CHURCH'S EMAIL IS ADDRESSED TO — a contact id.
+   *
+   * Absent means the ranking decides, which is what it has always done: the
+   * pipeline's order, filtered by `exportContacts`, and whoever came out first
+   * got the email. That rule is right on average and unaccountable in the one
+   * case that matters — a reviewer looking at three addresses, knowing which of
+   * them is the person to write to, and having no way to say so.
+   *
+   * AN ID, NOT AN ADDRESS. Contacts are editable, so a stored address would be
+   * silently orphaned by fixing a typo in the very field it names.
+   */
+  sendTo?: string;
+  /**
+   * THE ORDER A REVIEWER PUT THE STEPS IN — item ids, per list.
+   *
+   * Absent means the snapshot's own order stands. Present, it is the order the
+   * card renders and the order the demo is built with; ids it does not name keep
+   * their relative position at the end, so a step added after a reorder appends
+   * rather than jumping to the front.
+   *
+   * IT DOES NOT MAKE A PATHWAY ORDERED. `pathwayIsOrdered` still decides whether
+   * the demo may claim a sequence — see `resolvePathwaySteps`. Dragging a card
+   * into the order somebody wants to READ them in is not the church saying "do
+   * this one first".
+   */
+  order?: { steps?: string[]; pathway?: string[] };
+  /**
+   * A BRAND ACCENT THE REVIEWER CHOSE, `#rrggbb`. Absent means the one measured
+   * from the logo stands.
+   *
+   * The measurement is right most of the time and has no way to be wrong out
+   * loud: 40% of these marks are greyscale and fall back to the studio's clay,
+   * and a church whose site is unmistakably one colour can ship in another
+   * because its logo is a black wordmark. See `withAccent`, which is the single
+   * rule for what an override does to a palette and is applied identically by
+   * the review card's preview and by the export.
+   */
+  accent?: string;
 }
 
 export interface GroupEntry {
@@ -857,6 +932,25 @@ export type GroupOp =
    * operations that can half-apply.
    */
   | { op: "logo.pick"; orgId: string; logo: SnapshotLogo | null }
+  /**
+   * TRIM THE CHOSEN LOGO, or `null` to go back to the whole image. The bytes are
+   * already stored by the time this is sent — see `LogoCrop`.
+   */
+  | { op: "logo.crop"; orgId: string; crop: LogoCrop | null }
+  /**
+   * ADDRESS THE EMAIL TO THIS CONTACT, or `null` to let the ranking decide.
+   * See `EntryEdits.sendTo`.
+   */
+  | { op: "contact.sendTo"; orgId: string; contactId: string | null }
+  /**
+   * THE ORDER SOMEBODY DRAGGED THE STEPS INTO. The WHOLE list is sent, not a
+   * from/to pair: a delta would have to be applied to the same list the browser
+   * was looking at, and the browser and the blob only agree about that between
+   * saves.
+   */
+  | { op: "items.reorder"; orgId: string; list: "steps" | "pathway"; ids: string[] }
+  /** Override the measured brand accent, or `null` to go back to it. */
+  | { op: "accent.set"; orgId: string; accent: string | null }
   | { op: "church.remove"; orgId: string };
 
 /* ------------------------------------------------------------------ *
@@ -950,6 +1044,13 @@ export interface ResolvedCard {
    * palette to a sha, so nothing downstream can notice on its own.
    */
   logoSwitched: boolean;
+  /**
+   * THE TRIMMED IMAGE TO SHIP INSTEAD OF THE WHOLE ONE, or null.
+   *
+   * Already checked against `logo`: a crop belonging to a mark the card is no
+   * longer shipping resolves to null rather than being drawn over the new one.
+   */
+  logoCrop: LogoCrop | null;
   slogan: ResolvedSlogan;
   stepsLooked: boolean;
   steps: ResolvedStep[];
@@ -970,6 +1071,15 @@ export interface ResolvedCard {
    * is deliberately upstream of that.
    */
   greeting: string;
+  /**
+   * THE CONTACT THE EMAIL IS ADDRESSED TO, or `""` for "whoever the ranking
+   * puts first". Not resolved to an address here: `exportContacts` owns which
+   * contacts ship and in what order, and it is the one place that may answer
+   * "who gets this" — see `recipientOf`.
+   */
+  sendTo: string;
+  /** A hand-chosen `#rrggbb`, or `""` when the measured colour stands. */
+  accent: string;
   editedCount: number;
   suppressedCount: number;
 }

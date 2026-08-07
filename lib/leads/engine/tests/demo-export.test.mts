@@ -20,6 +20,10 @@ import assert from "node:assert/strict";
 
 import { applyOp, cardFlags, resolve, sanitizeOp } from "../group.ts";
 import { extrasOf, toRawChurch } from "../demo-export.ts";
+// The rule that turns a carried `contacts` object into an addressed email —
+// asserted here rather than described, because this file is where the two halves
+// of that decision (the ranking and the reviewer's choice) are written.
+import { pickRecipient } from "../outreach.ts";
 import { LOGO_ITEM_ID } from "../group-types.ts";
 import type { ChurchSnapshot, GroupEntry, SnapshotStep } from "../group-types.ts";
 
@@ -109,6 +113,29 @@ describe("the reviewed church is what gets generated", () => {
 
   test("an untouched title is carried unchanged", () => {
     assert.equal(raw(entry()).next_steps![0].final_name, "Small Groups");
+  });
+
+  /**
+   * THE SLOGAN IS THE ONE FIELD THE PIPELINE NO LONGER SUPPLIES.
+   *
+   * `brand.slogan` is lifted from a `<title>` tag and becomes the demo's
+   * tagline, under the church's own name, on the page we are asking them to
+   * judge us by. Owner's call to stop offering it: the card opens blank and
+   * somebody writes one. This is the half that reaches a congregation — the
+   * snapshot below still HAS a slogan ("Come as you are") and the demo must
+   * ship none until a person has written one.
+   */
+  test("the pipeline's slogan is never sent; the reviewer's is", () => {
+    assert.equal(raw(entry()).slogan, undefined, "an unwritten slogan reached a church's demo");
+
+    const written = entry({
+      edits: {
+        fields: { slogan: { value: "A church for the whole city", base: "", at: 1 } },
+        suppressed: {},
+        added: [],
+      },
+    });
+    assert.equal(raw(written).slogan, "A church for the whole city");
   });
 
   /** Striking a step out is the reviewer saying "do not send this". */
@@ -463,6 +490,106 @@ describe("contacts", () => {
     });
     const carried = raw(struck).contacts as Carried;
     assert.deepEqual(carried.people, []);
+  });
+
+  /* ---------------------------------------------------------------- *
+   * The address a person chose
+   * ---------------------------------------------------------------- */
+
+  /**
+   * WHICH OF THESE THREE ADDRESSES THE EMAIL ACTUALLY GOES TO.
+   *
+   * It has always been rank 1 and it has never been sayable: the ranking is the
+   * pipeline's order filtered by `exportContacts`, correct on average and
+   * unarguable with. A reviewer looking at a lead pastor, a secretary and an
+   * info@ usually knows which one to write to, and the only way to act on that
+   * was to strike out the two they did not want — falsifying the card in order
+   * to steer the send.
+   *
+   * BOTH CARRIERS ARE ASSERTED, because they answer different questions and both
+   * reach a congregation: `rank` is what `demoFirstName` sorts on to name the
+   * person the demo greets, and `send_to` is the address `pickRecipient` hands
+   * to Instantly.
+   */
+  test("the chosen contact takes rank 1 and is the address that is carried", () => {
+    const chosen = entry({
+      snapshot: snapshot({
+        contacts: [
+          person("c1", "Sarah Vance", "sarah@grace.example.org"),
+          person("c2", "Ben Ellis", "ben@grace.example.org"),
+        ],
+      }),
+      edits: { fields: {}, suppressed: {}, added: [], sendTo: "c2" },
+    });
+    const carried = raw(chosen).contacts as Carried & { send_to: string };
+    assert.deepEqual(
+      carried.people.map((p) => [p.name, p.rank]),
+      [
+        ["Ben Ellis", 1],
+        ["Sarah Vance", 2],
+      ],
+      "the choice did not move the ranking the demo greets from",
+    );
+    assert.equal(carried.send_to, "ben@grace.example.org");
+    const to = pickRecipient(carried);
+    assert.equal(to?.email, "ben@grace.example.org", "the campaign would have written to somebody else");
+  });
+
+  /** Nobody chose — so the rule stands, and it is still written down rather than
+   *  left for a second derivation downstream to agree with by luck. */
+  test("with no choice made, the first contact is carried as the recipient", () => {
+    const carried = raw(
+      entry({
+        snapshot: snapshot({
+          contacts: [
+            person("c1", "Sarah Vance", "sarah@grace.example.org"),
+            person("c2", "Ben Ellis", "ben@grace.example.org"),
+          ],
+        }),
+      }),
+    ).contacts as Carried & { send_to: string };
+    assert.equal(carried.send_to, "sarah@grace.example.org");
+    assert.equal(pickRecipient(carried)?.email, "sarah@grace.example.org");
+  });
+
+  /**
+   * THE CHURCH OFFICE, CHOSEN OVER A NAMED PERSON.
+   *
+   * The one case no derivation would ever reach: `pickRecipient` prefers a named
+   * person and only falls back to `church_emails`, on the sound reasoning that a
+   * greeted inbox beats a generic one. A reviewer who has read the card can know
+   * better — the listed "pastor" is a volunteer with a personal Gmail, the office
+   * address is the one that is read — and this is the assertion that their answer
+   * survives the whole pipeline rather than being overruled by the average case.
+   */
+  test("choosing the office address beats the rule that prefers a person", () => {
+    const carried = raw(
+      entry({
+        snapshot: snapshot({
+          contacts: [
+            person("c1", "Sarah Vance", "sarah@grace.example.org"),
+            {
+              id: "c2",
+              kind: "churchEmail" as const,
+              name: "",
+              title: "",
+              roleLabel: "",
+              email: "office@grace.example.org",
+              value: "",
+              network: "",
+            },
+          ],
+        }),
+        edits: { fields: {}, suppressed: {}, added: [], sendTo: "c2" },
+      }),
+    ).contacts as Carried & { send_to: string };
+
+    assert.equal(carried.send_to, "office@grace.example.org");
+    const to = pickRecipient(carried);
+    assert.ok(to, "the church became unreachable");
+    assert.equal(to.email, "office@grace.example.org");
+    assert.equal(to.source, "church_email");
+    assert.equal(to.firstName, "", "a generic inbox must not be greeted by somebody's name");
   });
 
   /* ---------------------------------------------------------------- *

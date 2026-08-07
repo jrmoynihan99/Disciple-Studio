@@ -25,7 +25,8 @@ import {
   sanitizeOp,
   staleEntries,
 } from "../group.ts";
-import { GROUP_SCHEMA_VERSION, PATH } from "../group-types.ts";
+import { exportContacts, recipientOf } from "../contacts.ts";
+import { GROUP_SCHEMA_VERSION, LOGO_ITEM_ID, PATH } from "../group-types.ts";
 import type { AddedItem, ExportGroup, GroupEntry } from "../group-types.ts";
 import { HAVE_FIXTURE, loadIndex, loadRecord } from "./fixture.mts";
 
@@ -108,44 +109,94 @@ describe("attribution", { skip }, () => {
   });
 
   /**
-   * If revert wrote `""` instead of deleting the key, an emptied slogan and an
-   * unedited one would be indistinguishable — and the slogan's third state, "we
-   * only read the homepage", would silently become "this church has no slogan"
-   * on 83 of 134 churches.
+   * An edit recorded as `""` and an absent edit look identical to a naive
+   * reader, so revert has to DELETE the key rather than write the original back
+   * — otherwise a value cleared on purpose and a value nobody touched become the
+   * same thing, and the card can no longer say which.
+   *
+   * MEASURED ON A QUOTE, WHICH IS WHERE IT IS NOW TESTABLE. It used to be
+   * measured on the slogan, and cannot be any more: the pipeline's slogan is no
+   * longer offered (see `resolveSlogan`), so a slogan's base is `""` and clearing
+   * one IS a revert by `setField`'s own rule rather than an edit to empty. The
+   * rule under test never changed; the field that can still demonstrate it did.
    */
   test("revert deletes the key; editing to empty does not", () => {
-    const index = loadIndex();
-    const row = index.find((r) => {
-      const b = loadRecord(r.id).brand as Record<string, unknown> | undefined;
-      return typeof b?.slogan === "string" && b.slogan.trim();
-    })!;
-    const entry = buildEntry(row, loadRecord(row.id), "fixture-1", 1000);
-    const g = group1([entry]);
-    const original = entry.snapshot.slogan.text;
+    const { entry, group } = pick();
+    const step = quotedStep(entry);
+    const path = PATH.step(step.id, "quote");
+    const quoteOf = (g: ExportGroup) =>
+      resolve(g.entries[0]).steps.find((s) => s.id === step.id)!.quote;
 
     const cleared = applyOp(
-      g,
-      { op: "field.set", orgId: entry.orgId, path: PATH.slogan, value: "", base: original },
+      group,
+      { op: "field.set", orgId: entry.orgId, path, value: "", base: step.quote },
       2000,
     );
-    assert.ok(PATH.slogan in cleared.entries[0].edits.fields, "clearing must record an edit");
-    assert.equal(resolve(cleared.entries[0]).slogan.kind, "none");
+    assert.ok(path in cleared.entries[0].edits.fields, "clearing must record an edit");
+    assert.equal(quoteOf(cleared)?.text, "");
+    assert.equal(quoteOf(cleared)?.attribution.kind, "edited");
 
-    const reverted = applyOp(cleared, { op: "field.revert", orgId: entry.orgId, path: PATH.slogan }, 3000);
-    assert.ok(!(PATH.slogan in reverted.entries[0].edits.fields), "revert must delete the key");
-    assert.equal(resolve(reverted.entries[0]).slogan.kind, "slogan");
+    const reverted = applyOp(cleared, { op: "field.revert", orgId: entry.orgId, path }, 3000);
+    assert.ok(!(path in reverted.entries[0].edits.fields), "revert must delete the key");
+    assert.equal(quoteOf(reverted)?.text, step.quote);
   });
 
-  test("the three slogan states survive resolution", () => {
+  /**
+   * THE SLOGAN IS THE REVIEWER'S TO WRITE, AND THE PIPELINE'S IS NOT OFFERED.
+   *
+   * `brand.slogan` comes off a `<title>` tag — "Home | First Baptist Church |
+   * Springfield, IL" — and it HEADLINES the demo a church receives. Owner's call
+   * to stop presenting it: every card opens blank and somebody types one.
+   *
+   * BOTH HALVES ARE ASSERTED, because the decision is only defensible while the
+   * second one holds. The card must not resolve a slogan nobody wrote, AND the
+   * snapshot must still carry what was found, scope and all — this is a change
+   * to what we present, not a measurement thrown away, and the day somebody
+   * wants a "use the one we found" control the string has to still be there.
+   */
+  test("the pipeline's slogan never reaches the card, and the snapshot keeps it", () => {
     const index = loadIndex();
-    const kinds = new Set(
-      index.slice(0, 60).map((row) => {
-        const e = buildEntry(row, loadRecord(row.id), "p", 1);
-        return resolve(e).slogan.kind;
-      }),
+    let withText = 0;
+    let homepageOnly = 0;
+    for (const row of index.slice(0, 60)) {
+      const e = buildEntry(row, loadRecord(row.id), "p", 1);
+      if (e.snapshot.slogan.text) withText++;
+      else if (e.snapshot.slogan.scope) homepageOnly++;
+      assert.equal(
+        resolve(e).slogan.kind,
+        "none",
+        `${row.id} opened with a slogan nobody wrote`,
+      );
+    }
+    assert.ok(withText > 0, "no church in the fixture has a slogan — this proves nothing");
+    assert.ok(homepageOnly > 0, "the 'inner pages not read' state was lost from the snapshot");
+  });
+
+  /** What a reviewer types is theirs — never "edited", which would claim there
+   *  was a church's sentence underneath it to go back to. */
+  test("a slogan somebody writes is attributed to them, and clears back to blank", () => {
+    const { entry, group } = pick();
+    const written = applyOp(
+      group,
+      { op: "field.set", orgId: entry.orgId, path: PATH.slogan, value: "Come and see", base: "" },
+      2000,
     );
-    assert.ok(kinds.has("slogan"));
-    assert.ok(kinds.has("homepage_only"), "the 'inner pages not read' state was lost");
+    const card = resolve(written.entries[0]);
+    assert.equal(card.slogan.kind, "slogan");
+    assert.equal(card.slogan.kind === "slogan" && card.slogan.voice.text, "Come and see");
+    assert.equal(
+      card.slogan.kind === "slogan" && card.slogan.voice.attribution.kind,
+      "user",
+      "a slogan a reviewer wrote must not be presented as an edit of the church's words",
+    );
+
+    const wiped = applyOp(
+      written,
+      { op: "field.set", orgId: entry.orgId, path: PATH.slogan, value: "", base: "" },
+      3000,
+    );
+    assert.equal(resolve(wiped.entries[0]).slogan.kind, "none");
+    assert.ok(!(PATH.slogan in wiped.entries[0].edits.fields), "typing it back to blank is a revert");
   });
 
   /** Typing the original back is a revert, not an edit that happens to match. */
@@ -439,15 +490,36 @@ describe("review flags", { skip }, () => {
     }
   });
 
-  test("an ordinary church is not flagged for having a slogan and contacts", () => {
+  /**
+   * THE SLOGAN FLAG IS A TO-DO NOW, and this is what keeps it one.
+   *
+   * Every card starts without a slogan — the pipeline's is no longer offered —
+   * so this flag is on every church until somebody writes one. That is the one
+   * permitted exception to "a flag that appears on every card is furniture", and
+   * it is only permitted because it GOES OUT when the work is done. If it ever
+   * stopped clearing, it would be furniture on all 15,273 cards.
+   */
+  test("writing a slogan clears its flag, and an ordinary church has no others", () => {
     const index = loadIndex();
     const row = index.find((r) => {
       const card = resolve(buildEntry(r, loadRecord(r.id), "f", 0));
-      return card.slogan.kind === "slogan" && card.contacts.length > 0 && card.stepsLooked;
+      return card.contacts.length > 0 && card.stepsLooked;
     });
-    assert.ok(row, "no church in the fixture has a slogan, contacts and read steps");
-    const card = resolve(buildEntry(row, loadRecord(row.id), "f", 0));
-    assert.ok(!keys(card).includes("slogan"));
+    assert.ok(row, "no church in the fixture has contacts and read steps");
+
+    const entry = buildEntry(row, loadRecord(row.id), "f", 0);
+    assert.ok(
+      keys(resolve(entry)).includes("slogan"),
+      "a church with no slogan written must say so — it is the reviewer's job",
+    );
+
+    const written = applyOp(
+      group1([entry]),
+      { op: "field.set", orgId: entry.orgId, path: PATH.slogan, value: "Come and see", base: "" },
+      1,
+    );
+    const card = resolve(written.entries[0]);
+    assert.ok(!keys(card).includes("slogan"), "the flag survived the work being done");
     assert.ok(!keys(card).includes("contacts"));
     assert.ok(!keys(card).includes("steps"));
   });
@@ -472,12 +544,23 @@ describe("review flags", { skip }, () => {
     const index = loadIndex();
     const cardFor = (id: string) => resolve(buildEntry(index.find((r) => r.id === id)!, loadRecord(id), "f", 0));
 
-    const homepageOnly = index.find(
-      (r) => resolve(buildEntry(r, loadRecord(r.id), "f", 0)).slogan.kind === "homepage_only",
-    );
-    const none = index.find(
-      (r) => resolve(buildEntry(r, loadRecord(r.id), "f", 0)).slogan.kind === "none",
-    );
+    /**
+     * ASKED OF THE SNAPSHOT, NOT OF THE CARD, and that is the whole point of the
+     * first assertion. Every card resolves to `none` now — no slogan is offered
+     * — so a search over resolved cards could no longer tell the two absences
+     * apart, which is exactly the loss this test exists to notice. On the
+     * snapshot the distinction is still there and still measured.
+     */
+    const scopeOf = (r: (typeof index)[number]) =>
+      buildEntry(r, loadRecord(r.id), "f", 0).snapshot.slogan;
+    const homepageOnly = index.find((r) => {
+      const s = scopeOf(r);
+      return !s.text && !!s.scope;
+    });
+    const none = index.find((r) => {
+      const s = scopeOf(r);
+      return !s.text && !s.scope;
+    });
 
     // The engine must still be able to tell them apart, or the decision above
     // has quietly become irreversible.
@@ -583,6 +666,409 @@ describe("untrusted input", () => {
     assert.equal(sanitizeOp({ op: "field.set", orgId: "x", path: PATH.name, value: "a".repeat(5000), base: "" }), null);
     assert.equal(sanitizeOp(null), null);
     assert.equal(sanitizeOp("field.set"), null);
+  });
+
+  /**
+   * THE CROP'S URL BECOMES THE `<img src>` OF A PUBLIC PAGE.
+   *
+   * Which makes it the most dangerous string any of these ops carries: stored
+   * once, it is served to a congregation from a page wearing our name. It is
+   * held to the exact shape `putLogo` produces rather than to "looks like a
+   * URL", so an absolute URL to any host — including one we would trust today —
+   * cannot be stored, and neither can a `javascript:` or `data:` payload.
+   */
+  test("sanitizeOp refuses a crop that points anywhere but our own asset store", () => {
+    const sha = "a".repeat(64);
+    const ok = {
+      op: "logo.crop",
+      orgId: "x",
+      crop: { sha, url: `/api/asset/logos/${"b".repeat(64)}.webp`, x: 0.1, y: 0.1, w: 0.5, h: 0.5 },
+    };
+    assert.ok(sanitizeOp(ok));
+    assert.deepEqual(sanitizeOp({ op: "logo.crop", orgId: "x", crop: null }), {
+      op: "logo.crop",
+      orgId: "x",
+      crop: null,
+    });
+
+    for (const url of [
+      "https://evil.example.org/logo.png",
+      "javascript:alert(1)",
+      "data:image/svg+xml,<svg onload=alert(1)>",
+      "//evil.example.org/x.png",
+      "/api/asset/logos/../../secret.png",
+      "/api/asset/churches/first-baptist.json",
+      "/api/asset/logos/short.png",
+      "",
+    ]) {
+      assert.equal(
+        sanitizeOp({ ...ok, crop: { ...ok.crop, url } }),
+        null,
+        `accepted crop url ${JSON.stringify(url)}`,
+      );
+    }
+
+    // A rectangle can only ever describe part of its own image.
+    for (const rect of [
+      { x: -0.1, y: 0, w: 0.5, h: 0.5 },
+      { x: 0.8, y: 0, w: 0.5, h: 0.5 },
+      { x: 0, y: 0, w: 0, h: 0.5 },
+      { x: 0, y: 0, w: 2, h: 0.5 },
+      { x: 0, y: 0, w: 0.5, h: Number.NaN },
+    ]) {
+      assert.equal(sanitizeOp({ ...ok, crop: { ...ok.crop, ...rect } }), null, "accepted a rectangle off the image");
+    }
+  });
+
+  /**
+   * The accent ends up in a `style` attribute on a page a church opens, so the
+   * alphabet is the check: six hex digits cannot spell `url(` or close a quote.
+   * Shorthand is normalised rather than refused, because `#fff` is what a person
+   * types and what a colour input hands back.
+   */
+  test("sanitizeOp accepts a hex colour and nothing else", () => {
+    assert.deepEqual(sanitizeOp({ op: "accent.set", orgId: "x", accent: "#1F3A5F" }), {
+      op: "accent.set",
+      orgId: "x",
+      accent: "#1f3a5f",
+    });
+    assert.deepEqual(sanitizeOp({ op: "accent.set", orgId: "x", accent: "0af" }), {
+      op: "accent.set",
+      orgId: "x",
+      accent: "#00aaff",
+    });
+    assert.deepEqual(sanitizeOp({ op: "accent.set", orgId: "x", accent: null }), {
+      op: "accent.set",
+      orgId: "x",
+      accent: null,
+    });
+    for (const accent of ["red", "rgb(1,2,3)", "#12345", "url(x)", "#fff\"", "expression(1)", ""]) {
+      assert.equal(sanitizeOp({ op: "accent.set", orgId: "x", accent }), null, `accepted ${JSON.stringify(accent)}`);
+    }
+  });
+
+  test("sanitizeOp refuses a reorder that is not a list of item ids", () => {
+    assert.ok(sanitizeOp({ op: "items.reorder", orgId: "x", list: "steps", ids: ["s_connect", "u_ab12"] }));
+    assert.equal(sanitizeOp({ op: "items.reorder", orgId: "x", list: "contacts", ids: [] }), null);
+    assert.equal(sanitizeOp({ op: "items.reorder", orgId: "x", list: "steps", ids: "s_connect" }), null);
+    assert.equal(sanitizeOp({ op: "items.reorder", orgId: "x", list: "steps", ids: ["../x"] }), null);
+    assert.equal(sanitizeOp({ op: "items.reorder", orgId: "x", list: "steps", ids: [1, 2] }), null);
+    assert.equal(
+      sanitizeOp({ op: "items.reorder", orgId: "x", list: "steps", ids: Array(201).fill("s_a") }),
+      null,
+      "an unbounded list is a payload, not an order",
+    );
+  });
+
+  test("sanitizeOp holds a chosen contact to the item-id alphabet", () => {
+    assert.ok(sanitizeOp({ op: "contact.sendTo", orgId: "x", contactId: "c_lead_pastor" }));
+    assert.deepEqual(sanitizeOp({ op: "contact.sendTo", orgId: "x", contactId: null }), {
+      op: "contact.sendTo",
+      orgId: "x",
+      contactId: null,
+    });
+    for (const id of ["../x", "a b", "", "c".repeat(100)]) {
+      assert.equal(sanitizeOp({ op: "contact.sendTo", orgId: "x", contactId: id }), null, `accepted ${JSON.stringify(id)}`);
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The order a reviewer put the steps in
+ * ------------------------------------------------------------------ */
+
+/**
+ * THE ORDER ON THE CARD IS THE ORDER THE CHURCH RECEIVES.
+ *
+ * `toRawChurch` maps the resolved lists straight into `next_steps` and the
+ * pathway's `order`, and `generateDemo` walks both in that order — the first
+ * step is the one the demo makes focal. So a stored order is not decoration, and
+ * the two things that can go wrong with one are both here: it must survive a
+ * re-resolve exactly, and it must degrade rather than delete when it goes stale.
+ */
+describe("reordering steps", { skip }, () => {
+  const stepsOf = (g: ExportGroup) => resolve(g.entries[0]).steps.map((s) => s.id);
+
+  /** A church with at least three next steps, so an order can be wrong. */
+  function threeSteps(): { entry: GroupEntry; group: ExportGroup } {
+    const index = loadIndex();
+    const row = index.find((r) => {
+      const e = buildEntry(r, loadRecord(r.id), "f", 0);
+      return e.snapshot.steps.length >= 3;
+    });
+    assert.ok(row, "no church in the fixture has three next steps");
+    const entry = buildEntry(row, loadRecord(row.id), "f", 0);
+    return { entry, group: group1([entry]) };
+  }
+
+  test("the order somebody drags into is the order that resolves", () => {
+    const { entry, group } = threeSteps();
+    const ids = stepsOf(group);
+    const moved = [ids[2], ids[0], ids[1], ...ids.slice(3)];
+
+    const g = applyOp(group, { op: "items.reorder", orgId: entry.orgId, list: "steps", ids: moved }, 1);
+    assert.deepEqual(stepsOf(g), moved);
+    // Replaying the same op is not a second reorder.
+    assert.deepEqual(
+      stepsOf(applyOp(g, { op: "items.reorder", orgId: entry.orgId, list: "steps", ids: moved }, 2)),
+      moved,
+    );
+  });
+
+  test("a step added after a reorder lands at the end, not at the front", () => {
+    const { entry, group } = threeSteps();
+    const ids = stepsOf(group);
+    const g = applyOps(
+      group,
+      [
+        { op: "items.reorder", orgId: entry.orgId, list: "steps", ids: [ids[1], ids[0], ...ids.slice(2)] },
+        {
+          op: "item.add",
+          orgId: entry.orgId,
+          item: { id: "u_added01", at: 1, kind: "step", label: "Hand added", quote: "" },
+        },
+      ],
+      1,
+    );
+    assert.equal(stepsOf(g).at(-1), "u_added01", "an id the order does not name must sort last");
+    assert.deepEqual(stepsOf(g).slice(0, 2), [ids[1], ids[0]], "the stored order was lost");
+  });
+
+  test("an order naming ids this church does not have is not stored", () => {
+    const { entry, group } = threeSteps();
+    const g = applyOp(
+      group,
+      { op: "items.reorder", orgId: entry.orgId, list: "steps", ids: ["s_ghost", "s_phantom"] },
+      1,
+    );
+    assert.equal(g.entries[0].edits.order, undefined, "a ghost order would push every real step below it");
+    assert.deepEqual(stepsOf(g), stepsOf(group));
+  });
+
+  test("dragging a pathway into an order renumbers it, and never claims a sequence", () => {
+    const index = loadIndex();
+    const row = index.find((r) => {
+      const e = buildEntry(r, loadRecord(r.id), "f", 0);
+      return e.snapshot.pathway.steps.length >= 3;
+    });
+    assert.ok(row, "no church in the fixture has a three-step pathway");
+    const entry = buildEntry(row, loadRecord(row.id), "f", 0);
+    const group = group1([entry]);
+
+    const before = resolve(entry).pathway;
+    const ids = before.steps.map((s) => s.id);
+    const moved = [ids[2], ids[0], ids[1], ...ids.slice(3)];
+    const g = applyOp(group, { op: "items.reorder", orgId: entry.orgId, list: "pathway", ids: moved }, 1);
+    const after = resolve(g.entries[0]).pathway;
+
+    assert.deepEqual(after.steps.map((s) => s.id), moved);
+    assert.equal(
+      after.numbered,
+      before.numbered,
+      "whether the church published a sequence is not a thing a drag may decide",
+    );
+    if (after.numbered) {
+      assert.deepEqual(
+        after.steps.map((s) => s.ordinal),
+        after.steps.map((_, i) => i + 1),
+        "a hand-ordered pathway kept the numbers the church gave a different order",
+      );
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Who the email is addressed to
+ * ------------------------------------------------------------------ */
+
+/**
+ * ONE ADDRESS, CHOSEN BY A PERSON, HONOURED EVERYWHERE.
+ *
+ * `exportContacts` ranks the contacts and rank 1 is what gets written to, which
+ * was true before this and inferable by nobody. These pin the two halves of the
+ * fix: the choice moves the ranking (so the card, the demo's greeting and the
+ * campaign cannot disagree), and a choice that has gone stale is ignored rather
+ * than obeyed into a bounce.
+ */
+describe("choosing the recipient", { skip }, () => {
+  /** A church with two or more contacts carrying real addresses. */
+  function twoAddressed(): { entry: GroupEntry; group: ExportGroup } {
+    const index = loadIndex();
+    const row = index.find((r) => {
+      const card = resolve(buildEntry(r, loadRecord(r.id), "f", 0));
+      return card.contacts.filter((c) => c.email.includes("@")).length >= 2;
+    });
+    assert.ok(row, "no church in the fixture lists two addresses");
+    const entry = buildEntry(row, loadRecord(row.id), "f", 0);
+    return { entry, group: group1([entry]) };
+  }
+
+  test("the chosen contact takes rank 1, and the demo greets whoever gets the email", () => {
+    const { entry, group } = twoAddressed();
+    const addressed = resolve(entry).contacts.filter((c) => c.email.includes("@"));
+    const second = addressed[1];
+
+    const g = applyOp(group, { op: "contact.sendTo", orgId: entry.orgId, contactId: second.id }, 1);
+    const card = resolve(g.entries[0]);
+    assert.equal(card.sendTo, second.id);
+
+    const ranked = exportContacts(card.contacts, card.sendTo);
+    assert.equal(ranked[0].contact.id, second.id, "the choice did not move the ranking");
+    assert.equal(ranked[0].rank, 1);
+    assert.equal(recipientOf(ranked)?.contact.id, second.id);
+  });
+
+  test("choosing a contact that cannot be written to changes nothing", () => {
+    const { entry, group } = twoAddressed();
+    const card = resolve(entry);
+    const before = exportContacts(card.contacts).map((r) => r.contact.id);
+
+    // An id this church does not have is not stored at all.
+    const ghost = applyOp(group, { op: "contact.sendTo", orgId: entry.orgId, contactId: "c_ghost" }, 1);
+    assert.equal(ghost.entries[0].edits.sendTo, undefined);
+
+    // A contact with no address IS stored — it is a real row somebody clicked —
+    // and the ranking simply stands, because there is nothing to address to it.
+    const nameless = card.contacts.find((c) => !c.email.trim());
+    if (nameless) {
+      const g = applyOp(group, { op: "contact.sendTo", orgId: entry.orgId, contactId: nameless.id }, 1);
+      const after = resolve(g.entries[0]);
+      assert.deepEqual(
+        exportContacts(after.contacts, after.sendTo).map((r) => r.contact.id),
+        before,
+      );
+    }
+  });
+
+  test("striking out the chosen contact hands the email to the next one", () => {
+    const { entry, group } = twoAddressed();
+    const addressed = resolve(entry).contacts.filter((c) => c.email.includes("@"));
+    const second = addressed[1];
+
+    const g = applyOps(
+      group,
+      [
+        { op: "contact.sendTo", orgId: entry.orgId, contactId: second.id },
+        { op: "item.suppress", orgId: entry.orgId, itemId: second.id },
+      ],
+      1,
+    );
+    const card = resolve(g.entries[0]);
+    const ranked = exportContacts(card.contacts, card.sendTo);
+    assert.notEqual(
+      recipientOf(ranked)?.contact.id,
+      second.id,
+      "a struck-out contact was still going to be written to",
+    );
+    assert.ok(
+      ranked.some((r) => r.contact.id === second.id && r.rank === null),
+      "the struck contact must stay on the card so it can be put back",
+    );
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The colour the demo is painted in
+ * ------------------------------------------------------------------ */
+
+describe("overriding the accent", { skip }, () => {
+  test("a chosen colour resolves onto the card and clears back to the measured one", () => {
+    const { entry, group } = pick();
+    assert.equal(resolve(entry).accent, "", "a card claimed an override nobody made");
+
+    const set = applyOp(group, { op: "accent.set", orgId: entry.orgId, accent: "#1f3a5f" }, 1);
+    assert.equal(resolve(set.entries[0]).accent, "#1f3a5f");
+    assert.ok(resolve(set.entries[0]).editedCount > 0, "choosing a colour is work somebody did");
+
+    const cleared = applyOp(set, { op: "accent.set", orgId: entry.orgId, accent: null }, 2);
+    assert.equal(resolve(cleared.entries[0]).accent, "");
+    assert.equal(
+      cleared.entries[0].edits.accent,
+      undefined,
+      "the key must go, so 'did a human overrule us' stays answerable by its presence",
+    );
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The logo, trimmed
+ * ------------------------------------------------------------------ */
+
+describe("cropping the logo", { skip }, () => {
+  const crop = (sha: string) => ({
+    sha,
+    url: `/api/asset/logos/${"c".repeat(64)}.webp`,
+    x: 0.1,
+    y: 0.2,
+    w: 0.6,
+    h: 0.5,
+  });
+
+  /** A church whose snapshot carries a logo — there is nothing to crop otherwise. */
+  function withLogo(): { entry: GroupEntry; group: ExportGroup } {
+    const index = loadIndex();
+    const row = index.find((r) => !!buildEntry(r, loadRecord(r.id), "f", 0).snapshot.logo);
+    assert.ok(row, "no church in the fixture has a logo");
+    const entry = buildEntry(row, loadRecord(row.id), "f", 0);
+    return { entry, group: group1([entry]) };
+  }
+
+  test("a crop resolves onto the card and survives a re-resolve", () => {
+    const { entry, group } = withLogo();
+    const sha = entry.snapshot.logo!.sha;
+    const g = applyOp(group, { op: "logo.crop", orgId: entry.orgId, crop: crop(sha) }, 1);
+    assert.deepEqual(resolve(g.entries[0]).logoCrop, crop(sha));
+
+    const off = applyOp(g, { op: "logo.crop", orgId: entry.orgId, crop: null }, 2);
+    assert.equal(resolve(off.entries[0]).logoCrop, null);
+    assert.equal(off.entries[0].edits.logoCrop, undefined, "the key must go, not be blanked");
+  });
+
+  /**
+   * THE TRADE THIS PROTECTS. A crop is a rectangle cut out of ONE image; drawn
+   * over a different mark it is a slice of a picture nobody chose — and most
+   * picks are wordmarks while most alternatives are icons, so the slice is
+   * usually empty space.
+   */
+  test("switching to another logo drops the crop, and resolve refuses a stale one", () => {
+    const { entry, group } = withLogo();
+    const sha = entry.snapshot.logo!.sha;
+    const other = { sha: "d".repeat(64), ext: "png", theme: "light" };
+
+    const g = applyOps(
+      group,
+      [
+        { op: "logo.crop", orgId: entry.orgId, crop: crop(sha) },
+        { op: "logo.pick", orgId: entry.orgId, logo: other },
+      ],
+      1,
+    );
+    assert.equal(g.entries[0].edits.logoCrop, undefined, "the crop followed the reviewer to a new mark");
+    assert.equal(resolve(g.entries[0]).logoCrop, null);
+
+    // And the second lock: a crop left on disk for a mark this card no longer
+    // ships never resolves, whatever wrote it there.
+    const stale: GroupEntry = {
+      ...entry,
+      edits: { ...entry.edits, logoPick: other, logoCrop: crop(sha) },
+    };
+    assert.equal(resolve(stale).logoCrop, null);
+  });
+
+  test("removing the logo removes the crop with it", () => {
+    const { entry, group } = withLogo();
+    const sha = entry.snapshot.logo!.sha;
+    const g = applyOps(
+      group,
+      [
+        { op: "logo.crop", orgId: entry.orgId, crop: crop(sha) },
+        { op: "item.suppress", orgId: entry.orgId, itemId: LOGO_ITEM_ID },
+      ],
+      1,
+    );
+    const card = resolve(g.entries[0]);
+    assert.equal(card.logo, null);
+    assert.equal(card.logoCrop, null, "a demo with no logo cannot have a cropped one");
   });
 });
 

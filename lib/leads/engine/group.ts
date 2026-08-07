@@ -17,10 +17,12 @@ import type {
   AddedItem,
   AddedPathwayStep,
   AddedStep,
+  EntryEdits,
   ExportGroup,
   GroupEntry,
   GroupOp,
   GroupStatus,
+  LogoCrop,
   ResolvedCard,
   ResolvedContact,
   ResolvedPathwayStep,
@@ -100,25 +102,53 @@ function resolveName(entry: GroupEntry): Voice {
 }
 
 /**
- * The slogan's three states, preserved through editing.
+ * THE SLOGAN IS THE REVIEWER'S TO WRITE, AND ONLY THEIRS.
  *
- * Editing it to empty is a person asserting there is no slogan — a different
- * fact from "we only read the homepage", and it must not silently become one.
+ * The card used to open with whatever `brand.slogan` held — a string lifted off
+ * a `<title>` tag, which is where a church puts "Home | First Baptist Church of
+ * Springfield | Springfield, IL" rather than what it would say about itself. It
+ * reads as a slogan often enough to be waved through, and it HEADLINES the demo
+ * the church receives. Owner's call: do not offer it, ask for one.
+ *
+ * SO THE PIPELINE'S TEXT IS NOT RENDERED AND IS NOT SENT — an unedited card
+ * resolves to `none`, which is the state the review sheet draws as work to do
+ * and `toRawChurch` ships as no tagline at all. The snapshot still CARRIES it,
+ * scope and all (`snapshot.ts` and its tests are untouched), so this is a
+ * decision about what we present rather than a discarded measurement: the day
+ * somebody wants a "use the one we found" control, the string is still there.
+ *
+ * WHAT IT COSTS, stated plainly: a batch exported BEFORE this change shows a
+ * blank slogan on its record page, though its demos shipped the extracted one.
+ * The demos themselves are untouched — they are built and live at `/c/<slug>`.
+ *
+ * The three states survive where they are still true. `homepage_only` versus
+ * `none` was always a fact about our crawl rather than about the church, it is
+ * still on the snapshot, and both of them were already drawn identically here.
  */
 function resolveSlogan(entry: GroupEntry): ResolvedSlogan {
-  const s = entry.snapshot.slogan;
   const e = edit(entry, PATH.slogan);
-  if (e) {
-    return e.value
-      ? { kind: "slogan", voice: editedVoice(e.value, e.base) }
-      : { kind: "none" };
-  }
-  if (s.text) {
-    // The slogan is the church's own voice but comes off a <title> — there is no
-    // anchor on a page to point a reader at.
-    return { kind: "slogan", voice: { text: s.text, attribution: { kind: "uncited", note: "from the site's title" } } };
-  }
-  return s.scope ? { kind: "homepage_only" } : { kind: "none" };
+  // `userVoice`, not `editedVoice`: with the pipeline's text out of the way
+  // there is nothing this could be an edit OF, and "edited — no longer the
+  // church's words" over a revert to blank would be a claim about nothing.
+  return e?.value ? { kind: "slogan", voice: userVoice(e.value) } : { kind: "none" };
+}
+
+/**
+ * The order a reviewer dragged a list into, applied.
+ *
+ * STABLE, AND MISSING IDS GO LAST. `Array.prototype.sort` is required to be
+ * stable, so items the stored order does not name keep their relative order
+ * among themselves and land after the ones it does. That is what makes a step
+ * added after a reorder append rather than jump to the front, and it is why an
+ * order that has gone stale — ids that no longer exist, or a list that grew —
+ * degrades to "mostly what you asked for" instead of throwing anything away.
+ */
+function inStoredOrder<T extends { id: string }>(items: T[], order: string[] | undefined): T[] {
+  if (!order?.length) return items;
+  const at = new Map(order.map((id, i) => [id, i]));
+  return items
+    .slice()
+    .sort((a, b) => (at.get(a.id) ?? Infinity) - (at.get(b.id) ?? Infinity));
 }
 
 /**
@@ -220,7 +250,7 @@ function resolveSteps(entry: GroupEntry): ResolvedStep[] {
     });
   }
 
-  return out;
+  return inStoredOrder(out, entry.edits.order?.steps);
 }
 
 function resolvePathwaySteps(entry: GroupEntry): { steps: ResolvedPathwayStep[]; numbered: boolean } {
@@ -287,7 +317,25 @@ function resolvePathwaySteps(entry: GroupEntry): { steps: ResolvedPathwayStep[];
     });
   });
 
-  return { steps, numbered };
+  /**
+   * A HAND-ORDERED PATHWAY IS NUMBERED BY WHERE THE STEPS WERE PUT.
+   *
+   * `ordinal` is the church's own numbering when they published one, and that is
+   * exactly why it cannot survive a drag: leaving it would have the data say
+   * "this is step 3" about a row a reviewer deliberately moved to the top. It is
+   * renumbered ONLY when an order was stored — an untouched list keeps the
+   * church's numbers, which is the whole reason the field exists.
+   *
+   * `numbered` is untouched either way. Whether the demo may CLAIM a sequence is
+   * decided by `pathwayIsOrdered` from the page we read it off; choosing the
+   * order a card reads in is not that claim, and must not be able to become it.
+   */
+  const order = entry.edits.order?.pathway;
+  if (!order?.length) return { steps, numbered };
+  return {
+    steps: inStoredOrder(steps, order).map((s, i) => ({ ...s, ordinal: numbered ? i + 1 : null })),
+    numbered,
+  };
 }
 
 function resolveFinding(entry: GroupEntry): Voice | null {
@@ -363,6 +411,17 @@ export function resolve(entry: GroupEntry): ResolvedCard {
    */
   const chosen = entry.edits.logoPick ?? s.logo;
   const logoRemoved = !!chosen && entry.edits.suppressed[LOGO_ITEM_ID] != null;
+  /**
+   * A CROP BELONGS TO ONE PICTURE.
+   *
+   * `logo.pick` already drops it, so the sha test is the second lock rather than
+   * the first — and it is the one that holds for a stored batch whose crop was
+   * written before that rule existed, or whose snapshot logo changed underneath
+   * it. A trimmed version of a mark this card is no longer shipping must never
+   * be drawn over the mark it IS shipping.
+   */
+  const crop = entry.edits.logoCrop;
+  const logoCrop = !logoRemoved && crop && chosen && crop.sha === chosen.sha ? crop : null;
 
   return {
     orgId: entry.orgId,
@@ -391,6 +450,7 @@ export function resolve(entry: GroupEntry): ResolvedCard {
     logoRemoved,
     /** THEIRS, NOT OURS — the reviewer overruled the pipeline's pick. */
     logoSwitched: !!entry.edits.logoPick,
+    logoCrop,
     slogan: resolveSlogan(entry),
     stepsLooked: s.stepsLooked,
     steps: resolveSteps(entry),
@@ -409,9 +469,30 @@ export function resolve(entry: GroupEntry): ResolvedCard {
     contacts: resolveContacts(entry),
     contactNote: s.contactNote,
     greeting: edit(entry, PATH.greeting)?.value.trim() ?? "",
+    /**
+     * WHO THE EMAIL IS ADDRESSED TO, carried raw.
+     *
+     * Not checked against the contacts here on purpose: whether the chosen one
+     * still ships is a question about the export's own rules — the four-contact
+     * limit, the channel tier, the strike-outs — and `exportContacts` is the
+     * single place those are answered. A second opinion here is how the card
+     * would come to show one recipient while the push used another.
+     */
+    sendTo: entry.edits.sendTo ?? "",
+    accent: entry.edits.accent ?? "",
     // A switched logo is work somebody did, so it counts — which is also what
-    // makes the console stop and ask before un-collecting the church.
-    editedCount: Object.keys(entry.edits.fields).length + (entry.edits.logoPick ? 1 : 0),
+    // makes the console stop and ask before un-collecting the church. So is
+    // every other choice that is not a typed string: a crop, a recipient, an
+    // accent and a hand-ordered list are all things somebody would have to do
+    // again if the church were un-collected.
+    editedCount:
+      Object.keys(entry.edits.fields).length +
+      (entry.edits.logoPick ? 1 : 0) +
+      (entry.edits.logoCrop ? 1 : 0) +
+      (entry.edits.sendTo ? 1 : 0) +
+      (entry.edits.accent ? 1 : 0) +
+      (entry.edits.order?.steps?.length ? 1 : 0) +
+      (entry.edits.order?.pathway?.length ? 1 : 0),
     suppressedCount: Object.keys(entry.edits.suppressed).length,
   };
 }
@@ -481,24 +562,25 @@ export function cardFlags(card: ResolvedCard): CardFlag[] {
   const out: CardFlag[] = [];
 
   /**
-   * ONE FLAG FOR BOTH ABSENCES.
+   * THE ONE FLAG THAT IS ON EVERY CARD UNTIL SOMEBODY DOES SOMETHING.
    *
-   * `slogan.kind` still distinguishes `homepage_only` from `none` and the
-   * resolver and its tests still defend that — but the console no longer names
-   * the difference. There used to be a second chip reading "slogan: homepage
-   * only", explaining that /about was never fetched; that is a fact about our
-   * crawl, in pipeline vocabulary, on a card a salesperson reads before phoning
-   * a church. Owner's call to drop it.
+   * Which breaks this file's own rule — a flag that never varies is furniture —
+   * and it is deliberate, because the rule it breaks is about SIGNALS and this
+   * is now a to-do. Slogans are no longer taken from the pipeline at all (see
+   * `resolveSlogan`), so every card starts without one and this is the mark that
+   * says which churches have been through. It goes out the moment a slogan is
+   * typed, which is the difference between a checklist and furniture.
    *
-   * The flag itself stays for both, because "this church has no slogan" is a
-   * thing the reviewer has to notice and fix by hand either way.
+   * It used to say "No slogan was extracted", and that would now be a lie: one
+   * usually was, we are simply not offering it.
    */
   if (card.slogan.kind !== "slogan") {
     out.push({
       key: "slogan",
-      label: "no slogan",
+      label: "slogan needed",
       tone: "plain",
-      title: "No slogan was extracted for this church. Click the line to add one.",
+      title:
+        "This demo has no slogan yet. We no longer fill one in from the church's page title — click the line under their name and write it.",
     });
   }
 
@@ -707,6 +789,89 @@ function pickLogo(entry: GroupEntry, logo: SnapshotLogo | null): GroupEntry {
   const edits = { ...entry.edits };
   if (!logo || logo.sha === entry.snapshot.logo?.sha) delete edits.logoPick;
   else edits.logoPick = logo;
+  /**
+   * A NEW PICTURE HAS NO CROP. The trim was made against particular pixels, and
+   * carrying it over would draw one mark's rectangle on another — most picks are
+   * wordmarks and most alternatives are icons, so the result is a slice of an
+   * image nobody chose. `resolve()` refuses it on the sha too; this is what stops
+   * it from lying dormant in the blob and coming back when the reviewer switches
+   * to that mark again.
+   */
+  const next = (edits.logoPick ?? entry.snapshot.logo)?.sha;
+  if (edits.logoCrop && edits.logoCrop.sha !== next) delete edits.logoCrop;
+  return { ...entry, edits };
+}
+
+/** Store the trimmed image, or `null` to go back to the whole one. */
+function cropLogo(entry: GroupEntry, crop: LogoCrop | null): GroupEntry {
+  const edits = { ...entry.edits };
+  if (!crop) delete edits.logoCrop;
+  else edits.logoCrop = crop;
+  return { ...entry, edits };
+}
+
+/**
+ * Address the email to one contact, or `null` to let the ranking decide.
+ *
+ * THE ID IS CHECKED AGAINST THE CARD, unlike most stored choices here: a
+ * `sendTo` naming a contact that does not exist would silently resolve to "the
+ * ranking decides" while the entry claimed a decision had been made, and the one
+ * thing this feature exists to remove is the doubt about which address gets
+ * written to. A hand-added contact counts; a struck-out one does not need to be
+ * excluded here, because striking one out is itself reversible and
+ * `exportContacts` already refuses to ship it.
+ */
+function setSendTo(entry: GroupEntry, contactId: string | null): GroupEntry {
+  const edits = { ...entry.edits };
+  const known =
+    !!contactId &&
+    (entry.snapshot.contacts.some((c) => c.id === contactId) ||
+      entry.edits.added.some((i) => i.kind === "contact" && i.id === contactId));
+  if (!known) delete edits.sendTo;
+  else edits.sendTo = contactId;
+  return { ...entry, edits };
+}
+
+/**
+ * The order a list was dragged into.
+ *
+ * IDS ARE FILTERED TO THE ONES THIS ENTRY HAS. The op carries a whole list from
+ * a browser that may be a save behind, so an id it names may already be gone —
+ * and an order holding ghosts would push every real step below them the moment
+ * one was re-added under the same id. An order that ends up naming nothing is
+ * stored as nothing, which is the same as never having reordered.
+ */
+function reorder(entry: GroupEntry, list: "steps" | "pathway", ids: string[]): GroupEntry {
+  const known = new Set<string>(
+    list === "steps"
+      ? [
+          ...entry.snapshot.steps.map((s) => s.id),
+          ...entry.edits.added.filter((i) => i.kind === "step").map((i) => i.id),
+        ]
+      : [
+          ...entry.snapshot.pathway.steps.map((s) => s.id),
+          ...entry.edits.added.filter((i) => i.kind === "pathwayStep").map((i) => i.id),
+        ],
+  );
+  const seen = new Set<string>();
+  const clean = ids.filter((id) => known.has(id) && !seen.has(id) && seen.add(id));
+
+  const order: NonNullable<EntryEdits["order"]> = { ...entry.edits.order };
+  if (clean.length) order[list] = clean;
+  else delete order[list];
+
+  const edits: EntryEdits = { ...entry.edits, order };
+  // An empty object would make `editedCount` and every `order?.steps` test read
+  // the same as an absent one while still writing a key into the blob forever.
+  if (!order.steps?.length && !order.pathway?.length) delete edits.order;
+  return { ...entry, edits };
+}
+
+/** Override the measured accent, or `null` to go back to it. */
+function setAccent(entry: GroupEntry, accent: string | null): GroupEntry {
+  const edits = { ...entry.edits };
+  if (!accent) delete edits.accent;
+  else edits.accent = accent;
   return { ...entry, edits };
 }
 
@@ -754,6 +919,14 @@ export function applyOp(group: ExportGroup, op: GroupOp, at: number): ExportGrou
       return withEntry(group, op.orgId, (e) => removeAdded(e, op.itemId));
     case "logo.pick":
       return withEntry(group, op.orgId, (e) => pickLogo(e, op.logo));
+    case "logo.crop":
+      return withEntry(group, op.orgId, (e) => cropLogo(e, op.crop));
+    case "contact.sendTo":
+      return withEntry(group, op.orgId, (e) => setSendTo(e, op.contactId));
+    case "items.reorder":
+      return withEntry(group, op.orgId, (e) => reorder(e, op.list, op.ids));
+    case "accent.set":
+      return withEntry(group, op.orgId, (e) => setAccent(e, op.accent));
     case "church.remove":
       return { ...group, entries: group.entries.filter((e) => e.orgId !== op.orgId) };
     default:
@@ -854,7 +1027,16 @@ export function membershipFrom(
       const n =
         Object.keys(ed.fields ?? {}).length +
         Object.keys(ed.suppressed ?? {}).length +
-        (ed.added?.length ?? 0);
+        (ed.added?.length ?? 0) +
+        // The choices that are not typed strings, counted for the same reason:
+        // un-collecting throws them away and somebody would have to make them
+        // again. See `editedCount` in `resolve`.
+        (ed.logoPick ? 1 : 0) +
+        (ed.logoCrop ? 1 : 0) +
+        (ed.sendTo ? 1 : 0) +
+        (ed.accent ? 1 : 0) +
+        (ed.order?.steps?.length ? 1 : 0) +
+        (ed.order?.pathway?.length ? 1 : 0);
       if (n > 0) edited[e.orgId] = n;
     }
   }
@@ -911,6 +1093,57 @@ function cleanLogo(raw: unknown): SnapshotLogo | null {
   if (!ext || !LOGO_EXT.has(ext.toLowerCase())) return null;
   if (!LOGO_THEME.has(theme)) return null;
   return { sha, ext: ext.toLowerCase(), theme };
+}
+
+/**
+ * A hex colour a person picked, checked as if it were hostile.
+ *
+ * IT ENDS UP IN A `style` ATTRIBUTE on a page a church opens, so the alphabet is
+ * the check — six hex digits cannot spell `url(` or close a quote. Shorthand is
+ * expanded rather than rejected: `#fff` is what a person types and what a colour
+ * input will happily hand back, and normalising it here means every reader
+ * downstream compares one spelling of one colour.
+ */
+const HEX6 = /^#?[0-9a-fA-F]{6}$/;
+const HEX3 = /^#?[0-9a-fA-F]{3}$/;
+
+function cleanHex(raw: unknown): string | null {
+  const v = s(raw, 8)?.trim() ?? "";
+  if (HEX6.test(v)) return `#${v.replace(/^#/, "").toLowerCase()}`;
+  if (HEX3.test(v)) {
+    const h = v.replace(/^#/, "").toLowerCase();
+    return `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`;
+  }
+  return null;
+}
+
+/**
+ * The crop the browser says it stored, checked the same way the logo pick is.
+ *
+ * THE URL IS THE PART THAT MATTERS. It becomes the `<img src>` of a public demo,
+ * so it is held to the one shape `putLogo` produces — a same-origin
+ * `/api/asset/logos/<sha256>.<ext>` path — rather than to "looks like a URL".
+ * Anything else, including an absolute URL to a host we happen to trust today,
+ * is refused: a stored `src` pointing off-origin is how a church's demo would
+ * start loading somebody else's image, and there is no reason for one to exist.
+ */
+const CROP_URL = /^\/api\/asset\/logos\/[a-f0-9]{64}\.[a-z0-9]{2,5}$/;
+
+function cleanCrop(raw: unknown): LogoCrop | null {
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!o) return null;
+  const sha = s(o.sha, 64);
+  const url = s(o.url, 200);
+  if (!sha || !LOGO_SHA.test(sha)) return null;
+  if (!url || !CROP_URL.test(url)) return null;
+
+  // Normalised, so a rectangle can only ever describe part of its own image.
+  const num = (v: unknown): number | null =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1 ? v : null;
+  const x = num(o.x), y = num(o.y), w = num(o.w), h = num(o.h);
+  if (x == null || y == null || w == null || h == null) return null;
+  if (w <= 0 || h <= 0 || x + w > 1.0001 || y + h > 1.0001) return null;
+  return { sha, url, x, y, w, h };
 }
 
 function cleanAdded(raw: unknown): AddedItem | null {
@@ -982,6 +1215,45 @@ export function sanitizeOp(raw: unknown): GroupOp | null {
       if (o.logo === null) return { op: "logo.pick", orgId, logo: null };
       const logo = cleanLogo(o.logo);
       return logo ? { op: "logo.pick", orgId, logo } : null;
+    }
+    case "logo.crop": {
+      // Same shape as `logo.pick`: `null` is a legitimate body meaning "the whole
+      // image again", so absence is distinguished from a malformed crop.
+      if (!orgId) return null;
+      if (o.crop === null) return { op: "logo.crop", orgId, crop: null };
+      const crop = cleanCrop(o.crop);
+      return crop ? { op: "logo.crop", orgId, crop } : null;
+    }
+    case "contact.sendTo": {
+      if (!orgId) return null;
+      if (o.contactId === null) return { op: "contact.sendTo", orgId, contactId: null };
+      // The same alphabet item ids are held to everywhere else here — snapshot
+      // ids are category keys and `u_` hex, and this one is about to be compared
+      // against them.
+      const contactId = s(o.contactId, 64);
+      return contactId && /^[A-Za-z0-9_]{1,64}$/.test(contactId)
+        ? { op: "contact.sendTo", orgId, contactId }
+        : null;
+    }
+    case "items.reorder": {
+      const list = o.list === "steps" || o.list === "pathway" ? o.list : null;
+      if (!orgId || !list || !Array.isArray(o.ids)) return null;
+      /**
+       * A BOUND, because this is the one op whose body is a list. 200 is far
+       * above any real church — the widest pathway in the corpus is single
+       * digits — and `reorder` filters to ids the entry actually has, so the cap
+       * is a guard against a payload rather than a limit anybody can reach.
+       */
+      if (o.ids.length > 200) return null;
+      const ids = o.ids.map((v) => s(v, 64) ?? "");
+      if (ids.some((id) => !id || !/^[A-Za-z0-9_]{1,64}$/.test(id))) return null;
+      return { op: "items.reorder", orgId, list, ids };
+    }
+    case "accent.set": {
+      if (!orgId) return null;
+      if (o.accent === null) return { op: "accent.set", orgId, accent: null };
+      const accent = cleanHex(o.accent);
+      return accent ? { op: "accent.set", orgId, accent } : null;
     }
     case "church.remove":
       return orgId ? { op: "church.remove", orgId } : null;

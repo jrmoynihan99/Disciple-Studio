@@ -148,6 +148,28 @@ export const SKIN = {
      that says what the church will actually receive. */
   paletteBox: "border-t border-lead-line px-6 py-3.5",
   paletteMode: "font-mono text-[9.5px] tracking-[0.14em] text-lead-ink2 uppercase",
+  /**
+   * ── the accent override ──
+   *
+   * A ROW OF THE COLOUR ITSELF, not a row of labelled options. The question is
+   * "is this their blue", and the only thing that answers it is the blue — so
+   * the choice is made of swatches and the consequence is the two tiles above,
+   * which repaint as soon as one is pressed.
+   *
+   * `ring-inset` rather than a border, for the same reason the tile uses one:
+   * the swatch IS the colour, and a border would sit between the eye and the
+   * thing being judged. The chosen one takes a heavier ring in brand ink rather
+   * than a tick, because a tick on a dark swatch is invisible and a tick on a
+   * pale one is the loudest thing in the row.
+   */
+  swatchRow: "mt-2 flex flex-wrap items-center gap-1.5",
+  swatch:
+    "size-6 rounded-md ring-1 ring-lead-line ring-inset transition-transform hover:scale-110",
+  swatchOn: "size-6 rounded-md ring-2 ring-lead-brand ring-offset-1 ring-offset-lead-panel",
+  /** The native colour input, drawn as one more swatch so the row reads as one. */
+  swatchCustom:
+    "size-6 cursor-pointer rounded-md border-0 bg-transparent p-0 [&::-moz-color-swatch]:rounded-md " +
+    "[&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch-wrapper]:p-0",
   /** The ring, not a border: the tile's own background is the church's `bg`, and
    *  a near-white one needs an edge that is not itself part of the preview. */
   paletteTile:
@@ -211,6 +233,37 @@ export const SKIN = {
     "group/item relative overflow-hidden rounded-lg border border-lead-line bg-lead-bg/40 pr-8",
   itemShellStruck:
     "group/item relative overflow-hidden rounded-lg border border-lead-bad/40 bg-lead-bad/[0.06] pr-8",
+  /**
+   * THE CONTACT THE EMAIL IS ADDRESSED TO.
+   *
+   * A ring rather than a tint, and in brand ink: this row is not in a different
+   * STATE from its neighbours — nothing about it is struck, edited or doubtful —
+   * it is the one that was chosen, and being chosen is a fact about the list
+   * rather than about the row. The chip inside it says so in words; this is what
+   * makes it findable at a glance in a card that is four screens tall.
+   */
+  itemShellChosen:
+    "group/item relative overflow-hidden rounded-lg border border-lead-brand bg-lead-brand/[0.05] pr-8 " +
+    "ring-1 ring-lead-brand",
+
+  /* ── reordering ──
+     A GRIP OUTSIDE THE ITEM, NOT INSIDE IT. The item's own corners already carry
+     the ✕ and `put back`, and a third control in that cluster would make the one
+     destructive button share a corner with the one you press by accident. It
+     also has to be as tall as the row it moves: a 20px target for a 90px block
+     is a control you miss and then wonder why the drag did nothing.
+
+     ALWAYS VISIBLE, like every other control on this card — see the note at the
+     top of this file. A hover-only grip is a feature nobody discovers. */
+  gripCol: "flex w-5 shrink-0 items-start pt-3",
+  grip:
+    "grid h-8 w-5 cursor-grab place-items-center rounded text-[13px] leading-none text-lead-ink2 " +
+    "transition-colors select-none hover:bg-lead-panel2 hover:text-lead-ink active:cursor-grabbing",
+  /** The row being dragged: dimmed, so the gap it leaves reads as where it is. */
+  dragging: "opacity-40",
+  /** Where it would land. A rule, not a tint — it is a position, not a surface. */
+  dropBefore: "before:absolute before:inset-x-0 before:-top-1 before:h-0.5 before:bg-lead-brand",
+  dropAfter: "after:absolute after:inset-x-0 after:-bottom-1 after:h-0.5 after:bg-lead-brand",
   itemRow: "grid grid-cols-[minmax(150px,240px)_1fr] max-[900px]:grid-cols-1",
   itemLeft: "min-w-0 bg-lead-panel2/60 px-3 py-2.5 max-[900px]:pb-1.5",
   itemRight: "min-w-0 px-3.5 py-2.5 max-[900px]:pt-0",
@@ -294,6 +347,29 @@ export const SKIN = {
   contactTitle: "text-[12.5px] text-lead-ink2",
   contactEmail: "font-mono text-[13px] break-all text-lead-link",
   contactValue: "text-[14px] text-lead-ink",
+
+  /* ── who the email goes to ──
+     THE ANSWER FIRST, THEN THE LIST IT CAME FROM. The contacts block used to
+     open with four ranked rows and a `1` in brand ink, and the fact that the 1
+     was the recipient lived in a `title` attribute — which is to say nowhere. A
+     salesperson about to send twenty emails should be able to read the address
+     off the card without inferring it.
+
+     Same shape as `pathwayHead` and the greeting block above it, because it
+     answers the same kind of question: not "is this true" but "is this what we
+     are about to do". */
+  sendToBox: "rounded-lg border border-lead-brand/35 bg-lead-brand/[0.05] px-4 py-3",
+  sendToAddress: "font-mono text-[15px] leading-snug font-semibold break-all text-lead-ink",
+  sendToWho: "mt-0.5 text-[12.5px] text-lead-ink2",
+  /** The chip on the chosen row. Solid brand, because it is the one claim on
+   *  this card that says what will HAPPEN rather than what was found. */
+  sendToChip:
+    "inline-flex items-center gap-1 rounded bg-lead-brand px-1.5 py-px font-mono text-[9px] " +
+    "leading-[15px] font-semibold text-white",
+  /** The unchosen rows' way in. Quiet: it is an offer, not an alarm. */
+  sendToPick:
+    "inline-flex items-center gap-1 rounded border border-lead-line px-1.5 py-px font-mono " +
+    "text-[9px] leading-[15px] text-lead-ink2 transition-colors hover:border-lead-brand hover:text-lead-brand",
 
   /* ── flags ── */
   flagChip: "rounded px-1.5 py-px font-mono text-[9px] leading-[15px]",

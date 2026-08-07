@@ -31,7 +31,7 @@
 
 import type { RawChurch, RawDiscPathway, RawNextStep } from "@/lib/generateDemo";
 import type { ResolvedCard } from "./group-types.ts";
-import { exportContacts } from "./contacts.ts";
+import { exportContacts, recipientOf } from "./contacts.ts";
 import { paletteOfLogo } from "./logo.ts";
 
 /**
@@ -316,8 +316,10 @@ function contactsOf(card: ResolvedCard): {
   people: { name: string; rank: number; email: string; title: string }[];
   church_emails: string[];
   phone: string;
+  send_to: string;
 } {
-  const shipping = exportContacts(card.contacts).filter((r) => r.rank !== null);
+  const ranked = exportContacts(card.contacts, card.sendTo);
+  const shipping = ranked.filter((r) => r.rank !== null);
   const people = shipping
     .filter((r) => r.contact.kind === "person")
     .map((r) => ({
@@ -331,5 +333,16 @@ function contactsOf(card: ResolvedCard): {
     .map((r) => r.contact.email)
     .filter(Boolean);
   const phone = shipping.find((r) => r.contact.kind === "phone")?.contact.value ?? "";
-  return { people, church_emails: churchEmails, phone };
+  /**
+   * THE ADDRESS THE CARD SAID IT WOULD GO TO, written down rather than re-derived.
+   *
+   * `pickRecipient` can work this out from `people` alone in the ordinary case
+   * and does when this is absent — but not for a church office address, which it
+   * would only ever reach as a fallback, and a reviewer choosing the office
+   * inbox over a listed pastor is a real and deliberate answer. Carrying the
+   * resolved value is also what makes the two surfaces provably the same: the
+   * card renders `recipientOf`, and so does this.
+   */
+  const send_to = recipientOf(ranked)?.contact.email.trim() ?? "";
+  return { people, church_emails: churchEmails, phone, send_to };
 }

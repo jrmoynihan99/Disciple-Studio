@@ -8,6 +8,7 @@ import { extrasOf, toRawChurch } from "@/lib/leads/engine/demo-export";
 import { getChurchStrict, saveChurch } from "@/churches";
 import { baseSlugFor, generateDemo, slugify, type RawChurch } from "@/lib/generateDemo";
 import { LogoError, putLogo } from "@/lib/logo";
+import { withAccent } from "@/lib/leads/engine/accent";
 
 /**
  * Generate ONE demo from one reviewed church in a batch.
@@ -147,8 +148,17 @@ export async function POST(_req: Request, ctx: Ctx) {
    * A logo failure never fails the demo — the same call the import route makes,
    * for the same reason: a missing picture is a worse demo, not a wrong one.
    */
-  let logoUrl: string | undefined;
-  if (card.logo?.sha) {
+  /**
+   * A TRIMMED LOGO IS ALREADY IN THE DEMO STORE, so there is nothing to copy.
+   *
+   * The crop is performed in the browser against this same thumbnail and its
+   * result is written through `putLogo` at the moment it is made — content
+   * addressed, same store, same `/api/asset/...` proxy the copy below produces.
+   * `resolve()` has already checked it belongs to the mark this card is
+   * shipping, so taking it here is taking the picture the reviewer approved.
+   */
+  let logoUrl: string | undefined = card.logoCrop?.url;
+  if (!logoUrl && card.logo?.sha) {
     try {
       // `getAsset`, not `r2Asset`: the console reads the corpus from R2 in
       // production and from `data/leads/pack` locally, and an export that only
@@ -174,6 +184,23 @@ export async function POST(_req: Request, ctx: Ctx) {
       reason: "no usable steps",
     });
   }
+
+  /**
+   * THE ACCENT A REVIEWER CHOSE, APPLIED TO THE PALETTE `generateDemo` BUILT.
+   *
+   * Here rather than inside `generateDemo` because it is a correction to that
+   * function's answer, not an input to it: the ramp is measured from the logo,
+   * and this says "the measurement is not their colour, this is". Applied to the
+   * finished `themeOverrides` it also covers the case a `theme_light.accent`
+   * override could not — a church with no measured ramp at all, whose demo ships
+   * the studio preset and which `mapTheme` therefore returns nothing for. Those
+   * are the greyscale-logo churches, which is to say the ones most likely to
+   * need this.
+   *
+   * `withAccent` is the same function the review card previews through, so the
+   * page a church opens is painted in the colours somebody approved.
+   */
+  if (card.accent) config.themeOverrides = withAccent(config.themeOverrides, card.accent);
 
   try {
     await saveChurch(config);
