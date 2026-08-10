@@ -553,6 +553,41 @@ describe("contacts", () => {
   });
 
   /**
+   * THE GREETING FIELD REACHES THE EMAIL, NOT JUST THE PAGE.
+   *
+   * `greeting_first_name` was already carried at the church level for
+   * `generateDemo` — it is what the demo says on screen — and the group row the
+   * campaign is built from only ever received `contacts`. So a reviewer who
+   * typed a name for a church with no named staff got "Welcome back, Brandon" on
+   * the page and "Hi there" in the email that linked to it.
+   *
+   * THE DEFAULT MUST NOT LEAK. `ResolvedCard.greeting` is the override alone —
+   * the demo's own fallback to "Sarah" happens downstream in `generateDemo` and
+   * never lands here. An email opening "Hi Sarah" to a church where nobody is
+   * called Sarah is the accident that distinction prevents, so it is asserted.
+   */
+  test("the greeting a reviewer typed is carried, and the demo's default is not", () => {
+    const plain = raw(
+      entry({ snapshot: snapshot({ contacts: [person("c1", "", "info@grace.example.org")] }) }),
+    ).contacts as { greeting_first_name: string };
+    assert.equal(plain.greeting_first_name, "", "an untouched card must carry no name");
+    assert.equal(pickRecipient(plain)?.firstName ?? "", "");
+
+    const named = raw(
+      entry({
+        snapshot: snapshot({ contacts: [person("c1", "", "info@grace.example.org")] }),
+        edits: {
+          fields: { greeting: { value: "Brandon", base: "", at: 1 } },
+          suppressed: {},
+          added: [],
+        },
+      }),
+    ).contacts as { greeting_first_name: string };
+    assert.equal(named.greeting_first_name, "Brandon");
+    assert.equal(pickRecipient(named)?.firstName, "Brandon");
+  });
+
+  /**
    * THE CHURCH OFFICE, CHOSEN OVER A NAMED PERSON.
    *
    * The one case no derivation would ever reach: `pickRecipient` prefers a named

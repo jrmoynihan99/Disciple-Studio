@@ -10,7 +10,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pickRecipient, testAddress } from "../engine/outreach.ts";
+import { cleanGreeting, pickRecipient, testAddress, withGreeting } from "../engine/outreach.ts";
 
 const person = (name: string, email: string, rank: number, title = "") => ({ name, email, rank, title });
 
@@ -119,6 +119,119 @@ test("a contact recorded as nothing but a title is used, unnamed", () => {
   const r = pickRecipient({ people: [person("Pastor", "pastor@x.org", 0)] });
   assert.equal(r?.email, "pastor@x.org");
   assert.equal(r?.firstName, "", "'Pastor' is a title, not a name to greet by");
+});
+
+/* ------------------------------------------------------------------ *
+ * The name a person chose
+ * ------------------------------------------------------------------ */
+
+/**
+ * THE DEMO SAID "Welcome back, Brandon" AND THE EMAIL CARRYING ITS LINK SAID
+ * "Hi there".
+ *
+ * Two answers to one question, and only one of them was reachable. The batch
+ * review has always had a greeting field — it exists because the derivation is
+ * unfixable for the churches reached at `info@`, where nobody is named at all —
+ * and it only ever changed the demo page. The campaign went on deriving its own
+ * opener from `people[]`, found nothing, and used the generic.
+ *
+ * `contacts.greeting_first_name` is that field, carried. It holds the OVERRIDE
+ * alone: never the derived name, never the demo's stock "Sarah". That is what
+ * makes it safe to open an email with, and it is why these tests care so much
+ * about the empty case.
+ */
+test("a greeting typed in review is what the email opens with", () => {
+  const r = pickRecipient({
+    people: [],
+    church_emails: ["info@x.org"],
+    greeting_first_name: "Brandon",
+  });
+  assert.equal(r?.email, "info@x.org");
+  assert.equal(r?.firstName, "Brandon", "the reviewed greeting never reached the campaign");
+  assert.equal(r?.lastName, "", "a first name typed by hand carries no surname");
+  assert.match(r!.why, /review/);
+});
+
+test("it overrides a shared inbox, which no derivation is allowed to name", () => {
+  const r = pickRecipient({
+    people: [
+      person("Joel Murray", "jennifer@dlwc.org", 0, "Lead Pastor"),
+      person("Pat Murray", "jennifer@dlwc.org", 1),
+    ],
+    greeting_first_name: "Jennifer",
+  });
+  assert.equal(r?.email, "jennifer@dlwc.org");
+  assert.equal(
+    r?.firstName,
+    "Jennifer",
+    "the refusal to guess must not outrank somebody who knew the answer",
+  );
+});
+
+/**
+ * THE SURNAME IS THE TRAP. Overriding "Pastor Mike Ruiz" to "Tom" and keeping
+ * "Ruiz" builds a person who does not exist and then writes to them.
+ */
+test("the surname goes with the name it belonged to, and stays when it still fits", () => {
+  const swapped = pickRecipient({
+    people: [person("Mike Ruiz", "office@x.org", 0)],
+    greeting_first_name: "Tom",
+  });
+  assert.equal(swapped?.firstName, "Tom");
+  assert.equal(swapped?.lastName, "", "Tom Ruiz is nobody");
+
+  const sameName = pickRecipient({
+    people: [person("Rev. Karen Webb", "karen@x.org", 0)],
+    greeting_first_name: "karen",
+  });
+  assert.equal(sameName?.firstName, "karen");
+  assert.equal(sameName?.lastName, "Webb", "the same person keeps their surname");
+});
+
+test("an absent or empty greeting changes nothing", () => {
+  const base = { people: [person("Bo Cheatham", "bo@x.org", 0)] };
+  assert.equal(pickRecipient(base)?.firstName, "Bo");
+  assert.equal(pickRecipient({ ...base, greeting_first_name: "" })?.firstName, "Bo");
+  assert.equal(pickRecipient({ ...base, greeting_first_name: "   " })?.firstName, "Bo");
+});
+
+/** It is going into a merge tag that lands in somebody else's HTML. */
+test("a typed greeting cannot carry markup, newlines or an essay", () => {
+  // The RULE, not the spacing: no angle bracket may reach a merge tag. They are
+  // replaced by a space rather than deleted, so nothing is silently glued into a
+  // different word.
+  assert.doesNotMatch(cleanGreeting("<b>Bran</b>"), /[<>]/);
+  assert.equal(cleanGreeting("Bran\ndon"), "Bran don");
+  assert.equal(cleanGreeting("  Brandon  "), "Brandon");
+  assert.equal(cleanGreeting("x".repeat(200)).length, 60);
+  assert.equal(cleanGreeting(undefined), "");
+  assert.equal(cleanGreeting(42), "");
+});
+
+/**
+ * THE PREVIEW AND THE PUSH READ THIS SAME FUNCTION.
+ *
+ * The push screen renders the sequence in the browser against these variables
+ * and the route sends them; a second copy of "set the greeting" in either place
+ * is how a final review starts reviewing something other than what goes out.
+ */
+test("a typed greeting fills both spellings, and an empty one still opens", () => {
+  const vars = { first_name: "Bo", firstName: "Bo", last_name: "Cheatham", lastName: "Cheatham", greeting: "Bo" };
+
+  const named = withGreeting(vars, "Brandon");
+  assert.equal(named.first_name, "Brandon");
+  assert.equal(named.firstName, "Brandon", "the camelCase alias is what templates actually type");
+  assert.equal(named.greeting, "Brandon");
+  assert.equal(named.last_name, "", "the surname belonged to somebody else");
+  assert.equal(named.lastName, "");
+
+  const cleared = withGreeting(vars, "");
+  assert.equal(cleared.first_name, "", "an empty name is a real answer");
+  assert.equal(
+    cleared.greeting,
+    "there",
+    "`{{greeting}}` is the tag that is never empty — `Hi ,` must be unreachable",
+  );
 });
 
 /**

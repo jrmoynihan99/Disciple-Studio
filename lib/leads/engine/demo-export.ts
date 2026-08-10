@@ -317,6 +317,7 @@ function contactsOf(card: ResolvedCard): {
   church_emails: string[];
   phone: string;
   send_to: string;
+  greeting_first_name: string;
 } {
   const ranked = exportContacts(card.contacts, card.sendTo);
   const shipping = ranked.filter((r) => r.rank !== null);
@@ -343,6 +344,23 @@ function contactsOf(card: ResolvedCard): {
    * resolved value is also what makes the two surfaces provably the same: the
    * card renders `recipientOf`, and so does this.
    */
+  /**
+   * THE NAME A REVIEWER TYPED FOR THE DEMO TO GREET, carried to the EMAIL too.
+   *
+   * These were two answers to one question and only one of them was reachable.
+   * The card's greeting field overrides the demo's "Welcome back, ___" — for the
+   * case where the derivation is unfixable, most often a church reached at
+   * `info@` where nobody is named at all — and the campaign went on deriving its
+   * own `{{first_name}}` from `people[]`, found nothing, and opened with the
+   * generic. So the page said "Welcome back, Brandon" and the email that carried
+   * its link said "Hi there".
+   *
+   * `""` UNLESS SOMEBODY TYPED ONE. `ResolvedCard.greeting` holds the override
+   * and nothing else — never the derived name, and never the stock "Sarah" the
+   * demo falls back to. That distinction is the whole safety of this: a derived
+   * name is a guess about a stranger, and mailing a congregation "Hi Sarah"
+   * because a default leaked into a merge tag is the accident it prevents.
+   */
   const send_to = recipientOf(ranked)?.contact.email.trim() ?? "";
-  return { people, church_emails: churchEmails, phone, send_to };
+  return { people, church_emails: churchEmails, phone, send_to, greeting_first_name: card.greeting };
 }

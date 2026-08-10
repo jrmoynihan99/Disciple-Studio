@@ -44,6 +44,30 @@ export interface DemoContacts {
    * case the fallback below covers.
    */
   send_to?: string;
+  /**
+   * THE NAME A REVIEWER TYPED FOR THIS CHURCH — the demo's greeting, and now the
+   * email's.
+   *
+   * Absent or `""` means nobody typed one and the ranking's own derivation
+   * stands. It is never the derived name and never the demo's stock fallback:
+   * `ResolvedCard.greeting` carries the override alone, which is what makes it
+   * safe to open an email with. See `contactsOf`.
+   */
+  greeting_first_name?: string;
+}
+
+/**
+ * A NAME SOMEBODY TYPED, made safe to put in an email.
+ *
+ * It is going into a merge tag that lands in HTML somebody else's engine
+ * renders, so the two things that cannot survive are angle brackets and line
+ * breaks. Length is capped because this is an opener — a paragraph pasted into
+ * the greeting field is a mistake, and a truncated one is more obvious than a
+ * mailshot that opens with an essay.
+ */
+export function cleanGreeting(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  return raw.replace(/[<>\r\n\t]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
 }
 
 export type RecipientSource = "person" | "church_email";
@@ -179,6 +203,43 @@ export function testAddress(base: string, tag: string): string | null {
 }
 
 /**
+ * THE OPENER, CHANGED ON THE LAST SCREEN — one rule, two callers.
+ *
+ * The push screen lets a greeting be typed per church at the moment of sending,
+ * and the two things that have to agree about it are the PREVIEW the browser
+ * renders and the LEAD the server pushes. Patching the same variable map in two
+ * places is how a preview starts showing something other than what goes out,
+ * which is the one thing that screen must never do — the route's own comment
+ * says so about the planner, and this is that rule one level down.
+ *
+ * WHAT IT WRITES, AND WHY EACH ONE:
+ *  · `first_name`/`firstName` — the two spellings the merge namespace carries.
+ *  · `greeting` — never empty, by design: it falls back to "there" so a template
+ *    written as `Hi {{greeting}},` reads on every send. An empty `{{first_name}}`
+ *    is `Hi ,` arriving at a congregation.
+ *  · `last_name`/`lastName` — CLEARED. A name typed here is a first name; the
+ *    surname on the row belongs to whoever the pipeline found, and gluing the
+ *    two together invents a person and then writes to them.
+ *
+ * An empty `name` is a real answer meaning "no name, use the generic opener" —
+ * not "leave it as it was". What the screen shows is what sends.
+ */
+export function withGreeting(
+  vars: Readonly<Record<string, string>>,
+  name: string,
+): Record<string, string> {
+  const first = cleanGreeting(name);
+  return {
+    ...vars,
+    first_name: first,
+    firstName: first,
+    greeting: first || "there",
+    last_name: "",
+    lastName: "",
+  };
+}
+
+/**
  * The address this church's email goes to, or `null` when there is none.
  *
  * ORDER: a named person the reviewer approved, then the church's own office
@@ -196,6 +257,31 @@ export function pickRecipient(contacts: unknown): Recipient | null {
   const c = (contacts ?? {}) as DemoContacts;
   const people = Array.isArray(c.people) ? c.people : [];
   const churchEmails = Array.isArray(c.church_emails) ? c.church_emails : [];
+
+  /**
+   * THE REVIEWER'S NAME BEATS EVERY DERIVATION BELOW, INCLUDING THE REFUSALS.
+   *
+   * Not just the "we found no name" case: it also overrides the shared-inbox
+   * rule, which deliberately forfeits a first name because we cannot tell which
+   * of three people reads `jennifer@`. That refusal is right when the answer is
+   * derived from a list; it is not right over somebody who looked at the church
+   * and typed a name.
+   *
+   * THE SURNAME IS DROPPED UNLESS IT STILL BELONGS TO THAT NAME. Overriding
+   * "Pastor Mike Ruiz" to "Tom" and keeping "Ruiz" would build a person who does
+   * not exist and mail them — so the last name survives only when the override
+   * IS the derived given name (the common case: fixing a title or a casing).
+   */
+  const chosenName = cleanGreeting(c.greeting_first_name);
+  const named = (r: Recipient): Recipient =>
+    chosenName
+      ? {
+          ...r,
+          firstName: chosenName,
+          lastName: chosenName.toLowerCase() === r.firstName.toLowerCase() ? r.lastName : "",
+          why: `greeting you set in review${r.title ? ` — ${r.title}` : ""}`,
+        }
+      : r;
 
   /**
    * THE REVIEWER'S CHOICE, FIRST AND WITHOUT A TIEBREAK.
@@ -217,7 +303,7 @@ export function pickRecipient(contacts: unknown): Recipient | null {
     const match = people.find((p) => usable(p?.email) && norm(p.email as string) === email);
     const shared = ambiguous(people, email);
     const { first, last } = match && !shared ? splitName(match.name ?? "") : { first: "", last: "" };
-    return {
+    return named({
       email,
       firstName: first,
       lastName: last,
@@ -226,7 +312,7 @@ export function pickRecipient(contacts: unknown): Recipient | null {
       why: shared
         ? "chosen by you — shared inbox, so no first name"
         : `chosen by you${match?.title ? ` — ${match.title}` : ""}`,
-    };
+    });
   }
 
   const candidates = people
@@ -239,7 +325,7 @@ export function pickRecipient(contacts: unknown): Recipient | null {
     const email = norm(best.email as string);
     const shared = ambiguous(people, email);
     const { first, last } = shared ? { first: "", last: "" } : splitName(best.name ?? "");
-    return {
+    return named({
       email,
       firstName: first,
       lastName: last,
@@ -250,19 +336,19 @@ export function pickRecipient(contacts: unknown): Recipient | null {
         : first
           ? `rank ${rankOf(best.rank)} contact${best.title ? ` — ${best.title}` : ""}`
           : `rank ${rankOf(best.rank)} contact, no usable given name`,
-    };
+    });
   }
 
   const office = churchEmails.map(norm).find(usable);
   if (office) {
-    return {
+    return named({
       email: office,
       firstName: "",
       lastName: "",
       title: "",
       source: "church_email",
       why: "no named contact — church office address",
-    };
+    });
   }
 
   return null;

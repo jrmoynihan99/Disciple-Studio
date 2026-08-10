@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Loader2, Mail, Send, X } from "lucide-react";
 import { renderRich } from "@/lib/leads/engine/merge";
+// The one rule for "this church is greeted as X" — shared with the push, so the
+// preview below and the lead that goes out cannot disagree. See `withGreeting`.
+import { cleanGreeting, withGreeting } from "@/lib/leads/engine/outreach";
 import { sanitizeEmailHtml } from "@/lib/leads/client/sanitize";
 
 /**
@@ -98,6 +101,23 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
   const [redirectTo, setRedirectTo] = useState("");
 
   /**
+   * OPENERS TYPED ON THIS SCREEN, keyed by demo slug.
+   *
+   * NOT STORED ANYWHERE, and that is the distinction worth keeping. The batch
+   * review has its own greeting field, which is part of the reviewed record and
+   * now rides all the way through to the campaign; this is the other thing — a
+   * correction made while looking at the address it is about to be sent to, for
+   * one push. Persisting it would quietly give a batch two records of what it
+   * says to a church, and they would eventually disagree.
+   *
+   * A KEY PRESENT WITH AN EMPTY VALUE IS AN ANSWER: "no name, open with the
+   * generic". Absent means nobody touched the row. That is the difference
+   * between clearing a field and never visiting it, and the table has to be able
+   * to say both.
+   */
+  const [greetings, setGreetings] = useState<Record<string, string>>({});
+
+  /**
    * `jason+dacus-church@gmail.com` — mirrors `testAddress` on the server so the
    * dialog can SHOW the destination before anything is pushed. The server does
    * this again and is the authority; this copy only has to be honest about what
@@ -139,6 +159,35 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
     };
   }, [campaignId]);
 
+  /**
+   * THE PLAN AS IT WILL BE SENT — the server's rows with this screen's typed
+   * openers folded in.
+   *
+   * Everything below reads THIS and never `plan.rows`: the table, the previews,
+   * the "greeted by name" count. The patch itself is `withGreeting`, the same
+   * function the route applies to the same rows before it pushes them, so
+   * "what I am looking at" and "what goes out" are one calculation with two
+   * callers rather than two calculations that agree until one is edited.
+   */
+  const rows = useMemo(() => {
+    if (!plan) return [];
+    return plan.rows.map((r) => {
+      const typed = greetings[r.slug];
+      if (typed === undefined) return r;
+      const name = cleanGreeting(typed);
+      return {
+        ...r,
+        firstName: name,
+        why: name ? "greeting you typed here" : "greeting cleared here — generic opener",
+        vars: withGreeting(r.vars, name),
+      };
+    });
+  }, [plan, greetings]);
+
+  /** Recounted here rather than taken from the server's tally, which was built
+   *  before anybody typed anything. */
+  const namedCount = rows.filter((r) => r.email && r.firstName).length;
+
   /** Default to the first church that will actually receive something. */
   useEffect(() => {
     if (!previewSlug && plan) {
@@ -146,7 +195,7 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
     }
   }, [plan, previewSlug]);
 
-  const previewRow = plan?.rows.find((r) => r.slug === previewSlug) ?? null;
+  const previewRow = rows.find((r) => r.slug === previewSlug) ?? null;
 
   /**
    * Rendered on the fly. `empty` and `unknown` are the reason this exists: an
@@ -186,6 +235,8 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
     setError("");
     setPlan(null);
     setResult(null);
+    // A typed opener belongs to one push. Reopening the dialog is a new one.
+    setGreetings({});
 
     (async () => {
       try {
@@ -233,6 +284,14 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
           campaignId,
           onlyNew,
           redirectTo: testMode ? redirectTo.trim() : "",
+          /**
+           * SENT EVEN THOUGH THE SERVER COULD DERIVE ITS OWN. The rows on screen
+           * are the promise this dialog makes, and a name typed into one of them
+           * exists nowhere else — the server has no way to know about it, and
+           * pushing without it would send the derived opener to a church whose
+           * row visibly said something else.
+           */
+          greetings,
         }),
       });
       const body = await res.json();
@@ -399,7 +458,7 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
                     <strong className="text-fg">{plan.counts.sendable}</strong> sendable
                   </span>
                   <span>
-                    <strong className="text-fg">{plan.counts.named}</strong> greeted by name
+                    <strong className="text-fg">{namedCount}</strong> greeted by name
                   </span>
                   {plan.counts.unreachable > 0 && (
                     <span className="text-warning">{plan.counts.unreachable} with no email</span>
@@ -427,8 +486,9 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
-                      {plan.rows.map((r) => {
+                      {rows.map((r) => {
                         const days = r.priorContact ? daysSince(r.priorContact.createdAt) : null;
+                        const typed = greetings[r.slug];
                         return (
                           <tr key={r.slug} className={r.email ? "" : "bg-warning/5"}>
                             <td className="px-3 py-2 align-top">
@@ -447,8 +507,49 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
                                 <span className="text-fg-secondary">{r.email}</span>
                               )}
                             </td>
+                            {/* ── the opener, editable here ──
+                                THE NAME IS THE ONE THING ON THIS SCREEN A PERSON
+                                CAN BE SURE ABOUT AND THE PIPELINE CANNOT. Most
+                                churches are reached at a shared inbox where the
+                                derivation deliberately refuses to guess, and the
+                                answer is often sitting on the church's own site
+                                — one field away from a mailshot reading "Hi
+                                there".
+
+                                It is a plain input rather than a click-to-edit,
+                                because at twenty rows the thing you want is to
+                                tab down the column. Blank is a real answer: the
+                                placeholder says what an empty field sends. */}
                             <td className="px-3 py-2 align-top text-fg-secondary">
-                              {r.firstName || <span className="text-fg-muted">generic</span>}
+                              <input
+                                value={typed ?? r.firstName}
+                                onChange={(e) =>
+                                  setGreetings((g) => ({ ...g, [r.slug]: e.target.value }))
+                                }
+                                disabled={!r.email || sending}
+                                placeholder="there"
+                                aria-label={`Greeting for ${r.churchName}`}
+                                className="w-28 rounded-lg border border-line bg-surface px-2 py-1 text-sm text-fg placeholder:text-fg-muted focus:border-brand focus:outline-none disabled:opacity-40"
+                              />
+                              {typed !== undefined && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setGreetings((g) => {
+                                      // Delete rather than write the derived
+                                      // value back: an absent key is "nobody
+                                      // touched this row", which is what the
+                                      // push reads to leave it alone.
+                                      const next = { ...g };
+                                      delete next[r.slug];
+                                      return next;
+                                    })
+                                  }
+                                  className="mt-1 block text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
+                                >
+                                  revert
+                                </button>
+                              )}
                             </td>
                             <td className="px-3 py-2 align-top">
                               {r.priorContact ? (
@@ -480,7 +581,7 @@ export function PushToInstantly({ groupId }: { groupId: string }) {
                         onChange={(e) => setPreviewSlug(e.target.value)}
                         className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-fg"
                       >
-                        {plan.rows
+                        {rows
                           .filter((r) => r.email)
                           .map((r) => (
                             <option key={r.slug} value={r.slug}>

@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { getGroup } from "@/lib/groups";
-import { pickRecipient, testAddress, type DemoContacts } from "@/lib/leads/engine/outreach";
+import {
+  cleanGreeting,
+  pickRecipient,
+  testAddress,
+  withGreeting,
+  type DemoContacts,
+} from "@/lib/leads/engine/outreach";
 import { addLead, findLeads, type KnownLead } from "@/lib/leads/server/instantly";
 
 /**
@@ -136,7 +142,12 @@ function addressesOf(contacts: unknown, chosen: string | null): string[] {
  * would call that church "new" and give no warning at all, which is the exact
  * accident it exists to prevent.
  */
-async function plan(groupId: string, origin: string) {
+async function plan(
+  groupId: string,
+  origin: string,
+  /** Per-church openers typed on the push screen, keyed by demo slug. */
+  greetings?: Record<string, string>,
+) {
   const group = await getGroup(groupId);
   if (!group) return null;
 
@@ -157,6 +168,30 @@ async function plan(groupId: string, origin: string) {
     };
     return { ...base, priorContact: null, vars: variablesFor(base, groupId, batchDate) };
   });
+
+  /**
+   * THE GREETINGS TYPED ON THE PUSH SCREEN, applied to the plan the push sends.
+   *
+   * They arrive on the POST rather than being stored anywhere: this is a
+   * last-moment correction to one send, not a fact about the church — the fact
+   * about the church is the greeting in the batch review, which rides in
+   * `contacts.greeting_first_name` and is already folded in by `pickRecipient`
+   * above. Two different lifetimes, deliberately: one is part of the reviewed
+   * record, the other is somebody fixing an opener while looking at it.
+   *
+   * KEYED BY SLUG, which is the only id this screen has and is unique within a
+   * demo group. An entry naming no row is simply ignored.
+   */
+  for (const row of rows) {
+    const typed = greetings?.[row.slug];
+    if (typed === undefined) continue;
+    const name = cleanGreeting(typed);
+    row.firstName = name;
+    // Cleared for the same reason `withGreeting` clears it — see there.
+    row.lastName = "";
+    row.why = name ? "greeting you typed here" : "greeting cleared here — generic opener";
+    row.vars = withGreeting(row.vars, name);
+  }
 
   const distinct = [...new Set(rows.flatMap((r) => r.allEmails))];
   const { found, failed } = await findLeads(distinct);
@@ -211,7 +246,12 @@ export async function GET(req: Request, { params }: Ctx) {
 export async function POST(req: Request, { params }: Ctx) {
   const { id } = await params;
 
-  let body: { campaignId?: unknown; onlyNew?: unknown; redirectTo?: unknown };
+  let body: {
+    campaignId?: unknown;
+    onlyNew?: unknown;
+    redirectTo?: unknown;
+    greetings?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
@@ -244,9 +284,31 @@ export async function POST(req: Request, { params }: Ctx) {
     );
   }
 
+  /**
+   * The typed openers, narrowed before they can reach a merge tag.
+   *
+   * A malformed map is a 400 rather than a silent drop: the screen showed those
+   * names beside the addresses they were going to, and quietly sending the
+   * derived ones instead would be the preview lying at the last possible moment.
+   * `cleanGreeting` does the character-level work; this only has to establish
+   * that the thing is a map of strings and is not a payload.
+   */
+  let greetings: Record<string, string> | undefined;
+  if (body.greetings !== undefined) {
+    const raw = body.greetings;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      return NextResponse.json({ error: "greetings must be an object" }, { status: 400 });
+    }
+    const entries = Object.entries(raw as Record<string, unknown>);
+    if (entries.length > 500 || entries.some(([, v]) => typeof v !== "string")) {
+      return NextResponse.json({ error: "greetings must map a slug to a name" }, { status: 400 });
+    }
+    greetings = Object.fromEntries(entries.map(([k, v]) => [k, v as string]));
+  }
+
   let result;
   try {
-    result = await plan(id, publicOrigin(req));
+    result = await plan(id, publicOrigin(req), greetings);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Could not build the plan" },
