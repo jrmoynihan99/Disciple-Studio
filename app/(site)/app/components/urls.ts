@@ -1,2 +1,2 @@
 export const MEMBER_DEMO_URL =
-  "https://aletheia-website-five.vercel.app/demo?k=a557d77fe749fddba7b92e37";
+  "https://www.aletheia.org/demo?k=a557d77fe749fddba7b92e37";

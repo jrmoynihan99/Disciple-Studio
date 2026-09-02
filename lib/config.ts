@@ -8,4 +8,4 @@
  * import form no longer exposes it as an editable field. Change this value to
  * update it everywhere.
  */
-export const GENERIC_DEMO_URL = "https://aletheia-website-five.vercel.app/demo?k=a557d77fe749fddba7b92e37";
+export const GENERIC_DEMO_URL = "https://www.aletheia.org/demo?k=a557d77fe749fddba7b92e37";

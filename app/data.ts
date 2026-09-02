@@ -1,6 +1,6 @@
 const DEMO_URL =
-  "https://aletheia-website-five.vercel.app/demo?k=a557d77fe749fddba7b92e37";
-const LIVE_URL = "https://aletheia-website-five.vercel.app/";
+  "https://www.aletheia.org/demo?k=a557d77fe749fddba7b92e37";
+const LIVE_URL = "https://www.aletheia.org/";
 
 export const DATA = {
   brand: "Disciple Studio",

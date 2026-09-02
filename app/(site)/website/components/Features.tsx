@@ -4,7 +4,7 @@ import FeatureRow from "@/app/(site)/components/FeatureRow";
 import AccentBand from "@/app/(site)/components/AccentBand";
 import SectionReveal from "@/components/reveal-animations/SectionReveal";
 
-const LIVE = "https://aletheia-website-five.vercel.app";
+const LIVE = "https://www.aletheia.org";
 
 /* Shared shell: floating dark browser/panel window inside a bleed row */
 function Window({
